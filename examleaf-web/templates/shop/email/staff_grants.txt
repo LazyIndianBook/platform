@@ -1,0 +1,18 @@
+{% autoescape off %}What staff gave away from {{ start|date:"j F" }} to {{ end|date:"j F Y" }} (India time), by who gave it.
+Read it; anything that should not be there is yours to raise.
+
+Staff discounts ({{ discounts|length }}):
+{% for row in discounts %}- {{ row.order }}: ₹{{ row.amount }} off ({{ row.percent }}% of the books), by {{ row.by }}
+{% empty %}- none
+{% endfor %}
+Payments recorded offline ({{ offline|length }}):
+{% for row in offline %}- {{ row.order }}: ₹{{ row.amount }}, recorded by {{ row.by }}
+{% empty %}- none
+{% endfor %}
+Orders of ₹0 ({{ free|length }}):
+{% for row in free %}- {{ row.order }}, by {{ row.by }}
+{% empty %}- none
+{% endfor %}
+The panel's audit trail has each one's request, approval and reason.
+
+ExamLeaf{% endautoescape %}

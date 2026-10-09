@@ -76,6 +76,7 @@ PANEL = [*INBOX, "staff.view_changerequest", "staff.view_job", "staff.add_job", 
 CONTENT = ["book", "paper", "question", "solution"]
 COURSE = ["chapter", "revision", "clip", "flashcard", "quizitem"]
 ORDERS = ["order", "orderitem", "orderdiscount", "ordernote", "payment", "refund", "invoice", "creditnote", "shipment"]
+ORDERS += ["returnrequest"]  # Phase B: orders
 
 ROLES = {
     STUDENT: [],  # every registration; uses the site, not the admin
@@ -108,6 +109,8 @@ ROLES = {
         *["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
         # shipping: the parcels, failed deliveries and exceptions (the customer's call), cash on delivery to see
         *["staff.view_parcels", "staff.act_on_exception", "staff.view_cod"],
+        # returns: asked for, decided, received and inspected (plan 5.3; SALES does both halves)
+        *["shop.view_returnrequest", "staff.handle_return", "staff.receive_return"],
         *PANEL,
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
@@ -134,6 +137,7 @@ ROLES = {
         *["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
         *["staff.refund_order", "staff.add_changerequest"],
         *crud("accounts", ["legalhold", "nominee"], ["view"]),  # legal and privacy: what holds an erasure
+        *["shop.view_returnrequest", "staff.handle_return"],  # returns asked for and decided (not received: PACKER)
         *PANEL,
     ],
     ADMIN: ALL,  # but SUPERUSER_ONLY's changes, OWNER_ONLY and MONEY_APPROVALS
@@ -159,6 +163,8 @@ ROLES = {
         # over to the courier (staff.pack_order; the shipping app's screens). No customers, payments or approvals
         *crud("shop", ["order", "orderitem", "shipment", "product"], ["view"]),
         *["staff.pack_order", "staff.view_parcels", "staff.book_parcel"],  # booking, labels, pickups, manifests
+        *["shop.view_returnrequest", "staff.receive_return"],  # parcels sent back: received and inspected
+        *["staff.view_job", "staff.add_job"],  # orders packed or printed in bulk (shop/order_jobs.py), up to bulk_rows
         *INBOX,
     ],
     REVIEWER: [  # senior editors: read content and the course, publish: REVIEWER approves content (scoped by subject)
@@ -211,12 +217,15 @@ ROLE_LIMITS = {
     SUPPORT: {"refund_inr": 1_000, "offline_inr": 0, "discount_percent": 0, "export_rows": 100, "bulk_rows": 50},
     MARKETING: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 20, "export_rows": 0, "bulk_rows": 100},
     AUDITOR: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 0, "export_rows": 5_000, "bulk_rows": 0},
+    PACKER: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 0, "export_rows": 0, "bulk_rows": 100},
 }
 LIMITS = ["refund_inr", "offline_inr", "discount_percent", "export_rows", "bulk_rows"]
 
 # Which objects a role reaches, by scope kind (staff.backends): a PACKER's orders are those to pack and on their way.
 # A permission held only through scoped roles is narrowed to their values; StaffScope rows narrow one person further.
-ROLE_SCOPES = {PACKER: {"order_status": ["paid", "packed", "shipped"]}}
+# "placed" is no status: a cash-on-delivery order placed and not yet paid (its status pending), which is to be packed
+# like a paid one (staff.backends.PLACED).
+ROLE_SCOPES = {PACKER: {"order_status": ["paid", "packed", "shipped", "placed"]}}
 
 # Static separation of duties (NIST RBAC SSD, research 1.2): roles one person may not hold together. The panel's role
 # grant refuses them (staff.services.grant_role); sync_roles warns about anyone who holds a pair (given in the admin).

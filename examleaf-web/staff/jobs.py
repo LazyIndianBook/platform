@@ -23,6 +23,8 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import exceptions, serializers
 
+from shop import order_jobs
+
 from . import approvals, audit
 from .backends import scoped
 from .models import AuditEvent, ChangeRequest, Job
@@ -36,6 +38,7 @@ LIMITS = {
     Job.Kind.BULK_ACTION: "bulk_rows",
     Job.Kind.ERP_INITIAL_LOAD: "bulk_rows",
     Job.Kind.GSTR1_EXPORT: "export_rows",
+    **order_jobs.LIMITS,  # the Orders module's (shop/order_jobs.py)
 }
 
 
@@ -59,7 +62,7 @@ def permission(kind, params):
         return "erp.run_initial_load"
     if kind == Job.Kind.GSTR1_EXPORT:
         return "staff.run_gstr1"
-    return None
+    return order_jobs.PERMISSIONS.get(kind)
 
 
 def audit_events(user, filters):
@@ -92,6 +95,8 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from shop.gstr1 import document_count, period_of
 
         total = document_count(*period_of(params["month"], params.get("months", 1)))
+    elif kind in order_jobs.PERMISSIONS:
+        total = order_jobs.size(kind, user, params)
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -255,6 +260,7 @@ RUNNERS = {
     Job.Kind.BULK_ACTION: bulk_action,
     Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
     Job.Kind.GSTR1_EXPORT: gstr1_export,
+    **order_jobs.RUNNERS,
 }
 
 

@@ -1,0 +1,7 @@
+{% autoescape off %}The GST invoice of your order {{ order.number }} ({{ invoice.number }}) is on the order's page, to download
+as a PDF:
+
+{{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

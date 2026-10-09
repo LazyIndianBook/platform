@@ -1,0 +1,26 @@
+  /* The packing room's documents (shop/invoices.py Print; the invoice's fonts and paper): WeasyPrint, the system's
+     fonts after the site's own, Hind Siliguri (static/fonts) for Bengali and Assamese names in every stack. */
+  @font-face { font-family: "Hind Siliguri"; font-weight: 400; src: url("static/fonts/hind-siliguri-400.woff2") format("woff2"); }
+  @font-face { font-family: "Hind Siliguri"; font-weight: 600; src: url("static/fonts/hind-siliguri-600.woff2") format("woff2"); }
+  @font-face { font-family: "Hind Siliguri"; font-weight: 400; src: url("static/fonts/hind-siliguri-400-bengali.woff2") format("woff2"); unicode-range: U+0980-09FE, U+200C-200D, U+25CC; }
+  @font-face { font-family: "Hind Siliguri"; font-weight: 600; src: url("static/fonts/hind-siliguri-600-bengali.woff2") format("woff2"); unicode-range: U+0980-09FE, U+200C-200D, U+25CC; }
+  :root {
+    --ink: #1d2230; --muted: #5b6170; --hair: #dcd4c4;
+    --serif: "Source Serif 4", Georgia, "DejaVu Serif", "Noto Serif", serif;
+    --mono: "IBM Plex Mono", "DejaVu Sans Mono", "Noto Sans Mono", Menlo, "Courier New", "Hind Siliguri", monospace;
+  }
+  body { font: 9pt/1.45 "Public Sans", "Hind Siliguri", "DejaVu Sans", "Noto Sans", sans-serif; color: var(--ink); }
+  p { margin: 0; }
+  strong { font-weight: 600; }
+  .brand { margin: 0; font: 700 16pt/1 var(--serif); }
+  .brand span { color: #1a6e30; }
+  .label { margin: 0 0 1mm; font: 500 7pt/1.2 var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .code { font-family: var(--mono); }
+  .num { text-align: right; white-space: nowrap; font-family: var(--mono); }
+  table { width: 100%; border-collapse: collapse; margin-top: 4mm; font-size: 9pt; }
+  th, td { padding: 1.8mm 2mm; vertical-align: top; border-bottom: 1px solid var(--hair); }
+  tr { break-inside: avoid; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:last-child, td:last-child { padding-right: 0; }
+  thead th { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--ink); font: 500 6.5pt/1.25 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; text-align: left; color: var(--muted); }
+  .page + .page { break-before: page; }

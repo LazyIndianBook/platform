@@ -15,10 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) ·
-[Lists](#lists) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) ·
-[Legal and privacy (staff)](#legal-and-privacy-staff) · [Lists](#lists) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
+[Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -99,6 +97,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET POST | `orders/` | confirmed; POST also shop open, and a visitor may POST | the customer's orders; POST is the checkout (a visitor's too) |
 | GET | `orders/<number>/` | confirmed | one order |
 | POST | `orders/<number>/cancel/` | confirmed | cancel (an online payment is refunded); also while the shop is closed |
+| POST | `orders/<number>/returns/` | confirmed | ask to send books back, within `SHOP_RETURN_DAYS` of delivery; also while the shop is closed |
 | POST | `orders/<number>/payment/`, `orders/<number>/payment/confirm/` | confirmed, shop open | the options for Razorpay's SDK; its answer, checked |
 | GET | `orders/<number>/invoice/`, `orders/<number>/credit-notes/<id>/` | confirmed | PDF files, not JSON |
 | POST | `orders/lookup/` | anyone | a guest's order link, emailed by number and email |
@@ -622,8 +621,10 @@ orders), `total`, `items` (`product`, `title`, `hsn_code`, `gst_rate`, `mrp`, `u
 `tracking_number`, `tracking_url`, `shipped_at`, `delivered_at`), `refunds` (`amount`, `status`, `reason`, `created`,
 `processed_at`), `can_cancel`, `can_pay`, `invoice` (`number`, `created`, `url`; null until the PDF exists),
 `credit_notes` (the same with `amount`), `web_url`, `is_digital` (courses only, a bundle of courses included: nothing
-to pack or ship, delivered once paid) and `has_shipping` (books to deliver, so the address, `shipping_fee` and
-`shipments` concern it: always the opposite of `is_digital`). The list (`orders/`, newest first, `?status=`) gives only
+to pack or ship, delivered once paid), `has_shipping` (books to deliver, so the address, `shipping_fee` and
+`shipments` concern it: always the opposite of `is_digital`), `returns` (each `number`, `status`, `status_label` as
+the website words it, `reason`, `created`, `lines` with `product`, `title` and `quantity`, `decision_note`,
+`return_courier` and `return_awb`), `can_return` and `return_until` (the last moment to ask; null until delivered). The list (`orders/`, newest first, `?status=`) gives only
 `number`, `created`, `placed_at`, `status`, `status_label`, `payment_method`, `total`, the `items` as text,
 `is_digital` and `has_shipping`; `orders/t/<token>/` gives both too.
 
@@ -655,6 +656,15 @@ curl -X POST https://examleaf.in/api/v1/orders/EL-2026-000123/payment/confirm/ -
 
 **Cancel**: `POST orders/<number>/cancel/` while `can_cancel` (pending or paid); an online payment is refunded in full
 (5–7 working days; the order lists the refund, then turns `refunded`). Later: 400, see the Refund Policy.
+
+**Return**: `POST orders/<number>/returns/` `{"lines": [{"product": "physics-sample-papers", "quantity": 1}],
+"reason": "damaged", "note": "The cover was torn."}` while `can_return` (delivered, within `SHOP_RETURN_DAYS`, 15 by
+default, of its delivery, and no return of it under way): `product` as the order's `items` name it, `reason` one of
+`damaged`, `misprint`, `wrong_item`, `late`, `not_as_described`, `other`. `201` with the order, its `returns` listing the new
+one (`requested`); staff answer within two working days by email, and the order's `returns` follow it (approved, the
+courier and AWB to send it with, received, refunded). 400 with the reason otherwise: not delivered yet, after the
+window, more copies than were bought or than are left to send back. Only the signed-in owner of the order sees
+`can_return` true; a guest's order link shows the state, and a guest asks by email.
 
 **Invoices and credit notes** are PDF files: `GET orders/<number>/invoice/` and `orders/<number>/credit-notes/<id>/`
 (the `url`s in the order) answer `application/pdf` as a download whatever the `Accept` header; 404 (JSON) until the
@@ -1209,6 +1219,126 @@ curl https://admin.examleaf.in/api/v1/staff/privacy/holds/ -b "sessionid=…; cs
   -H "Content-Type: application/json" -d '{"target_type": "shop.order", "target_id": "EL-2026-000123", "reason": "chargeback"}'
 # 201 {"id": 7, "user": null, "target_type": "shop.order", "target_id": "41", "target_label": "Order EL-2026-000123",
 #      "reason": "chargeback", "note": "", "until": null, "active": true, "created": "…", "created_by": 3, …}
+## Orders (staff)
+
+`/api/v1/staff/orders/…` (code: `shop/staff_orders.py`, the jobs `shop/order_jobs.py`; the module:
+[shop/README.md](shop/README.md)) is the panel's Orders module, on the [Staff API](#staff-api)'s rules: the admin host
+only, a member of staff with a second factor (or an API key with `shop.view_order`), each action its permission
+(`shop.view_order` to read; `shop.add_order` for a staff order; `shop.change_order` to cancel, hold, release, tag,
+message again, send or cancel a payment link and make or resend the invoice; `staff.pack_order` to pack, send by
+hand, deliver and print; `staff.refund_order`; `staff.record_offline_payment`; `staff.handle_return` to ask for,
+approve or decline a return and send its label; `staff.receive_return` to receive and inspect it;
+`staff.approve_refund` for bank refunds), every refusal an `authz_fail` event, cursor pages newest first (the packing
+queue oldest first). A PACKER sees the orders to pack and on their way only (paid, packed, shipped, and
+cash-on-delivery orders placed): others answer 404. Contacts are masked (the record's `customer` and
+`address.phone`; the packing slip and label print them); opening a child's order is a `sensitive_read` event.
+Test-mode orders (test keys on the live site) are left out of every list, count and the packing queue unless
+`?livemode=false` asks for them (`is_test` marks them). Every change is an audit event targeting the order
+(`order.held`, `order.released`, `order.tagged`, `order.packed`, `shipping.shipped_by_hand`, `order.delivered`,
+`order.cancelled`, `order.notified`, `order.payment_link_sent`, `order.payment_link_cancelled`,
+`order.documents_regenerated`, `order.invoice_sent`, `order.packing_slip_printed`, `order.label_printed`,
+`order.pick_list_printed`, `order.documents_printed`, `order.return_requested`, `order.return_approved`,
+`order.return_declined`, `order.return_label_sent`, `order.return_received`, `order.return_inspected`,
+`order.return_photo_added`, `order.restocked`, `refund.paid`, `order.exported`, and the approvals' own). A refusal is
+the shop's words, `400 {"non_field_errors": ["..."]}`.
+
+- **The list** `GET orders/` (`?status=&method=razorpay|cod|offline&courier=&created_from=2026-10-01&created_to=
+  &shipping=<parcel status>|none&tag=school&hold=true&risk=high&livemode=`, and the panel's tabs `?tab=to_pack|
+  shipped|returns|cancelled|drafts`): `id`, `number`, `created`, `placed_at`, `status`, `status_label`,
+  `payment_method`, `total`, `items` (as text), `customer` (masked), `courier`, `parcel`, `tags`, `held`, `hold_reason`,
+  `risk_bucket`, `is_test`, `is_cod`, `has_returns`, `staff_order`, `livemode`. `?q=` finds an order by its number, an
+  invoice's or credit note's number, an email address, a phone's last digits (4 or more), an AWB, a book code, or a
+  name (3 letters or more); a search for a person (email, phone, name, book code) is a `customer.lookup` event holding
+  the query's keyed hash and how many it found, never the query. Saved views: `saved-views/` with `list_key: "orders"`.
+- **The record** `GET orders/<number>/` (or the order's `id`, as the inbox and the audit trail name it): the row's
+  fields and `subtotal`, `discount`, `shipping_fee`, `coupon_code`, `savings`, `address`, `lines` (each with its
+  `invoiced` value, what a refund of it is worth, and its `refunded` and `returnable` copies), `payments` (`refundable`,
+  `older_than_6_months`), `refunds`, `documents` (the invoice and credit notes: `ready`, `url`), `shipments` with their
+  last scan, `returns`, `hold`, `risk_reasons`, `quote`, `created_by`, `actions` (what you may do now; the one `primary`
+  is the header's button), `refund` (the refund dialog's facts: the payment, `refundable`, `shipping_left`, `methods`,
+  `cancels`, `payment_age_days`, `warnings`), `erp` (its ERPNext documents) and `timeline` (status changes and holds,
+  payments, refunds, parcels and scans, messages, notes, returns, ERPNext; the audit events too for whoever reads the
+  audit log, itself an `audit.read` event).
+- **Moves** `POST orders/<number>/pack/`, `ship/` `{"courier": "India Post", "tracking_number": "EA123456789IN"}`
+  (sent by hand; a courier booking is the shipping app's), `deliver/`; `hold/` `{"reason": "address to check"}` (out of
+  the packing queue; an inbox item), `release/`; `tags/` `{"add": ["school"], "remove": []}` (ten at most, lower case);
+  `notify/` `{"kind": "shipped"}` (the message again, when it is still true; an SMS due between 21:00 and 08:00 waits
+  for the morning); `invoice/regenerate/` (202: what is missing of its invoice and credit notes, made by the worker)
+  and `invoice/resend/`; `payment-link/` `{"action": "send"|"cancel"}` (a staff order waiting for its payment; 503
+  while Razorpay cannot be reached). `cancel/` `{"reason": "...", "customer_requested": false}`: not sent yet, unpaid
+  or cash on delivery, it is cancelled at once; paid online, it goes through the refund's approval (`201` run, or
+  `202` above your refund limit); a cash-on-delivery parcel back undelivered is cancelled with its copies back
+  (`"restock": false` if damaged) and its invoice credited (a credit note, no money moving).
+- **Refunds** `POST orders/<number>/refunds/` `{"lines": [{"item": 812, "quantity": 1}], "shipping": "40.00",
+  "restock": true, "method": "source"|"bank", "speed": "normal"|"optimum", "payee": {"upi": "name@bank"} or
+  {"account": "...", "ifsc": "...", "name": "..."}, "customer_agreed": true, "return": 7, "reason": "Damaged"}`
+  (`Idempotency-Key` header: the same key answers the first request again, 200). The amount is the lines' invoiced
+  values (their share of the coupon and offers taken off) and the shipping asked (at most what is left of it); no
+  lines and no shipping: what is left of the payment. Within your `refund_inr` it runs at once (`201`, the change
+  request `executed`); above it `202` and FINANCE approves (`staff.approve_refund`); `warnings` holds the 6-month
+  warning (Razorpay may refuse a normal refund of an older payment). Back to the source through Razorpay (5–7 working
+  days; `optimum` is instant where the bank allows, for a fee); by bank or UPI for cash on delivery and transfers (and
+  an online payment with `customer_agreed`): the payee is encrypted, shown masked (`payee_masked`), and the refund
+  waits for FINANCE's transfer (an inbox item due in `SHOP_BANK_REFUND_DAYS`). `POST orders/refunds/<id>/payee/`
+  `{"reason": "..."}` shows the account to FINANCE (a `sensitive_read` event); `POST orders/refunds/<id>/mark-paid/`
+  `{"utr": "..."}` marks it transferred: the refund processed, the customer told, the credit note made, once (the
+  second time: 400).
+- **Returns** `POST orders/<number>/returns/` `{"lines": [{"item": 812, "quantity": 1}], "reason": "misprint",
+  "note": "..."}` (staff for the customer; no window), `GET orders/returns/` (`?status=&open=true&order=&reason=
+  &by_customer=`), `orders/returns/<id>/` (with `note` and `next`, its possible moves), then `POST …/approve/`,
+  `…/decline/` `{"note": "why"}`, `…/label/` `{"courier": "...", "awb": "..."}` (`staff.handle_return`) and
+  `…/receive/`, `…/inspect/` `{"outcome": "restocked"|"damaged"}`, `…/photos/` (multipart `photo`, five at most;
+  `GET …/photos/<index>/`) (`staff.receive_return`). A new return is an inbox item due in 48 hours; the customer is
+  emailed at each step; its refund is `refunds/` with `"return": <id>` (its lines; a restocked return's copies are not
+  added twice).
+- **Staff orders** `POST orders/` `{"channel": "phone"|"whatsapp"|"school"|"email", "lines": [{"product": "<slug>",
+  "quantity": 2}], "email": "...", "address": {...}, "discount": "50.00", "shipping": null, "send_link": true,
+  "note": "...", "reason": "..."}` (`Idempotency-Key` too): priced as the checkout prices (offers included; the
+  address's PIN code checked against its state), through the approval `order.staff_discount`: within your
+  `discount_percent` of the books it is made at once (`201`, the change request's `result.order` its number, the
+  payment link emailed); beyond it, or for a ₹0 total, `202` and nothing exists until FINANCE (`staff.approve_discount`)
+  approves. Before asking, `POST orders/preview/` with the lines, the address's `state`, the `email`, the `discount`
+  and the `shipping` answers what it would be (`lines`, `subtotal`, `offers`, `discount`, `percent` of the books after
+  the offers, `shipping`, `total`, your `limit`, `approval`: the rule's words, or null when it would be made at once,
+  and `problems`: sold out, off sale); nothing is stored. `GET orders/products/?q=` (`shop.view_product`) finds books on
+  sale for its lines by title, slug or ISBN (20 at most). Its payment comes through the link, or
+  `POST orders/<number>/offline-payment/` `{"reference": "UTR...", "reason": "..."}` (the approval
+  `order.offline_payment`). The owners get the week's staff orders and their discounts
+  by email on Mondays at 08:00.
+- **Quotes** `GET orders/quotes/`, `orders/quotes/<id>/` (the schools' quotation requests, contacts masked),
+  `GET orders/quotes/<id>/quotation/` (its PDF once made), `POST orders/quotes/<id>/convert/` `{"address": {...},
+  "send_link": true}`: a staff order of its books with its discount and shipping, once (the quote keeps its order;
+  refused while one waits for approval).
+- **The packing room** `GET orders/packing/`: the orders to pack (paid, or placed to pay on delivery; not held, not a
+  test order, not courses alone), oldest first, each with `pick` (its books once, with their copies), `weight_g`,
+  `destination`, `is_cod` and its `risk_bucket`. PDFs (any `Accept`): `GET orders/<number>/documents/packing-slip/`
+  (A4: its books with ISBN and copies, the school or class, its number as a QR code), `…/documents/label/` (4×6 inches,
+  for a parcel sent by hand), `POST orders/pick-list/` `{"orders": ["EL-2026-000123", ...]}` (each book once, with its
+  copies and orders); `GET orders/<number>/invoice/` and `…/credit-notes/<id>/` (`shop.view_invoice`,
+  `shop.view_creditnote`).
+- **In bulk** through `POST jobs/` (202, then poll the job): `{"kind": "orders_pack", "params": {"targets":
+  ["EL-2026-000123", ...]}}`, `orders_print` (`"document": "packing_slip"|"label"|"invoices"`: one PDF),
+  `orders_cancel` (`"reason"`; 250 orders at most; paid online ones go through their refund's approval) and
+  `orders_export` (`{"filters": {...}}`, the list's filters but `q`: a CSV, a line per row, with the GST split;
+  `shop.export_order`). Each row is done or failed on its own (`errors`); above your `bulk_rows` or `export_rows` an
+  approver passes the job first.
+
+A cash-on-delivery order is scored when placed (`insights/jobs/risk.py`: the PIN code's and district's returned
+parcels, the customer's earlier returns matched by keyed hashes, a first COD order, its value, an address no courier
+could find, the PIN code's directory): `risk_bucket` and `risk_reasons` on the order; a high score holds it for a
+payment check while `SHOP_COD_HIGH_RISK_HOLD` is on (an inbox item; release it once confirmed).
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/orders/?tab=to_pack&risk=high" -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"number": "EL-2026-000123", "status": "pending",
+#      "status_label": "placed (pay on delivery)", "payment_method": "cod", "total": "1198.00", "held": true,
+#      "hold_reason": "payment check", "risk_bucket": "high", "customer": {"id": 52, "name": "Rahul Das",
+#      "email": "ra•••@example.com", "phone": "••••••2345", "is_minor": false}, "tags": [], "is_cod": true, ...}]}
+curl -X POST https://admin.examleaf.in/api/v1/staff/orders/EL-2026-000123/refunds/ -b "sessionid=...; csrftoken=..." \
+  -H "X-CSRFToken: ..." -H "Idempotency-Key: 6f1c..." -H "Content-Type: application/json" \
+  -d '{"lines": [{"item": 812, "quantity": 1}, {"item": 813, "quantity": 1}], "reason": "Damaged in transit"}'
+# 202 {"id": 31, "action": "order.refund", "status": "pending", "amount": "1710.00",
+#      "rule": "A refund of ₹1,710.00 is above the limit of ₹1,000.", "warnings": [], ...}
 ```
 
 ## Lists
@@ -1519,6 +1649,46 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/jobs/{id}/result/` | `staff.view_job` | `token` |  | 200 `application/octet-stream`; 302 |
 | GET | `staff/notes/` | `staff.view_note` | `target_id`, `target_type` |  | 200 `[Note]` |
 | POST | `staff/notes/` | `staff.add_note` |  | `NoteRequest` | 201 `Note` |
+| GET | `staff/orders/` | `shop.view_order` | `courier`, `created_from`, `created_to`, `cursor`, `hold`, `livemode`, `method`, `page_size`, `q`, `risk`, `shipping`, `status`, `tab`, `tag` |  | 200 `PaginatedOrderRowList` |
+| POST | `staff/orders/` | `shop.add_order` |  | `StaffOrderRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/orders/packing/` | `shop.view_order` | `cursor`, `page_size` |  | 200 `PaginatedPackingRowList` |
+| POST | `staff/orders/pick-list/` | `staff.pack_order` |  | `PickListRequest` | 200 `application/pdf` |
+| POST | `staff/orders/preview/` | `shop.add_order` |  | `StaffOrderPreviewAskRequest` | 200 `StaffOrderPreview` |
+| GET | `staff/orders/products/` | `shop.view_product` | `q` |  | 200 `[ProductPick]` |
+| GET | `staff/orders/quotes/` | `shop.view_quoterequest` | `cursor`, `page_size`, `status` |  | 200 `PaginatedQuoteRowList` |
+| GET | `staff/orders/quotes/{id}/` | `shop.view_quoterequest` |  |  | 200 `QuoteDetail` |
+| POST | `staff/orders/quotes/{id}/convert/` | `shop.change_quoterequest` |  | `QuoteConvertRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/orders/quotes/{id}/quotation/` | `shop.view_quoterequest` |  |  | 200 `application/pdf` |
+| POST | `staff/orders/refunds/{id}/mark-paid/` | `staff.approve_refund` |  | `RefundMarkPaidRequest` | 200 `OrderRefund` |
+| POST | `staff/orders/refunds/{id}/payee/` | `staff.approve_refund` |  | `RefundPayeeReasonRequest` | 200 `RefundPayee` |
+| GET | `staff/orders/returns/` | `shop.view_returnrequest` | `by_customer`, `cursor`, `open`, `order`, `page_size`, `reason`, `status` |  | 200 `PaginatedReturnRowList` |
+| GET | `staff/orders/returns/{id}/` | `shop.view_returnrequest` |  |  | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/approve/` | `staff.handle_return` |  |  | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/decline/` | `staff.handle_return` |  | `ReturnDeclineRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/inspect/` | `staff.receive_return` |  | `ReturnInspectRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/label/` | `staff.handle_return` |  | `ReturnLabelRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/photos/` | `staff.receive_return` |  | `ReturnPhotoRequest` | 200 `ReturnDetail` |
+| GET | `staff/orders/returns/{id}/photos/{index}/` | `shop.view_returnrequest` |  |  | 200 `image/*` |
+| POST | `staff/orders/returns/{id}/receive/` | `staff.receive_return` |  |  | 200 `ReturnDetail` |
+| GET | `staff/orders/{number}/` | `shop.view_order` |  |  | 200 `OrderDetail` |
+| POST | `staff/orders/{number}/cancel/` | `shop.change_order` |  | `OrderCancelRequest` | 200 `OrderRow`; 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/orders/{number}/credit-notes/{note}/` | `shop.view_creditnote` |  |  | 200 `application/pdf` |
+| POST | `staff/orders/{number}/deliver/` | `staff.pack_order` |  |  | 200 `OrderRow` |
+| GET | `staff/orders/{number}/documents/label/` | `staff.pack_order` |  |  | 200 `application/pdf` |
+| GET | `staff/orders/{number}/documents/packing-slip/` | `staff.pack_order` |  |  | 200 `application/pdf` |
+| POST | `staff/orders/{number}/hold/` | `shop.change_order` |  | `OrderHoldReasonRequest` | 200 `OrderRow` |
+| GET | `staff/orders/{number}/invoice/` | `shop.view_invoice` |  |  | 200 `application/pdf` |
+| POST | `staff/orders/{number}/invoice/regenerate/` | `shop.change_order` |  |  | 202 `OrderDocumentsQueued` |
+| POST | `staff/orders/{number}/invoice/resend/` | `shop.change_order` |  |  | 200 `OrderInvoiceSent` |
+| POST | `staff/orders/{number}/notify/` | `shop.change_order` |  | `OrderNotifyRequest` | 200 `OrderNotified` |
+| POST | `staff/orders/{number}/offline-payment/` | `staff.record_offline_payment` |  | `OrderOfflinePaymentRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| POST | `staff/orders/{number}/pack/` | `staff.pack_order` |  |  | 200 `OrderRow` |
+| POST | `staff/orders/{number}/payment-link/` | `shop.change_order` |  | `OrderPaymentLinkRequest` | 200 `OrderPaymentLinkSent` |
+| POST | `staff/orders/{number}/refunds/` | `staff.refund_order` |  | `OrderRefundAskRequest` | 201 `OrderRefundAsked`; 202 `OrderRefundAsked` |
+| POST | `staff/orders/{number}/release/` | `shop.change_order` |  |  | 200 `OrderRow` |
+| POST | `staff/orders/{number}/returns/` | `staff.handle_return` |  | `ReturnAskRequest` | 201 `ReturnDetail` |
+| POST | `staff/orders/{number}/ship/` | `staff.pack_order` |  | `OrderShipRequest` | 200 `OrderRow` |
+| POST | `staff/orders/{number}/tags/` | `shop.change_order` |  | `OrderTagsRequest` | 200 `OrderRow` |
 | GET | `staff/people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
 | POST | `staff/people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
 | GET | `staff/people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
@@ -1697,7 +1867,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -1705,7 +1875,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LegalHold**: `id` integer (required, read-only); `user` integer (required, null, read-only); `target_type` string (required, read-only); `target_id` string (required, read-only); `target_label` string (required, read-only); `reason` LegalHoldReasonEnum (required, read-only); `note` string (required, read-only); `until` date (required, null, read-only); `active` boolean (required, read-only); `created` date-time (required, read-only); `created_by` integer (required, null, read-only); `released_at` date-time (required, null, read-only); `released_by` integer (required, null, read-only); `release_reason` string (required, read-only)
@@ -1723,6 +1893,46 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **NullEnum**: null
 - **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
+- **OrderAction**: `name` string (required); `permission` string (required); `primary` boolean (required)
+- **OrderAddress**: `name` string (required); `phone` string (required); `line1` string (required); `line2` string (required); `city` string (required); `district` string (required); `state` string (required); `pin` string (required)
+- **OrderCancelRequest**: `reason` string (required); `customer_requested` boolean; `restock` boolean
+- **OrderCourier**: `name` string (required); `tracking_number` string (required)
+- **OrderCustomer**: `id` integer (required, null); `name` string (required); `email` string (required); `phone` string (required); `is_minor` boolean (required)
+- **OrderDetail**: `id` integer (required, read-only); `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, null, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` any (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only); `subtotal` decimal (required, read-only); `discount` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `coupon_code` string (required, read-only); `savings` [OrderSaving] (required, read-only); `address` OrderAddress (required, read-only); `lines` [OrderLine] (required, read-only); `payments` [OrderPayment] (required, read-only); `refunds` [OrderRefund] (required, read-only); `documents` [OrderDocument] (required, read-only); `shipments` [OrderParcel] (required, read-only); `returns` [ReturnRow] (required, read-only); `hold` OrderHold (required, null, read-only); `risk_reasons` [string] (required, read-only); `is_digital` boolean (required, read-only); `quote` string (required, null, read-only); `created_by` string (required, null, read-only); `actions` [OrderAction] (required, read-only); `refund` OrderRefundOptions (required, read-only); `erp` [OrderErpLink] (required, read-only); `timeline` [OrderTimelineEntry] (required, read-only); `modified` date-time (required, read-only)
+- **OrderDocument**: `kind` OrderDocumentKindEnum (required); `id` integer (required); `number` string (required); `created` date-time (required); `ready` boolean (required); `url` string (required); `amount` decimal (required, null)
+- **OrderDocumentKindEnum**: one of `invoice`, `credit_note`
+- **OrderDocumentsQueued**: `detail` string (required)
+- **OrderErpLink**: `model` string (required); `object_id` string (required); `doctype` string (required); `name` string (required); `synced_at` date-time (required)
+- **OrderHold**: `at` date-time (required); `by` string (required); `reason` string (required)
+- **OrderHoldReasonRequest**: `reason` string (required)
+- **OrderInvoiceSent**: `detail` string (required)
+- **OrderLine**: `id` integer (required); `product` string (required); `title` string (required); `isbn` string (required); `hsn_code` string (required); `gst_rate` decimal (required); `mrp` decimal (required, read-only); `unit_price` decimal (required, read-only); `quantity` integer (required); `line_total` decimal (required, read-only); `discount` decimal (required, read-only); `invoiced` decimal (required, read-only); `refunded` integer (required); `returnable` integer (required); `digital` boolean (required)
+- **OrderLineAskRequest**: `item` integer (required); `quantity` integer (required)
+- **OrderNotified**: `detail` string (required)
+- **OrderNotifyKindEnum**: one of `placed`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
+- **OrderNotifyRequest**: `kind` OrderNotifyKindEnum (required)
+- **OrderOfflinePaymentRequest**: `reference` string (required); `reason` string (required)
+- **OrderParcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `last_event` ShipmentEvent (required, null, read-only)
+- **OrderPayment**: `id` integer (required, read-only); `method` PaymentMethodEnum (required, read-only); `amount` decimal (required, read-only); `status` OrderPaymentStatusEnum (required, read-only); `razorpay_order_id` string (required, null, read-only); `razorpay_payment_id` string (required, null, read-only); `payment_link_url` uri (required, read-only); `reference` string (required, read-only); `error` string (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `refundable` decimal (required, read-only); `older_than_6_months` boolean (required, read-only)
+- **OrderPaymentLinkActionEnum**: one of `send`, `cancel`
+- **OrderPaymentLinkRequest**: `action` OrderPaymentLinkActionEnum
+- **OrderPaymentLinkSent**: `detail` string (required); `url` string (required)
+- **OrderPaymentStatusEnum**: one of `created`, `authorized`, `captured`, `failed`, `refunded`
+- **OrderRefund**: `id` integer (required, read-only); `amount` decimal (required, read-only); `status` RefundStatusEnum (required, read-only); `reason` string (required, read-only); `method` OrderRefundMethodEnum (required, read-only); `speed` RefundSpeedEnum (required, read-only); `lines` [OrderRefundLine] (required, read-only); `shipping_amount` decimal (required, read-only); `restock` boolean (required, read-only); `payee_masked` string (required, read-only); `utr` string (required, read-only); `arn` string (required, read-only); `razorpay_refund_id` string (required, null, read-only); `change_request` integer (required, null, read-only); `created` date-time (required, read-only); `processed_at` date-time (required, null, read-only); `error` string (required, read-only); `credit_note` string (required, null, read-only); `payment_method` string (required, read-only)
+- **OrderRefundAskMethodEnum**: one of `source`, `bank`
+- **OrderRefundAskRequest**: `lines` [OrderLineAskRequest]; `shipping` decimal; `restock` boolean; `method` OrderRefundAskMethodEnum; `speed` RefundSpeedEnum; `payee` RefundPayeeRequest; `customer_agreed` boolean; `reason` string (required); `return` integer
+- **OrderRefundAsked**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only); `warnings` [string] (required, read-only)
+- **OrderRefundLine**: `item` integer (required); `quantity` integer (required); `amount` decimal (required)
+- **OrderRefundMethodEnum**: one of `source`, `bank`, `none`
+- **OrderRefundOptions**: `payment` integer (required, null); `payment_method` string (required, null); `refundable` decimal (required); `shipping_left` decimal (required); `methods` [string] (required); `cancels` boolean (required); `payment_age_days` integer (required, null); `warnings` [string] (required)
+- **OrderRiskEnum**: one of `low`, `medium`, `high`
+- **OrderRow**: `id` integer (required, read-only); `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, null, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` any (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only)
+- **OrderSaving**: `label` string (required); `amount` decimal (required)
+- **OrderShipRequest**: `courier` CourierEnum (required); `tracking_number` string (required); `tracking_url` any
+- **OrderStatusEnum**: one of `pending`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
+- **OrderTagsRequest**: `add` [string]; `remove` [string]
+- **OrderTimelineEntry**: `at` date-time (required); `kind` string (required); `label` string (required); `actor` string (required); `details` object (required)
+- **PackingRow**: `number` string (required); `placed_at` date-time (required); `payment_method` string (required); `is_cod` boolean (required); `total` decimal (required); `risk_bucket` string (required); `tags` [string] (required); `destination` string (required); `weight_g` integer (required, null); `pick` [PickLine] (required)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
 - **PaginatedBacktestList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Backtest] (required)
@@ -1748,11 +1958,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)
 - **PaginatedLegalHoldList**: `next` uri (null); `previous` uri (null); `results` [LegalHold] (required)
 - **PaginatedOfferStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [OfferStat] (required)
+- **PaginatedOrderRowList**: `next` uri (null); `previous` uri (null); `results` [OrderRow] (required)
+- **PaginatedPackingRowList**: `next` uri (null); `previous` uri (null); `results` [PackingRow] (required)
 - **PaginatedParcelList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Parcel] (required)
 - **PaginatedPersonList**: `next` uri (null); `previous` uri (null); `results` [Person] (required)
 - **PaginatedPickupLocationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PickupLocation] (required)
 - **PaginatedPrintRunAdviceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PrintRunAdvice] (required)
 - **PaginatedProcessorList**: `next` uri (null); `previous` uri (null); `results` [Processor] (required)
+- **PaginatedQuoteRowList**: `next` uri (null); `previous` uri (null); `results` [QuoteRow] (required)
+- **PaginatedReturnRowList**: `next` uri (null); `previous` uri (null); `results` [ReturnRow] (required)
 - **PaginatedSavedViewList**: `next` uri (null); `previous` uri (null); `results` [SavedView] (required)
 - **PaginatedShipmentChargeList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShipmentCharge] (required)
 - **PaginatedShippingExceptionList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShippingException] (required)
@@ -1770,8 +1984,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
 - **PatternEnum**: one of `false_urgency`, `basket_sneaking`, `confirm_shaming`, `forced_action`, `subscription_trap`, `interface_interference`, `bait_and_switch`, `drip_pricing`, `disguised_advertisement`, `nagging`, `trick_question`, `saas_billing`, `rogue_malware`
+- **PaymentMethodEnum**: one of `razorpay`, `cod`, `offline`
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
+- **PickLine**: `title` string (required); `isbn` string (required); `quantity` integer (required)
+- **PickListRequest**: `orders` [string] (required)
 - **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
 - **PickupLocationRequest**: `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean
 - **PickupRequestRequest**: `date` date
@@ -1798,16 +2015,38 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
 - **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
 - **ProductKindEnum**: one of `sample-papers`, `solutions`, `bundle`, `digital`
+- **ProductPick**: `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `isbn` string (required, read-only); `price` decimal (required, read-only); `mrp` decimal (required, read-only); `available` integer (required, read-only)
 - **PublishRequest**: `markdown` string (required); `title` string; `summary` string (required); `effective_from` date
 - **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
+- **QuoteConvertRequest**: `address` ShippingAddressRequest (required); `email` email; `send_link` boolean; `note` string; `reason` string
+- **QuoteDetail**: `id` integer (required, read-only); `number` string (required, read-only); `school` string (required, read-only); `contact_name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `gstin` string (required, read-only); `delivery_pin` string (required, read-only); `copies` integer (required, read-only); `status` QuoteStatusEnum (required, read-only); `discount_percent` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `quoted_at` date-time (required, null, read-only); `valid_until` date (required, null, read-only); `has_quotation` boolean (required, read-only); `order` string (required, null, read-only); `created` date-time (required, read-only); `items` [object] (required, read-only); `note` string (required, read-only); `waiting` integer (required, null, read-only)
 - **QuoteResult**: `couriers` [Quote] (required); `india_post` [PostalPrice] (required); `weight_g` integer (required); `stale` boolean (required); `error` string (required)
+- **QuoteRow**: `id` integer (required, read-only); `number` string (required, read-only); `school` string (required, read-only); `contact_name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `gstin` string (required, read-only); `delivery_pin` string (required, read-only); `copies` integer (required, read-only); `status` QuoteStatusEnum (required, read-only); `discount_percent` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `quoted_at` date-time (required, null, read-only); `valid_until` date (required, null, read-only); `has_quotation` boolean (required, read-only); `order` string (required, null, read-only); `created` date-time (required, read-only)
+- **QuoteStatusEnum**: one of `new`, `quoted`, `ordered`, `closed`
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **RefundMarkPaidRequest**: `utr` string (required)
+- **RefundPayee**: `upi` string; `account` string; `ifsc` string; `name` string
+- **RefundPayeeReasonRequest**: `reason` string (required)
+- **RefundPayeeRequest**: `upi` string; `account` string; `ifsc` string; `name` string
+- **RefundSpeedEnum**: one of `normal`, `optimum`
+- **RefundStatusEnum**: one of `pending`, `processed`, `failed`
 - **ReleaseRequest**: `reason` string (required)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
 - **RetentionRule**: `key` string (required); `records` string (required); `minimum` string (required); `minimum_days` integer (required, null); `source` string (required); `changes_on` date (required, null); `next_minimum` string (required, null); `keep` string (required); `keep_days` integer (required, null); `trim_days` integer (required, null); `enforced_by` string (required)
+- **ReturnAskRequest**: `lines` [OrderLineAskRequest] (required); `reason` ReturnReasonEnum (required); `note` string
+- **ReturnDeclineRequest**: `note` string (required)
+- **ReturnDetail**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReturnReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `note` string (required, read-only); `next` [string] (required, read-only)
+- **ReturnInspectOutcomeEnum**: one of `restocked`, `damaged`
+- **ReturnInspectRequest**: `outcome` ReturnInspectOutcomeEnum (required)
+- **ReturnLabelRequest**: `courier` string (required); `awb` string (required)
+- **ReturnLine**: `item` integer (required); `title` string (required); `quantity` integer (required)
+- **ReturnPhotoRequest**: `photo` binary (required)
+- **ReturnReasonEnum**: one of `damaged`, `misprint`, `wrong_item`, `late`, `not_as_described`, `other`
+- **ReturnRow**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReturnReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **ReturnStatusEnum**: one of `requested`, `approved`, `declined`, `label_sent`, `received`, `restocked`, `damaged`, `refunded`
 - **RevealReasonRequest**: `reason` string (required)
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
@@ -1827,6 +2066,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShipmentChargeKindEnum**: one of `freight`, `freight_reversal`, `cod`, `cod_reversal`, `rto_freight`, `rto_freight_reversal`, `excess_weight`, `excess_weight_reversal`, `other`
 - **ShipmentEvent**: `source` ShipmentEventSourceEnum (required); `carrier_code` string; `carrier_label` string; `status` any (null); `occurred_at` date-time (required); `location` string; `activity` string
 - **ShipmentEventSourceEnum**: one of `webhook`, `poll`, `manual`
+- **ShippingAddressRequest**: `name` string (required); `phone` string (required); `line1` string (required); `line2` string; `city` string (required); `district` string (required); `state` StateEnum; `pin` string (required)
 - **ShippingException**: `id` integer (required, read-only); `kind` ShippingExceptionKindEnum (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `due_at` date-time (required, read-only); `state` ShippingExceptionStateEnum (required, read-only); `reference` string (required, read-only); `data` any (required, read-only); `resolution` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **ShippingExceptionKindEnum**: one of `pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
@@ -1837,8 +2077,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
 - **StaffInvite**: `id` integer (required, read-only); `email` string (required, read-only); `role` string (required); `invited_by` integer (null); `created` date-time; `expires_at` date-time (required); `accepted_at` date-time (null); `accepted_by` integer (null); `revoked_at` date-time (null)
 - **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `policies_due` [object] (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
+- **StaffOrderChannelEnum**: one of `phone`, `whatsapp`, `school`, `email`
+- **StaffOrderLineRequest**: `product` string (required); `quantity` integer (required)
+- **StaffOrderPreview**: `lines` [StaffOrderPreviewLine] (required); `subtotal` decimal (required); `offers` decimal (required); `discount` decimal (required); `percent` decimal (required); `shipping` decimal (required, null); `total` decimal (required); `limit` decimal (required, null); `approval` string (required, null); `problems` [string] (required)
+- **StaffOrderPreviewAskRequest**: `lines` [StaffOrderLineRequest] (required); `state` string (required); `email` any; `discount` decimal; `shipping` decimal (null)
+- **StaffOrderPreviewLine**: `product` string (required); `title` string (required); `unit_price` decimal (required); `quantity` integer (required); `line_total` decimal (required); `available` integer (required)
+- **StaffOrderRequest**: `channel` StaffOrderChannelEnum (required); `lines` [StaffOrderLineRequest] (required); `email` email (required); `address` ShippingAddressRequest (required); `discount` decimal; `shipping` decimal (null); `send_link` boolean; `note` string; `reason` string (required)
 - **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
+- **StateEnum**: one of `KA`, `AP`, `KL`, `TN`, `MH`, `UP`, `GA`, `GJ`, `RJ`, `HP`, `TG`, `AR`, `AS`, `BR`, `CT`, `HR`, `JH`, `MP`, `MN`, `ML`, `MZ`, `NL`, `OR`, `PB`, `SK`, `TR`, `UT`, `WB`, `AN`, `CH`, `DH`, `DL`, `JK`, `LD`, `LA`, `PY`
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
 - **TargetTypeEnum**: one of `shop.creditnote`, `shop.invoice`, `shop.order`, `shop.payment`, `shop.refund`, `staff.datarequest`

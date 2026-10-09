@@ -33,6 +33,7 @@ urlpatterns = [
     path("system/reconcile/", api.ReconcileView.as_view(), name="reconcile"),
     path("invites/accept/", api.InviteAcceptView.as_view(), name="invite-accept"),
     path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
+    path("orders/", include("shop.staff_orders")),
     path("tax/", include("shop.staff_tax")),
     *router.urls,
 ]

@@ -1,0 +1,9 @@
+{% autoescape off %}Return {{ back.number }} of order {{ order.number }} is approved.
+
+We email you how to send the books back (a courier's number to hand the parcel over with). Keep the books and their
+packing until then. Once they are back with us and checked, we refund you and email you the credit note.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

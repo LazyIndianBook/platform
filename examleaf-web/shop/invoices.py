@@ -8,6 +8,7 @@ way (`charges`). Same state as the seller: CGST + SGST; another: IGST. The place
 state. The document's type comes from its lines: a tax invoice, a bill of supply, or an invoice-cum-bill of supply
 (Rule 46A); goods documents carry three copies (Rule 48)."""
 
+import base64
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
@@ -141,7 +142,9 @@ def parts_of(item, catalogue=None):
     return found
 
 
-def line(item, value, discount, intra_state, goods, bundle=""):
+def line(item, value, discount, intra_state, goods, bundle="", source=None, per_unit=1):
+    """One line of a document: `source` is the order item it comes from (a split bundle's components share one) and
+    `per_unit` how many of it one copy of that item holds (a refund of n copies credits n × per_unit of a part)."""
     amount = value - discount  # what the line costs: taxable value and GST
     return {
         "item": item,
@@ -151,8 +154,29 @@ def line(item, value, discount, intra_state, goods, bundle=""):
         "half_rate": item.gst_rate / 2,
         "goods": goods,
         "bundle": bundle,
+        "source": source,
+        "per_unit": per_unit,
         **tax(item, amount, intra_state),
     }
+
+
+def discount_shares(order, items):
+    """Each item's share of the order's discounts, as its invoice prints it: the split kept at checkout (cart.split),
+    or for orders made before it was kept, shared out by value, the last line taking the rounding remainder (the
+    refund pricing of shop.services reads it)."""
+    subtotal, left = order.subtotal.amount, order.discount.amount
+    kept = all(item.discount is not None for item in items)
+    shares = []
+    for index, item in enumerate(items):
+        if kept:
+            share = item.discount.amount
+        elif index == len(items) - 1:
+            share = left
+        else:
+            share = rupees(order.discount.amount * item.line_total.amount / subtotal) if subtotal else ZERO
+        left -= share
+        shares.append(share)
+    return shares
 
 
 def lines_of(order, intra_state, catalogue=None):
@@ -173,13 +197,15 @@ def lines_of(order, intra_state, catalogue=None):
             share = rupees(order.discount.amount * value / subtotal) if subtotal else ZERO
         left -= share
         if not item.parts:
-            lines.append(line(item, value, share, intra_state, is_goods(item.product, catalogue)))
+            lines.append(line(item, value, share, intra_state, is_goods(item.product, catalogue), source=item.pk))
             continue
         parts = parts_of(item, catalogue)
         values = [part.line_total.amount for part, _extra in parts]
         for (part, extra), part_value, part_share in zip(parts, values, split(share, values), strict=True):
             goods = part.product.kind != Product.Kind.DIGITAL
-            lines.append(line(part, part_value, part_share + extra, intra_state, goods, bundle=item.title))
+            per_unit = max(part.quantity // max(item.quantity, 1), 1)
+            lines.append(line(part, part_value, part_share + extra, intra_state, goods, bundle=item.title,
+                              source=item.pk, per_unit=per_unit))  # fmt: skip
     return lines
 
 
@@ -265,19 +291,41 @@ def context(invoice, catalogue=None):
     }
 
 
-def credit_lines(data, amount):
+def credit_lines(data, amount, refund=None):
     """The credit shared out as the invoice charged it: first its lines, in proportion to what each was invoiced (all
     of it for a full refund), then the charges (the shipping) with what is left, each part reversing its tax at its
-    rate. A refused parcel refunded less the shipping credits the goods only."""
-    invoiced = [entry["amount"] for entry in data["lines"]]
+    rate. A refused parcel refunded less the shipping credits the goods only. A refund of chosen lines (the panel's,
+    Refund.lines: [{item, quantity, amount}]) credits those lines by what each was refunded, a split bundle's amount
+    shared over its components by their values, with the copies refunded on each line (`quantity`); the shipping is
+    what is left of the amount."""
+    entries = data["lines"]
+    invoiced = [entry["amount"] for entry in entries]
     books = sum(invoiced, ZERO)
-    books_credit = min(amount, books)
-    shares = [rupees(part * books_credit / books) if books else ZERO for part in invoiced[:-1]]
-    shares.append(books_credit - sum(shares, ZERO))  # the last line takes the rounding remainder
+    wanted = {int(row["item"]): row for row in (refund.lines or []) if refund is not None} if refund else {}
+    if wanted:
+        shares, copies = [ZERO] * len(entries), [0] * len(entries)
+        by_source = defaultdict(list)
+        for index, entry in enumerate(entries):
+            by_source[entry.get("source")].append(index)
+        for source, indexes in by_source.items():
+            row = wanted.get(source)
+            if row is None:
+                continue
+            credit, values = Decimal(str(row["amount"])), [invoiced[i] for i in indexes]
+            parts = split(credit, values) if any(values) else [credit, *([ZERO] * (len(indexes) - 1))]
+            for i, share in zip(indexes, parts, strict=True):
+                shares[i] = share
+                copies[i] = int(row.get("quantity") or 0) * entries[i].get("per_unit", 1)
+        books_credit = sum(shares, ZERO)
+    else:
+        books_credit = min(amount, books)
+        shares = [rupees(part * books_credit / books) if books else ZERO for part in invoiced[:-1]]
+        shares.append(books_credit - sum(shares, ZERO))  # the last line takes the rounding remainder
+        copies = [entry["item"].quantity for entry in entries]
     intra_state = data["intra_state"]
     lines = [
-        {**entry, "value": share, "amount": share, **tax(entry["item"], share, intra_state)}
-        for entry, share in zip(data["lines"], shares, strict=True)
+        {**entry, "value": share, "amount": share, "quantity": count, **tax(entry["item"], share, intra_state)}
+        for entry, share, count in zip(entries, shares, copies, strict=True)
     ]
     charged = [entry["amount"] for entry in data["charges"]]
     shipping_credit = min(amount - books_credit, sum(charged, ZERO))
@@ -293,7 +341,7 @@ def credit_supply(note, catalogue=None):
     order = note.invoice.order
     data = supply(order, catalogue)
     amount = min(note.refund.amount.amount, order.total.amount)
-    lines, charges, books_credit, shipping_credit = credit_lines(data, amount)
+    lines, charges, books_credit, shipping_credit = credit_lines(data, amount, note.refund)
     kept = sums(lines, charges)
     return {
         **data,
@@ -414,11 +462,105 @@ def static_files_only():
     return StaticFilesOnly(allowed_protocols={"file", "data"})
 
 
+@dataclass
+class Print:
+    """A document the panel prints for one order or several (shop/staff_orders.py, the bulk print job): `kind` is
+    packing_slip (A4: the books with their ISBN and copies, the school or class, the number as a QR), label (4 × 6
+    inches, for a parcel sent by hand), pick_list (A4: each book once, with its copies and orders) or invoices (each
+    order's invoice again, one after the other)."""
+
+    kind: str
+    orders: list
+
+
+def qr_data_uri(text):
+    """A QR code of `text` as an SVG data: URL (django-qr-code, as content.views.qr_png makes the papers' codes)."""
+    from qr_code.qrcode.maker import make_qr_code_image
+    from qr_code.qrcode.utils import QRCodeOptions
+
+    svg = make_qr_code_image(text, QRCodeOptions(size=8, border=2, image_format="svg"))
+    return "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+
+
+def school_or_class(order):
+    """Who the books are for, on the slip: the school of the quotation it came from, else the buyer's class."""
+    quote = getattr(order, "quote", None)
+    if quote is not None:
+        return quote.school
+    user = order.user
+    if user is not None and user.class_level:
+        board = getattr(user.board, "short_name", "")
+        return f"Class {user.class_level}" + (f", {board}" if board else "")
+    return ""
+
+
+def books_of(order):
+    """The books to pack for an order, each once with its copies: a bundle's books; courses have none."""
+    copies, products = {}, {}
+    for item in order.items.all():
+        product = item.product
+        if product.kind == Product.Kind.BUNDLE:
+            parts = [(entry.product, entry.quantity * item.quantity) for entry in product.bundle_items.all()]
+        else:
+            parts = [(product, item.quantity)]
+        for book, count in parts:
+            if not book.is_digital:
+                copies[book.pk] = copies.get(book.pk, 0) + count
+                products[book.pk] = book
+    return [{"product": products[pk], "quantity": count} for pk, count in copies.items()]
+
+
+def print_context(document):
+    seller = settings.SHOP_SELLER
+    orders = [
+        {
+            "order": order,
+            "qr": qr_data_uri(order.number),
+            "books": books_of(order),
+            "for": school_or_class(order),
+            "to": address_lines(order.shipping_address),
+            "collect": order.total.amount if order.is_cod else None,
+        }
+        for order in document.orders
+    ]
+    picks = {}
+    for entry in orders:
+        for book in entry["books"]:
+            row = picks.setdefault(book["product"].pk, {"product": book["product"], "quantity": 0, "orders": []})
+            row["quantity"] += book["quantity"]
+            row["orders"].append(f"{entry['order'].number} × {book['quantity']}")
+    return {
+        "seller": seller,
+        "seller_state": STATES.get(seller["state"], seller["state"]),
+        "orders": orders,
+        "picks": sorted(picks.values(), key=lambda row: row["product"].title),
+        "copies": sum(row["quantity"] for row in picks.values()),
+    }
+
+
+def print_html(document):
+    """The HTML of a Print (the tests read it; render_pdf makes it a PDF)."""
+    return render_to_string(f"shop/{document.kind}.html", print_context(document))
+
+
 def render_pdf(document):
-    """The PDF of an Invoice, a CreditNote or a QuoteRequest's quotation."""
+    """The PDF of an Invoice, a CreditNote, a QuoteRequest's quotation, or a Print (the panel's slips, labels, pick
+    lists and invoice batches)."""
     from weasyprint import HTML  # imported here: it needs Pango, a system library (Dockerfile, README)
 
-    if isinstance(document, CreditNote):
+    if isinstance(document, Print) and document.kind == "invoices":  # each invoice as it was, one PDF
+        rendered = [
+            HTML(
+                string=render_to_string("shop/invoice.html", pdf_context(order.invoice)),
+                base_url=str(settings.BASE_DIR),
+                url_fetcher=static_files_only(),
+            ).render()
+            for order in document.orders
+        ]
+        return rendered[0].copy([page for one in rendered for page in one.pages]).write_pdf()
+    if isinstance(document, Print):
+        html = print_html(document)
+    elif isinstance(document, CreditNote):
         html = render_to_string("shop/credit_note.html", pdf_context(document))
     elif isinstance(document, QuoteRequest):
         html = render_to_string("shop/quotation.html", quotation_context(document))

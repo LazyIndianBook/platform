@@ -252,6 +252,8 @@ def refund_paid(refund, order):
     an order never invoiced has no document in ERPNext to go against)."""
     if order.is_test or not enabled("payments") or refund.status != Refund.Status.PROCESSED:
         return
+    if refund.method == Refund.Method.NONE:  # a parcel back undelivered: its credit note moves no money
+        return
     note = CreditNote.objects.filter(refund=refund).first()
     if note is not None and written(contract.credit_note_ref(note)):
         enqueue("refund.paid", aggregate=order_aggregate(order), ref=contract.refund_ref(refund), obj=refund)

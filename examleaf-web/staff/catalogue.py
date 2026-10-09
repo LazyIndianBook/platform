@@ -107,6 +107,14 @@ STAFF_ACTIONS = [
     # Legal and privacy (Phase B, staff/privacy_api.py): legal holds, and the compliance duties
     ("manage_holds", "Put legal holds on a person or a record, and release them", PRIVACY, HIGH),
     ("manage_compliance", "Keep the compliance duties: the dark-pattern self-audit and its certificate", PRIVACY, HIGH),
+    # Orders (shop/staff_orders.py): returns, asked for and decided apart from the parcel's receipt and inspection
+    (
+        "handle_return",
+        "Handle returns: ask for one for a customer, approve or decline it, send its label",
+        ORDERS,
+        MEDIUM,
+    ),
+    ("receive_return", "Receive returned parcels and inspect them: back into stock, or damaged", ORDERS, MEDIUM),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

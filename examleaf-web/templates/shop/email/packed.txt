@@ -1,0 +1,7 @@
+{% autoescape off %}Your order {{ order.number }} is packed. We email you the courier and the tracking number as soon as
+it leaves us.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

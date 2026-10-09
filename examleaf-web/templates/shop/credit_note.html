@@ -15,7 +15,7 @@
       <td>{{ forloop.counter }}</td>
       <td>{{ line.item.title }}{% if line.bundle %}<br><span class="sub">part of {{ line.bundle }}</span>{% endif %}</td>
       <td class="code">{{ line.hsn }}</td>
-      <td class="num">{{ line.item.quantity }}</td>
+      <td class="num">{{ line.quantity }}</td>
       <td class="num">{{ line.value }}</td>
       <td class="num">{{ line.taxable }}</td>
       {% if intra_state %}
@@ -41,5 +41,5 @@
   <tr><th>Exempt, nil-rated and non-GST value</th><td class="num">₹{{ exempt_total }}</td></tr>
 </table>
 
-<p class="note">At the invoice's rates and place of supply. Refunded to the way the order was paid. Prices include any tax. This document is computer generated and needs no signature.</p>
+<p class="note">At the invoice's rates and place of supply. {% if note.refund.method == "none" %}The parcel came back undelivered and nothing was paid: no money changes hands.{% elif note.refund.method == "bank" %}Refunded by bank transfer or UPI to the account the customer gave.{% else %}Refunded to the way the order was paid.{% endif %} Prices include any tax. This document is computer generated and needs no signature.</p>
 {% endblock %}

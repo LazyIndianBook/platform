@@ -166,6 +166,12 @@ class JobSerializer(serializers.ModelSerializer):
         return result_url(job, self.context.get("request"))
 
 
+def order_jobs():
+    from shop import order_jobs
+
+    return order_jobs
+
+
 class JobStartSerializer(serializers.Serializer):
     MAX_TARGETS = 10_000
 
@@ -176,7 +182,10 @@ class JobStartSerializer(serializers.Serializer):
         help_text='audit_export: {"filters": {…}} (the audit list\'s); bulk_action: {"action": "order.refund", '
         '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), '
         '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); '
-        'gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it)',
+        'gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); '
+        'orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", '
+        '"customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the '
+        "order list's)",
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -194,6 +203,8 @@ class JobStartSerializer(serializers.Serializer):
             from shop.staff_tax import gstr1_period
 
             data["params"] = gstr1_period(params)
+        if data["kind"] in order_jobs().PERMISSIONS:  # the Orders module's: shop/order_jobs.py
+            data["params"] = order_jobs().params_for(data["kind"], params)
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

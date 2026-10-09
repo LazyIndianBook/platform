@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Label</title>
+<style>
+{% include "shop/_print_style.html" %}
+  @page { size: 4in 6in; margin: 5mm; }
+  body { font-size: 10pt; }
+  .page { display: flex; flex-direction: column; gap: 3mm; height: 140mm; }
+  .to { padding: 3mm; border: 2px solid var(--ink); font-size: 13pt; line-height: 1.35; }
+  .to strong { font-size: 15pt; }
+  .from { font-size: 8.5pt; line-height: 1.4; }
+  .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 3mm; margin-top: auto; }
+  .qr { width: 26mm; height: 26mm; }
+  .number { font: 600 12pt/1.2 var(--mono); }
+  .collect { padding: 2mm 3mm; border: 2px solid var(--ink); font: 700 12pt/1.3 var(--mono); }
+  .prepaid { font: 600 10pt/1.3 var(--mono); }
+</style>
+</head>
+<body>
+{% for entry in orders %}{% with order=entry.order %}
+<div class="page">
+  <div class="to">
+    <p class="label">To</p>
+    {% for line in entry.to %}<p>{% if forloop.first %}<strong>{{ line }}</strong>{% else %}{{ line }}{% endif %}</p>{% endfor %}
+  </div>
+  {% if entry.collect is not None %}<p class="collect">COD: collect ₹{{ entry.collect }}</p>{% else %}<p class="prepaid">Prepaid: collect nothing</p>{% endif %}
+  <div class="from">
+    <p class="label">From</p>
+    <p><strong>{{ seller.name }}</strong></p>
+    <p>{{ seller.address }}</p>
+    <p>{{ seller.phone }}</p>
+  </div>
+  <div class="bottom">
+    <div>
+      <p class="label">Order</p>
+      <p class="number">{{ order.number }}</p>
+      <p class="code">{% for book in entry.books %}{{ book.quantity }} × {{ book.product.isbn|default:book.product.title }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+    </div>
+    <img class="qr" src="{{ entry.qr }}" alt="QR code of {{ order.number }}">
+  </div>
+</div>
+{% endwith %}{% endfor %}
+</body>
+</html>

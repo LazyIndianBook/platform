@@ -823,3 +823,231 @@ export const uploadCertificate = (id: number, file: File) => {
 };
 /** Where the browser downloads the signed certificate (same origin; the read is recorded). */
 export const certificateHref = (id: number) => `/api/v1/staff/privacy/dark-pattern-audits/${id}/file/`;
+// ---- Orders ----
+
+export type OrderRow = Schemas["OrderRow"];
+export type OrderDetail = Schemas["OrderDetail"];
+export type OrderLine = Schemas["OrderLine"];
+export type OrderAction = Schemas["OrderAction"];
+export type OrderRefundOptions = Schemas["OrderRefundOptions"];
+export type OrderTimelineEntry = Schemas["OrderTimelineEntry"];
+export type PackingRow = Schemas["PackingRow"];
+export type ReturnRow = Schemas["ReturnRow"];
+export type ReturnDetail = Schemas["ReturnDetail"];
+export type QuoteRow = Schemas["QuoteRow"];
+export type QuoteDetail = Schemas["QuoteDetail"];
+export type ProductPick = Schemas["ProductPick"];
+export type StaffOrderAsk = Schemas["StaffOrderRequest"];
+export type StaffOrderPreview = Schemas["StaffOrderPreview"];
+export type StaffOrderPreviewAsk = Schemas["StaffOrderPreviewAskRequest"];
+export type RefundAsk = Schemas["OrderRefundAskRequest"];
+export type RefundAsked = Schemas["OrderRefundAsked"];
+export type ReturnAsk = Schemas["ReturnAskRequest"];
+export type ShippingAddress = Schemas["ShippingAddressRequest"];
+export type OrderFilters = Filters<"/api/v1/staff/orders/">;
+export type OrdersJobKind = Extract<Job["kind"], `orders_${string}`>;
+
+const orderPath = (number: string) => ({ params: { path: { number } } });
+
+export const listOrders = (filters: OrderFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/", { ...o, params: { query: query(filters) } })).then(paged);
+/** The record (a child's order: the server records the read as a look at a child's data). */
+export const getOrder = (number: string, transport?: Transport, signal?: AbortSignal) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/{number}/", { ...o, ...orderPath(number) }), signal);
+/** The packing queue, oldest first. */
+export const listPacking = (filters: Filters<"/api/v1/staff/orders/packing/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/packing/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+
+export type OrderMove = "pack" | "deliver" | "release" | "invoice/regenerate" | "invoice/resend";
+/** A move without a body: the state machine refuses what cannot happen now (400, its words). */
+export const moveOrder = (number: string, move: OrderMove) => {
+  const path = orderPath(number);
+  switch (move) {
+    case "pack":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/pack/", { ...o, ...path }));
+    case "deliver":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/deliver/", { ...o, ...path }));
+    case "release":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/release/", { ...o, ...path }));
+    case "invoice/regenerate":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/invoice/regenerate/", { ...o, ...path }));
+    case "invoice/resend":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/invoice/resend/", { ...o, ...path }));
+  }
+};
+export const shipOrder = (number: string, body: Schemas["OrderShipRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/ship/", { ...o, ...orderPath(number), body }));
+export const holdOrder = (number: string, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/hold/", { ...o, ...orderPath(number), body: { reason } }),
+  );
+export const tagOrder = (number: string, body: Schemas["OrderTagsRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/tags/", { ...o, ...orderPath(number), body }));
+export const notifyOrder = (number: string, kind: Schemas["OrderNotifyKindEnum"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/notify/", { ...o, ...orderPath(number), body: { kind } }),
+  );
+/** A staff order's Razorpay link: sent (the same link again), or cancelled (the next one is new). */
+export const paymentLink = (number: string, action: Schemas["OrderPaymentLinkActionEnum"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/payment-link/", { ...o, ...orderPath(number), body: { action } }),
+  );
+/** Before dispatch: cancelled at once; paid online: through the refund's approval (202: approval_required). */
+export const cancelOrder = (number: string, body: Schemas["OrderCancelRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/cancel/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      ...orderPath(number),
+      body,
+    }),
+  );
+};
+/** 201 it ran (within your limit); 202 (approval_required) FINANCE approves it. */
+export const recordOfflinePayment = (number: string, body: Schemas["OrderOfflinePaymentRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/offline-payment/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      ...orderPath(number),
+      body,
+    }),
+  );
+};
+/** A refund by line: 201 it ran (within your limit), 202 (approval_required) it waits for FINANCE. The same
+ *  Idempotency-Key answers the first request again (a retry after "confirm it's you"). */
+export const askRefund = (number: string, body: RefundAsk) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/{number}/refunds/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      ...orderPath(number),
+      body,
+    }),
+  );
+};
+export const askReturn = (number: string, body: ReturnAsk) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/orders/{number}/returns/", { ...o, ...orderPath(number), body }));
+
+/** A PDF of the order for staff, on this origin (the session's cookie): the packing slip, the 4×6 label, the invoice
+ *  and a credit note. */
+export function orderPdfHref(number: string, what: "packing-slip" | "label" | "invoice" | { note: number }): string {
+  const base = `/api/v1/staff/orders/${encodeURIComponent(number)}/`;
+  if (typeof what === "object") return `${base}credit-notes/${what.note}/`;
+  return what === "invoice" ? `${base}invoice/` : `${base}documents/${what}/`;
+}
+/** The pick list of these orders as a PDF (each book once, with its copies and orders). */
+export const pickList = (orders: string[]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/pick-list/", { ...o, body: { orders }, parseAs: "blob" }),
+  ) as Promise<Blob>;
+/** A bulk action on orders, or the export, as a background job (202): above your limit it waits for an approver. */
+export const startOrdersJob = (kind: OrdersJobKind, params: Record<string, unknown>) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind, params, dry_run: false } }),
+  ) as Promise<Job>;
+
+// staff orders
+export const searchProducts = (q: string, signal?: AbortSignal) =>
+  send(undefined, (o) => api.GET("/api/v1/staff/orders/products/", { ...o, params: { query: { q } } }), signal);
+/** What the order would cost and whether it would wait for a second person: nothing is stored. */
+export const previewStaffOrder = (body: StaffOrderPreviewAsk, signal?: AbortSignal) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/orders/preview/", { ...o, body }), signal);
+/** 201: made at once (its change request's `result.order`); 202 (approval_required): nothing exists until approved. */
+export const createStaffOrder = (body: StaffOrderAsk) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
+};
+
+// bank refunds (FINANCE)
+export const markRefundPaid = (id: number, utr: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/refunds/{id}/mark-paid/", { ...o, params: { path: { id } }, body: { utr } }),
+  );
+/** The customer's account or UPI ID for the transfer, with a reason (logged as a look at personal data). */
+export const showRefundPayee = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/refunds/{id}/payee/", { ...o, params: { path: { id } }, body: { reason } }),
+  );
+
+// returns
+export const listReturns = (filters: Filters<"/api/v1/staff/orders/returns/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/returns/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getReturn = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/returns/{id}/", { ...o, params: { path: { id } } }));
+export type ReturnMove =
+  | { move: "approve" }
+  | { move: "receive" }
+  | { move: "decline"; note: string }
+  | { move: "label"; courier: string; awb: string }
+  | { move: "inspect"; outcome: Schemas["ReturnInspectOutcomeEnum"] };
+export const moveReturn = (id: number, step: ReturnMove) => {
+  const path = { params: { path: { id } } };
+  switch (step.move) {
+    case "approve":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/returns/{id}/approve/", { ...o, ...path }));
+    case "receive":
+      return send(undefined, (o) => api.POST("/api/v1/staff/orders/returns/{id}/receive/", { ...o, ...path }));
+    case "decline":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/orders/returns/{id}/decline/", { ...o, ...path, body: { note: step.note } }),
+      );
+    case "label":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/orders/returns/{id}/label/", {
+          ...o,
+          ...path,
+          body: { courier: step.courier, awb: step.awb },
+        }),
+      );
+    case "inspect":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/orders/returns/{id}/inspect/", { ...o, ...path, body: { outcome: step.outcome } }),
+      );
+  }
+};
+/** A photograph of what came back (multipart: the browser sets its boundary). */
+export const addReturnPhoto = (id: number, photo: File) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/returns/{id}/photos/", {
+      ...o,
+      params: { path: { id } },
+      body: { photo: photo as unknown as string },
+      bodySerializer: (body) => {
+        const form = new FormData();
+        form.append("photo", body.photo as unknown as File);
+        return form;
+      },
+    }),
+  );
+export const returnPhotoHref = (id: number, index: number) => `/api/v1/staff/orders/returns/${id}/photos/${index}/`;
+
+// quotes
+export const listQuotes = (filters: Filters<"/api/v1/staff/orders/quotes/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/quotes/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getQuote = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/orders/quotes/{id}/", { ...o, params: { path: { id } } }));
+/** A staff order from the quote, once: 201 made, 202 (approval_required) beyond your discount limit. */
+export const convertQuote = (id: number, body: Schemas["QuoteConvertRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/orders/quotes/{id}/convert/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { id } },
+      body,
+    }),
+  );
+};
+export const quotationHref = (id: number) => `/api/v1/staff/orders/quotes/${id}/quotation/`;

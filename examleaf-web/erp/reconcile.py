@@ -137,6 +137,7 @@ def refunded_on(day):
     start, end = bounds(day)
     processed = Refund.objects.filter(status=Refund.Status.PROCESSED, processed_at__gte=start, processed_at__lt=end)
     processed = processed.filter(credit_note__isnull=False).select_related("order", "payment", "credit_note")
+    processed = processed.exclude(method=Refund.Method.NONE)  # a credit note alone (a parcel back unpaid): no money
     return [refund for refund in processed.order_by("pk") if not refund.order.is_test]
 
 

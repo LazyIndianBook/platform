@@ -12,6 +12,7 @@ import { createHash } from "node:crypto";
 import type { Note, Schemas } from "@/lib/api/staff";
 
 import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
+import { type OrdersWorld, ordersWorld } from "./orders";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -72,6 +73,8 @@ export type World = {
   deletions: { id: number; user: number; requested_at: string; due_at: string; parent_confirmed_at: string | null }[];
   retention: S["RetentionRule"][];
   consentsByVersion: S["PrivacyConsentVersion"][];
+  /** The Orders module's records (orders.ts). */
+  orders: OrdersWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1836,5 +1839,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     deletions,
     retention,
     consentsByVersion,
+    orders: ordersWorld(at),
   };
 }

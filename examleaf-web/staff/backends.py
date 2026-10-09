@@ -61,7 +61,13 @@ MODEL_SCOPES = {
 }
 
 
+PLACED = "placed"  # an order_status scope value: a cash-on-delivery order placed (pending, placed_at set), to pack
+
+
 def _condition(kind, path, values):
+    if kind == ORDER_STATUS and PLACED in values:  # path: "status" or "order__status"
+        placed = Q(**{path: "pending", f"{path.removesuffix('status')}placed_at__isnull": False})
+        return Q(**{f"{path}__in": [value for value in values if value != PLACED]}) | placed
     if kind == BOARD_CLASS:  # "ASSEB:12": the board's short name and the class
         condition = Q(pk__in=[])
         for value in values:

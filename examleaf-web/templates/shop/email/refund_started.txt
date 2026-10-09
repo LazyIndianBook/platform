@@ -1,0 +1,8 @@
+{% autoescape off %}We are refunding {{ refund.amount }} for order {{ order.number }} by bank transfer or UPI to the account
+you gave us ({{ refund.payee_masked }}). It reaches you within {{ days }} working days; we email you again once it is
+sent, with the bank's reference.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

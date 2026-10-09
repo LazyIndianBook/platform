@@ -7,10 +7,11 @@
 // website as a customer and ending it, a setting changed with a reason and found in the audit trail, tax (the month's
 // dates, a new dated rate on the HSN master behind the save bar, a document cancelled with its number typed and its
 // audit trail), legal and privacy (the cockpit and a child's deletion confirmed for the parent, a legal hold the
-// erasure's dry run then names, the disclosures saved with a reason, both in the audit trail), the person's jobs
-// (cancel one, download a file), the ⌘K palette, and the idle sign-out at the limit the manifest gives the role. Then a
-// break-glass session's reason and a policy acknowledged before anything else, and reduced motion. The TEST band
-// shows throughout (the fixtures are test data).
+// erasure's dry run then names, the disclosures saved with a reason, both in the audit trail), the Orders module (a
+// refund of two books above SUPPORT's limit answered with its change request, and the packing queue's mark packed
+// undone, then sent), the person's jobs (cancel one, download a file), the ⌘K palette, and the idle sign-out at the
+// limit the manifest gives the role. Then a break-glass session's reason and a policy acknowledged before anything
+// else, and reduced motion. The TEST band shows throughout (the fixtures are test data).
 import { expect, type Page, test } from "@playwright/test";
 
 import { axe, checkPages, type Codes, settle, signIn, toast } from "./console";
@@ -47,6 +48,14 @@ const PAGES = [
   "/system/",
   "/account/",
   "/orders/",
+  "/orders/EL-2026-000123/",
+  "/orders/EL-2026-000137/",
+  "/orders/packing/",
+  "/orders/returns/",
+  "/orders/returns/6/",
+  "/orders/new/",
+  "/orders/quotes/",
+  "/orders/quotes/12/",
   "/shipping/",
   "/tax/",
   "/tax/hsn/",
@@ -101,6 +110,52 @@ for (const width of [1280, 390]) {
       await page.keyboard.press("ControlOrMeta+k");
       await expect(page.getByRole("combobox", { name: "Search the console" })).toBeFocused();
       expect.soft((await axe(page)).violations, "axe on the palette").toEqual([]);
+    });
+
+    test("orders: a refund above the limit waits for FINANCE; the packing queue marks packed with undo", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/orders/", codes);
+      const site = new URL("/", page.url()).href;
+      const as = (role: string) => page.context().addCookies([{ name: "staff_mock_role", value: role, url: site }]);
+
+      await test.step("SUPPORT opens an order on its way and asks for a refund of two books of three: a change request", async () => {
+        await as("SUPPORT");
+        await page.goto("/orders/?tab=shipped");
+        await expect(page.getByRole("link", { name: "Shipped" })).toHaveAttribute("aria-current", "page");
+        await page
+          .getByRole("region", { name: "Orders, a table" })
+          .getByRole("link", { name: "EL-2026-000123" })
+          .click();
+        await expect(page.getByRole("heading", { level: 1, name: "EL-2026-000123" })).toBeVisible();
+        await page.getByRole("button", { name: "Refund", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "Refund" });
+        await expect(dialog.getByText(/Razorpay refunds an online payment/)).toBeVisible();
+        await dialog.getByLabel("Copies of Physics Sample Papers 2027 to refund").fill("1");
+        await dialog.getByLabel("Copies of Chemistry Sample Papers 2027 to refund").fill("1");
+        await expect(dialog.getByText(/About ₹1,750/)).toBeVisible();
+        await dialog.getByLabel("Reason").fill("Both copies arrived torn (ticket 4430).");
+        await dialog.getByRole("button", { name: "Ask for the refund" }).click();
+        await settle(page, dialog.getByText("A second person needs to approve this"), staff, codes);
+        await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
+        await expect(dialog.getByRole("link", { name: /^Open the change request/ })).toBeVisible();
+        await page.keyboard.press("Escape");
+      });
+
+      await test.step("PACKER marks an order packed, undoes it, then lets it go", async () => {
+        await as("PACKER");
+        await page.goto("/orders/packing/");
+        const card = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "EL-2026-000133" }) });
+        await card.getByRole("button", { name: "Mark packed" }).click();
+        await expect(page.getByRole("status").filter({ hasText: "Marking 1 order packed in 5 s." })).toBeVisible();
+        await page.getByRole("button", { name: "Undo" }).click();
+        await expect(toast(page, "Not marked")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "EL-2026-000133" })).toBeVisible();
+        await card.getByRole("button", { name: "Mark packed" }).click();
+        await expect(toast(page, "Marked packed")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "EL-2026-000133" })).toHaveCount(0);
+      });
+      await page.context().clearCookies({ name: "staff_mock_role" });
     });
 
     test("a day's work, then the idle sign-out", async ({ page }) => {

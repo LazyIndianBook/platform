@@ -113,6 +113,8 @@ SETTINGS |= {
         group=DISCLOSURES,
     ),
     "NCH_SINCE": Spec(str, "Applied or joined on (YYYY-MM-DD)", default="", group=DISCLOSURES, validate=iso_date),
+    # Orders (shop.services.assess_risk)
+    "SHOP_COD_HIGH_RISK_HOLD": Spec(bool, "A cash-on-delivery order scored high risk waits on hold for a check"),
 }
 
 

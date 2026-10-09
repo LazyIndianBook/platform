@@ -1477,6 +1477,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{number}/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask to send back books of a delivered order (damaged, misprinted, not what was ordered, late …), within
+         *     SHOP_RETURN_DAYS of delivery: the books and copies (`product`: as the order's `items` name it), a reason
+         *     from the list, a note. Staff answer within two working days; the order's `returns` say where it stands.
+         *     Refused with the reason otherwise (400).
+         */
+        post: operations["orders_returns_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/lookup/": {
         parameters: {
             query?: never;
@@ -3338,6 +3360,731 @@ export interface paths {
          *     Only on a record you may see (else 404). The audit log names the record and the note's number, never its body.
          */
         post: operations["staff_notes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Orders: the list, a staff order (POST), the packing queue, a pick list, a record with its timeline, and the
+         *     actions on one (each its permission; the state machine refuses what cannot happen now).
+         */
+        get: operations["staff_orders_list"];
+        put?: never;
+        /**
+         * @description A phone, WhatsApp or school order at today's prices with the offers: 201 with the change request run at
+         *     once (its result names the order) within your discount limit; 202 beyond it, or for a ₹0 total: nothing is
+         *     made until a second person approves.
+         */
+        post: operations["staff_orders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record; opening a child's order (its account under 18) is a logged read, as the child's record is. */
+        get: operations["staff_orders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancel before it leaves (its stock back; the customer told; no fee). Paid online: through its refund
+         *     (staff.approvals "order.refund": your refund limit, FINANCE above it). Paid by transfer: refund it by bank or
+         *     UPI (refunds/), which cancels it. A cash-on-delivery parcel back undelivered (RTO): cancelled, its copies back
+         *     unless damaged (`restock`), its invoice credited.
+         */
+        post: operations["staff_orders_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/credit-notes/{note}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A credit note's PDF (404 until it is made). */
+        get: operations["staff_orders_credit_notes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/deliver/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Delivered (a parcel sent by hand: a courier's scans deliver theirs): a COD payment is captured. */
+        post: operations["staff_orders_deliver_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/documents/label/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The 4 × 6 inch label of a parcel sent by hand (India Post, a courier without an API): to and from, the
+         *     number as a QR, the cash to collect. A courier's own label is the shipping app's.
+         */
+        get: operations["staff_orders_documents_label_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/documents/packing-slip/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The order's A4 packing slip: its books (title, ISBN, copies), the school or class, its number as a QR. */
+        get: operations["staff_orders_documents_packing_slip_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/hold/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Hold it, with the reason (it leaves the packing queue until released). */
+        post: operations["staff_orders_hold_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invoice's PDF (404 until it is made). */
+        get: operations["staff_orders_invoice_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/regenerate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Make what is missing of the order's invoice and credit notes (RUNBOOK's shell step, as a button): queued
+         *     for the worker (202); refused while SELLER_* holds a placeholder, or when nothing is missing.
+         */
+        post: operations["staff_orders_invoice_regenerate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/resend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Email the customer the invoice's link again (the order's page, where its PDF is). */
+        post: operations["staff_orders_invoice_resend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/notify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Send a status message again (the email, and an SMS where the customer asked for them), when it is true. */
+        post: operations["staff_orders_notify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/offline-payment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A payment received by transfer or UPI: staff.approvals "order.offline_payment" (above your limit, or a ₹0
+         *     order, FINANCE approves).
+         */
+        post: operations["staff_orders_offline_payment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/pack/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Packed (the customer is told). Refused for a held order, a test order, one not paid or placed. */
+        post: operations["staff_orders_pack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/payment-link/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A staff order's Razorpay Payment Link: sent (made once; then the same link again), or cancelled (the next
+         *     one sent is new). 503 while Razorpay cannot be reached.
+         */
+        post: operations["staff_orders_payment_link_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A refund: its lines with quantities (from 0) and the shipping, the copies back into stock or not, to the
+         *     way it was paid (Razorpay, normal or optimum) or by bank or UPI (cash on delivery and transfers; an online
+         *     payment with the customer's agreement), or a return's (`return`); not sent yet: cancelled and refunded in
+         *     full. Through staff.approvals "order.refund": within your refund limit it runs at once (201), above it FINANCE
+         *     approves (202). `warnings`: a payment older than 6 months.
+         */
+        post: operations["staff_orders_refunds_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/release/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Release a held order: back in the packing queue. */
+        post: operations["staff_orders_release_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A return asked for by staff for the customer (a delivered order; no window: the website's is
+         *     SHOP_RETURN_DAYS).
+         */
+        post: operations["staff_orders_returns_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/ship/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Sent by hand at the counter (India Post, a courier without an API): the courier and the number; the
+         *     customer is told with the tracking link. A courier booked through Shiprocket is the shipping app's.
+         */
+        post: operations["staff_orders_ship_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/tags/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Add and remove tags (school, awaiting reprint …). */
+        post: operations["staff_orders_tags_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/packing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The packing queue: paid (or placed to pay on delivery) and not packed, not on hold, not a test order, not
+         *     courses alone; oldest first, each with its books to pick, a weight hint, the COD badge and its risk.
+         */
+        get: operations["staff_orders_packing_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/pick-list/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The pick list of these orders (numbers): each book once, with its copies and the orders it goes in. */
+        post: operations["staff_orders_pick_list_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What a staff order would cost before it is asked for: today's prices with the offers, your discount's share
+         *     of the books after them, the shipping, and whether it would wait for a second person (`approval`: the rule's
+         *     words) or be made at once (null). Nothing is stored.
+         */
+        post: operations["staff_orders_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/products/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Books on sale for a staff order's lines: 20 at most, matched by title, slug or ISBN. */
+        get: operations["staff_orders_products_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Schools' and booksellers' quotation requests (the website's form), and their conversion to a staff order:
+         *     the quote's books, its discount and shipping, the address given; once (the quote keeps its order).
+         */
+        get: operations["staff_orders_quotes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Schools' and booksellers' quotation requests (the website's form), and their conversion to a staff order:
+         *     the quote's books, its discount and shipping, the address given; once (the quote keeps its order).
+         */
+        get: operations["staff_orders_quotes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/convert/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A staff order from the quote: its books (at today's prices, with the offers), its discount and shipping,
+         *     the address given; through the staff order's approval. Refused once it has an order, or one waits.
+         */
+        post: operations["staff_orders_quotes_convert_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/quotation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The quotation's PDF, once made (the admin's "Make the quotation PDF"). */
+        get: operations["staff_orders_quotes_quotation_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/refunds/{id}/mark-paid/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A refund by bank or UPI: its payee shown to FINANCE with a reason (logged, re-authenticated, limited), and
+         *     marked paid with the transfer's UTR (the refund processed, the credit note made, the customer told; once).
+         */
+        post: operations["staff_orders_refunds_mark_paid_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/refunds/{id}/payee/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The customer's bank account or UPI ID, for the transfer: a reason, logged (sensitive_read). */
+        post: operations["staff_orders_refunds_payee_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Returns: asked for (by the customer on the website, or staff), decided (staff.handle_return), received and
+         *     inspected (staff.receive_return: the packing room), then refunded through the order's refunds/ naming it.
+         */
+        get: operations["staff_orders_returns_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Returns: asked for (by the customer on the website, or staff), decided (staff.handle_return), received and
+         *     inspected (staff.receive_return: the packing room), then refunded through the order's refunds/ naming it.
+         */
+        get: operations["staff_orders_returns_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approved: the customer is told how to send it back. */
+        post: operations["staff_orders_returns_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/decline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Declined, with the reason the customer is told. */
+        post: operations["staff_orders_returns_decline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/inspect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Inspected: back into stock (its copies added, the return the reason) or damaged. */
+        post: operations["staff_orders_returns_inspect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/label/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The return label sent: the courier and the AWB the customer hands the parcel over with. */
+        post: operations["staff_orders_returns_label_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/photos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A photograph of what came back (5 at most; the private storage). */
+        post: operations["staff_orders_returns_photos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/photos/{index}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One of its photographs (by its place, from 0). */
+        get: operations["staff_orders_returns_photos_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/receive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The parcel is back with us. */
+        post: operations["staff_orders_returns_receive_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5836,6 +6583,18 @@ export interface components {
             }[];
             readonly deletion_due_at: string | null;
         };
+        CustomerReturnLineRequest: {
+            /** @description a book of the order: its items' `product` */
+            product: string;
+            /** @description copies to send back; 0: none */
+            quantity: number;
+        };
+        CustomerReturnRequest: {
+            lines: components["schemas"]["CustomerReturnLineRequest"][];
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** @description what happened */
+            note?: string;
+        };
         DarkPatternAudit: {
             readonly id: number;
             /**
@@ -6560,6 +7319,11 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
             /** @description for orders/t/<token>/ and its payment; also in the emails */
             readonly token: string;
         };
@@ -6756,9 +7520,12 @@ export interface components {
          *     * `credit_note_missing` - a refund without its credit note
          *     * `processor_task` - a processor to tell: erase, or stop
          *     * `compliance` - a compliance duty: a self-audit, a held erasure
+         *     * `order_hold` - order on hold
+         *     * `return_request` - return asked for
+         *     * `bank_refund` - refund to transfer by bank or UPI
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund";
         Incident: {
             readonly id: number;
             title: string;
@@ -6932,12 +7699,16 @@ export interface components {
          *     * `bulk_action` - bulk action
          *     * `erp_initial_load` - ERPNext initial load
          *     * `gstr1_export` - GSTR-1 export
+         *     * `orders_pack` - orders marked packed
+         *     * `orders_print` - order documents printed
+         *     * `orders_cancel` - orders cancelled
+         *     * `orders_export` - order export
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's) */
             params?: {
                 [key: string]: unknown;
             };
@@ -7338,6 +8109,28 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
+        };
+        OrderAction: {
+            /** @description pack, ship, deliver, cancel, hold, release, payment_link, offline_payment, … */
+            name: string;
+            permission: string;
+            /** @description the one next action: the header's button */
+            primary: boolean;
+        };
+        OrderAddress: {
+            name: string;
+            phone: string;
+            line1: string;
+            line2: string;
+            city: string;
+            district: string;
+            state: string;
+            pin: string;
         };
         OrderBrief: {
             readonly number: string | null;
@@ -7361,6 +8154,150 @@ export interface components {
             /** @description books to deliver: the address, fee and tracking apply */
             readonly has_shipping: boolean;
         };
+        OrderCancelRequest: {
+            /** @description told to the customer */
+            reason: string;
+            /**
+             * @description the customer asked
+             * @default false
+             */
+            customer_requested: boolean;
+            /**
+             * @description a parcel back: its copies sellable
+             * @default true
+             */
+            restock: boolean;
+        };
+        OrderCourier: {
+            name: string;
+            tracking_number: string;
+        };
+        /** @description The buyer, masked: the account (its full view is users/{id}/), or a guest. */
+        OrderCustomer: {
+            /** @description the account; null: a guest (or an account erased) */
+            id: number | null;
+            /** @description as on the delivery address */
+            name: string;
+            /** @description masked */
+            email: string;
+            /** @description masked */
+            phone: string;
+            is_minor: boolean;
+        };
+        /** @description An order as its record shows it (GET orders/{number}/). */
+        OrderDetail: {
+            readonly id: number;
+            readonly number: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Paid online, or placed with cash on delivery.
+             */
+            readonly placed_at: string | null;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly status_label: string;
+            readonly payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly total: string;
+            readonly items: string[];
+            readonly customer: components["schemas"]["OrderCustomer"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
+            /** @description the latest parcel's status (the shipping app's), or null */
+            readonly parcel: string | null;
+            readonly tags: string[];
+            readonly held: boolean;
+            readonly hold_reason: string;
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            readonly is_cod: boolean;
+            /** @default false */
+            readonly has_returns: boolean;
+            /** @description made by staff: a phone, WhatsApp or school order */
+            readonly staff_order: boolean;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (its payment's mode).
+             */
+            readonly livemode: boolean;
+            /** Format: decimal */
+            readonly subtotal: string;
+            /** Format: decimal */
+            readonly discount: string;
+            /** Format: decimal */
+            readonly shipping_fee: string;
+            readonly coupon_code: string;
+            readonly savings: components["schemas"]["OrderSaving"][];
+            readonly address: components["schemas"]["OrderAddress"];
+            readonly lines: components["schemas"]["OrderLine"][];
+            readonly payments: components["schemas"]["OrderPayment"][];
+            readonly refunds: components["schemas"]["OrderRefund"][];
+            readonly documents: components["schemas"]["OrderDocument"][];
+            readonly shipments: components["schemas"]["OrderParcel"][];
+            readonly returns: components["schemas"]["ReturnRow"][];
+            readonly hold: components["schemas"]["OrderHold"] | null;
+            readonly risk_reasons: string[];
+            readonly is_digital: boolean;
+            readonly quote: string | null;
+            readonly created_by: string | null;
+            readonly actions: components["schemas"]["OrderAction"][];
+            readonly refund: components["schemas"]["OrderRefundOptions"];
+            readonly erp: components["schemas"]["OrderErpLink"][];
+            readonly timeline: components["schemas"]["OrderTimelineEntry"][];
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        OrderDocument: {
+            kind: components["schemas"]["OrderDocumentKindEnum"];
+            id: number;
+            number: string;
+            /** Format: date-time */
+            created: string;
+            /** @description its PDF is made: GET its url */
+            ready: boolean;
+            /** @description the PDF, for staff (this API's) */
+            url: string;
+            /** Format: decimal */
+            amount: string | null;
+        };
+        /**
+         * @description * `invoice` - invoice
+         *     * `credit_note` - credit_note
+         * @enum {string}
+         */
+        OrderDocumentKindEnum: "invoice" | "credit_note";
+        OrderDocumentsQueued: {
+            detail: string;
+        };
+        OrderErpLink: {
+            model: string;
+            object_id: string;
+            doctype: string;
+            name: string;
+            /** Format: date-time */
+            synced_at: string;
+        };
+        OrderHold: {
+            /** Format: date-time */
+            at: string;
+            by: string;
+            reason: string;
+        };
+        OrderHoldReasonRequest: {
+            /** @description an address to check, a payment to confirm … */
+            reason: string;
+        };
+        OrderInvoiceSent: {
+            detail: string;
+        };
         OrderItem: {
             readonly product: string;
             title: string;
@@ -7379,6 +8316,44 @@ export interface components {
             quantity: number;
             /** Format: decimal */
             readonly line_total: string;
+        };
+        OrderLine: {
+            id: number;
+            /** @description its slug */
+            product: string;
+            title: string;
+            isbn: string;
+            hsn_code: string;
+            /** Format: decimal */
+            gst_rate: string;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** Format: decimal */
+            readonly unit_price: string;
+            quantity: number;
+            /** Format: decimal */
+            readonly line_total: string;
+            /**
+             * Format: decimal
+             * @description its share of the order's discounts
+             */
+            readonly discount: string;
+            /**
+             * Format: decimal
+             * @description its total less its discount: what a refund of it is worth
+             */
+            readonly invoiced: string;
+            /** @description copies refunded already (refunds under way or made) */
+            refunded: number;
+            /** @description copies not yet asked back */
+            returnable: number;
+            digital: boolean;
+        };
+        OrderLineAskRequest: {
+            /** @description an order line's id */
+            item: number;
+            /** @description copies; 0: not this line */
+            quantity: number;
         };
         /**
          * @description The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);
@@ -7428,6 +8403,320 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
+        };
+        OrderNotified: {
+            detail: string;
+        };
+        /**
+         * @description * `placed` - placed
+         *     * `paid` - paid
+         *     * `packed` - packed
+         *     * `shipped` - shipped
+         *     * `delivered` - delivered
+         *     * `cancelled` - cancelled
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        OrderNotifyKindEnum: "placed" | "paid" | "packed" | "shipped" | "delivered" | "cancelled" | "refunded";
+        OrderNotifyRequest: {
+            kind: components["schemas"]["OrderNotifyKindEnum"];
+        };
+        OrderOfflinePaymentRequest: {
+            /** @description the UTR or UPI reference, as on the bank statement */
+            reference: string;
+            reason: string;
+        };
+        /** @description A parcel of the order (the shipping app's) and its last scan. */
+        OrderParcel: {
+            readonly id: number;
+            readonly order: string;
+            readonly courier: components["schemas"]["CourierEnum"];
+            readonly tracking_number: string;
+            /**
+             * Format: uri
+             * @description Empty: the courier's tracking page, or 17TRACK's.
+             */
+            readonly tracking_url: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            readonly detail: components["schemas"]["ParcelDetail"] | null;
+            readonly last_event: components["schemas"]["ShipmentEvent"] | null;
+        };
+        OrderPayment: {
+            readonly id: number;
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            /** Format: uri */
+            readonly payment_link_url: string;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /**
+             * Format: decimal
+             * @description what is left of it to refund
+             */
+            readonly refundable: string;
+            /** @description Razorpay may refuse a normal refund */
+            readonly older_than_6_months: boolean;
+        };
+        /**
+         * @description * `send` - send
+         *     * `cancel` - cancel
+         * @enum {string}
+         */
+        OrderPaymentLinkActionEnum: "send" | "cancel";
+        OrderPaymentLinkRequest: {
+            /** @default send */
+            action: components["schemas"]["OrderPaymentLinkActionEnum"];
+        };
+        OrderPaymentLinkSent: {
+            detail: string;
+            url: string;
+        };
+        /**
+         * @description * `created` - created
+         *     * `authorized` - authorized
+         *     * `captured` - captured
+         *     * `failed` - failed
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        OrderPaymentStatusEnum: "created" | "authorized" | "captured" | "failed" | "refunded";
+        OrderRefund: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["RefundStatusEnum"];
+            readonly reason: string;
+            readonly method: components["schemas"]["OrderRefundMethodEnum"];
+            readonly speed: components["schemas"]["RefundSpeedEnum"];
+            readonly lines: components["schemas"]["OrderRefundLine"][];
+            /** Format: decimal */
+            readonly shipping_amount: string;
+            /** @description The copies refunded went back into stock. */
+            readonly restock: boolean;
+            readonly payee_masked: string;
+            /**
+             * UTR or UPI reference
+             * @description Of a transfer by bank or UPI.
+             */
+            readonly utr: string;
+            /** @description The bank's reference, from Razorpay. */
+            readonly arn: string;
+            readonly razorpay_refund_id: string | null;
+            readonly change_request: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+            readonly error: string;
+            readonly credit_note: string | null;
+            readonly payment_method: string;
+        };
+        /**
+         * @description * `source` - source
+         *     * `bank` - bank
+         * @enum {string}
+         */
+        OrderRefundAskMethodEnum: "source" | "bank";
+        OrderRefundAskRequest: {
+            /** @description the copies refunded; quantities start at 0 */
+            lines?: components["schemas"]["OrderLineAskRequest"][];
+            /** Format: decimal */
+            shipping?: string;
+            /**
+             * @description the copies go back into stock
+             * @default false
+             */
+            restock: boolean;
+            /**
+             * @description default: the payment's
+             *
+             *     * `source` - source
+             *     * `bank` - bank
+             */
+            method?: components["schemas"]["OrderRefundAskMethodEnum"];
+            /** @default normal */
+            speed: components["schemas"]["RefundSpeedEnum"];
+            /** @description method bank: the customer's UPI ID, or bank account */
+            payee?: components["schemas"]["RefundPayeeRequest"];
+            /**
+             * @description bank for an online payment
+             * @default false
+             */
+            customer_agreed: boolean;
+            reason: string;
+            /** @description a return of the order, inspected: its refund (its lines by default) */
+            return?: number;
+        };
+        OrderRefundAsked: {
+            readonly id: number;
+            action: string;
+            readonly label: string;
+            target_type?: string;
+            target_id?: string;
+            target_label?: string;
+            payload?: unknown;
+            payload_sha256: string;
+            /**
+             * Amount (₹)
+             * Format: decimal
+             */
+            amount?: string | null;
+            maker: number;
+            reason: string;
+            /** @description Why it needed approval, or why not. */
+            rule?: string;
+            status?: components["schemas"]["ChangeRequestStatusEnum"];
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Approved by its maker: an owner's override. */
+            overridden?: boolean;
+            /** @description the permission an approver needs */
+            readonly checker: string;
+            readonly approvals: components["schemas"]["Approval"][];
+            result?: unknown;
+            executed_by?: number | null;
+            /** Format: date-time */
+            executed_at?: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly warnings: string[];
+        };
+        OrderRefundLine: {
+            item: number;
+            quantity: number;
+            /** Format: decimal */
+            amount: string;
+        };
+        /**
+         * @description * `source` - to the way it was paid (Razorpay)
+         *     * `bank` - by bank transfer or UPI to the account the customer gave
+         *     * `none` - nothing was paid: the credit note only
+         * @enum {string}
+         */
+        OrderRefundMethodEnum: "source" | "bank" | "none";
+        OrderRefundOptions: {
+            payment: number | null;
+            payment_method: string | null;
+            /**
+             * Format: decimal
+             * @description what is left to refund
+             */
+            refundable: string;
+            /** Format: decimal */
+            shipping_left: string;
+            /** @description source and bank, or bank only */
+            methods: string[];
+            /** @description not sent yet: a refund cancels it and gives back everything */
+            cancels: boolean;
+            payment_age_days: number | null;
+            warnings: string[];
+        };
+        /** @description A return of the order (asked for on the website or by staff for the customer), where it stands. */
+        OrderReturn: {
+            /** @description RR-00012 */
+            number: string;
+            status: components["schemas"]["ReturnStatusEnum"];
+            /** @description as the website shows it */
+            status_label: string;
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** Format: date-time */
+            created: string;
+            lines: components["schemas"]["OrderReturnLine"][];
+            /** @description why it was declined, when it was */
+            decision_note: string;
+            return_courier: string;
+            /** @description hand the parcel over with this number */
+            return_awb: string;
+        };
+        OrderReturnLine: {
+            product: string;
+            title: string;
+            quantity: number;
+        };
+        /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         * @enum {string}
+         */
+        OrderRiskEnum: "low" | "medium" | "high";
+        /** @description An order in the list: what a row shows, with no query per row (the view prefetches). */
+        OrderRow: {
+            readonly id: number;
+            readonly number: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Paid online, or placed with cash on delivery.
+             */
+            readonly placed_at: string | null;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly status_label: string;
+            readonly payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly total: string;
+            readonly items: string[];
+            readonly customer: components["schemas"]["OrderCustomer"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
+            /** @description the latest parcel's status (the shipping app's), or null */
+            readonly parcel: string | null;
+            readonly tags: string[];
+            readonly held: boolean;
+            readonly hold_reason: string;
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            readonly is_cod: boolean;
+            /** @default false */
+            readonly has_returns: boolean;
+            /** @description made by staff: a phone, WhatsApp or school order */
+            readonly staff_order: boolean;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (its payment's mode).
+             */
+            readonly livemode: boolean;
+        };
+        OrderSaving: {
+            label: string;
+            /** Format: decimal */
+            amount: string;
+        };
+        OrderShipRequest: {
+            courier: components["schemas"]["CourierEnum"];
+            tracking_number: string;
+            tracking_url?: string;
         };
         /**
          * @description * `pending` - awaiting payment
@@ -7440,6 +8729,43 @@ export interface components {
          * @enum {string}
          */
         OrderStatusEnum: "pending" | "paid" | "packed" | "shipped" | "delivered" | "cancelled" | "refunded";
+        OrderTagsRequest: {
+            add?: string[];
+            remove?: string[];
+        };
+        OrderTimelineEntry: {
+            /** Format: date-time */
+            at: string;
+            /** @description status, payment, refund, parcel, scan, message, note, hold, return, audit, erp */
+            kind: string;
+            label: string;
+            /** @description a member of staff's name, the customer, the site, or empty */
+            actor: string;
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description An order of the packing queue. */
+        PackingRow: {
+            number: string;
+            /** Format: date-time */
+            placed_at: string;
+            payment_method: string;
+            is_cod: boolean;
+            /**
+             * Format: decimal
+             * @description the cash to collect, if COD
+             */
+            total: string;
+            risk_bucket: string;
+            tags: string[];
+            /** @description town, district and PIN code */
+            destination: string;
+            /** @description the books' and the packing; null: a book has none */
+            weight_g: number | null;
+            /** @description each book once, with its copies (a bundle's books) */
+            pick: components["schemas"]["PickLine"][];
+        };
         Page: {
             slug: components["schemas"]["SlugEnum"];
             title: string;
@@ -7975,6 +9301,32 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["OrderBrief"][];
         };
+        PaginatedOrderRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OrderRow"][];
+        };
+        PaginatedPackingRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["PackingRow"][];
+        };
         PaginatedPageList: {
             /** @example 123 */
             count: number;
@@ -8105,6 +9457,32 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["QuizItem"][];
+        };
+        PaginatedQuoteRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["QuoteRow"][];
+        };
+        PaginatedReturnRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ReturnRow"][];
         };
         PaginatedSavedViewList: {
             /**
@@ -8724,6 +10102,14 @@ export interface components {
              */
             photo: string;
         };
+        PickLine: {
+            title: string;
+            isbn: string;
+            quantity: number;
+        };
+        PickListRequest: {
+            orders: string[];
+        };
         PickupLocation: {
             readonly id: number;
             nickname: string;
@@ -9134,6 +10520,18 @@ export interface components {
             /** @description the renamed product's slug; Location: its products/<slug>/ */
             redirect_to: string;
         };
+        ProductPick: {
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly isbn: string;
+            /** Format: decimal */
+            readonly price: string;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** @description copies that can be sold now */
+            readonly available: number;
+        };
         /** @description A buyer's review as the product page shows it: "Verified buyer", never a name (many buyers are minors). */
         ProductReview: {
             rating: number;
@@ -9322,6 +10720,61 @@ export interface components {
             /** @description the carrier's own pick */
             recommended: boolean;
         };
+        QuoteConvertRequest: {
+            /** @description where the books go (the quote has only its PIN code) */
+            address: components["schemas"]["ShippingAddressRequest"];
+            /**
+             * Format: email
+             * @description default: the quote's
+             */
+            email?: string;
+            /** @default true */
+            send_link: boolean;
+            note?: string;
+            /** @default A school's quotation accepted. */
+            reason: string;
+        };
+        QuoteDetail: {
+            readonly id: number;
+            readonly number: string;
+            /** School or organisation */
+            readonly school: string;
+            /** Contact person */
+            readonly contact_name: string;
+            readonly email: string;
+            readonly phone: string;
+            readonly gstin: string;
+            /** Delivery PIN code */
+            readonly delivery_pin: string;
+            readonly copies: number;
+            readonly status: components["schemas"]["QuoteStatusEnum"];
+            /**
+             * Discount (%)
+             * Format: decimal
+             * @description On the books, in the next quotation.
+             */
+            readonly discount_percent: string;
+            /**
+             * Shipping (₹)
+             * Format: decimal
+             */
+            readonly shipping_fee: string;
+            /** Format: date-time */
+            readonly quoted_at: string | null;
+            /** Format: date */
+            readonly valid_until: string | null;
+            readonly has_quotation: boolean;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description product, title, quantity */
+            readonly items: {
+                [key: string]: unknown;
+            }[];
+            readonly note: string;
+            /** @description a conversion waiting for approval: its change request */
+            readonly waiting: number | null;
+        };
         QuoteItemRequest: {
             /** @description a product's slug (products/) */
             product: string;
@@ -9352,11 +10805,53 @@ export interface components {
             stale: boolean;
             error: string;
         };
+        QuoteRow: {
+            readonly id: number;
+            readonly number: string;
+            /** School or organisation */
+            readonly school: string;
+            /** Contact person */
+            readonly contact_name: string;
+            readonly email: string;
+            readonly phone: string;
+            readonly gstin: string;
+            /** Delivery PIN code */
+            readonly delivery_pin: string;
+            readonly copies: number;
+            readonly status: components["schemas"]["QuoteStatusEnum"];
+            /**
+             * Discount (%)
+             * Format: decimal
+             * @description On the books, in the next quotation.
+             */
+            readonly discount_percent: string;
+            /**
+             * Shipping (₹)
+             * Format: decimal
+             */
+            readonly shipping_fee: string;
+            /** Format: date-time */
+            readonly quoted_at: string | null;
+            /** Format: date */
+            readonly valid_until: string | null;
+            readonly has_quotation: boolean;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
         QuoteSent: {
             /** @description QT-2026-00012 */
             number: string;
             detail: string;
         };
+        /**
+         * @description * `new` - new
+         *     * `quoted` - quotation made
+         *     * `ordered` - ordered
+         *     * `closed` - closed
+         * @enum {string}
+         */
+        QuoteStatusEnum: "new" | "quoted" | "ordered" | "closed";
         ReasonRequest: {
             /** @description Why: kept in the audit log */
             reason: string;
@@ -9389,6 +10884,42 @@ export interface components {
             /** Format: date-time */
             processed_at: string | null;
         };
+        RefundMarkPaidRequest: {
+            /** @description the transfer's UTR or UPI reference */
+            utr: string;
+        };
+        RefundPayee: {
+            /** @description name@bank */
+            upi?: string;
+            account?: string;
+            ifsc?: string;
+            /** @description the account holder */
+            name?: string;
+        };
+        RefundPayeeReasonRequest: {
+            reason: string;
+        };
+        RefundPayeeRequest: {
+            /** @description name@bank */
+            upi?: string;
+            account?: string;
+            ifsc?: string;
+            /** @description the account holder */
+            name?: string;
+        };
+        /**
+         * @description * `normal` - normal (5 to 7 working days)
+         *     * `optimum` - optimum (instant where the bank allows, else normal)
+         * @enum {string}
+         */
+        RefundSpeedEnum: "normal" | "optimum";
+        /**
+         * @description * `pending` - requested
+         *     * `processed` - processed
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        RefundStatusEnum: "pending" | "processed" | "failed";
         /**
          * @description The website's sign-up form, field for field, with its rules: under 18, a parent's name and phone or email, and
          *     the parent ticks the consent; everyone agrees to the privacy notice; the email and password rules of the site.
@@ -9448,6 +10979,123 @@ export interface components {
             trim_days: number | null;
             enforced_by: string;
         };
+        ReturnAskRequest: {
+            lines: components["schemas"]["OrderLineAskRequest"][];
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** @description the customer's words */
+            note?: string;
+        };
+        ReturnDeclineRequest: {
+            /** @description why: the customer is told */
+            note: string;
+        };
+        ReturnDetail: {
+            readonly id: number;
+            readonly number: string;
+            readonly order: string;
+            readonly status: components["schemas"]["ReturnStatusEnum"];
+            readonly status_label: string;
+            readonly reason: components["schemas"]["ReturnReasonEnum"];
+            readonly reason_label: string;
+            readonly lines: components["schemas"]["ReturnLine"][];
+            /** @description Asked for on the website, not by staff. */
+            readonly by_customer: boolean;
+            /** @description Told to the customer: why it was declined. */
+            readonly decision_note: string;
+            readonly return_courier: string;
+            readonly return_awb: string;
+            /** @description how many: GET photos/{index}/ each */
+            readonly photos: number;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            /** Format: date-time */
+            readonly inspected_at: string | null;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description the customer's words */
+            readonly note: string;
+            /** @description the moves it may make now, as the actions' names */
+            readonly next: string[];
+        };
+        /**
+         * @description * `restocked` - restocked
+         *     * `damaged` - damaged
+         * @enum {string}
+         */
+        ReturnInspectOutcomeEnum: "restocked" | "damaged";
+        ReturnInspectRequest: {
+            outcome: components["schemas"]["ReturnInspectOutcomeEnum"];
+        };
+        ReturnLabelRequest: {
+            courier: string;
+            awb: string;
+        };
+        ReturnLine: {
+            item: number;
+            title: string;
+            quantity: number;
+        };
+        ReturnPhotoRequest: {
+            /**
+             * Format: binary
+             * @description JPEG, PNG or WebP, 5 MB at most
+             */
+            photo: string;
+        };
+        /**
+         * @description * `damaged` - damaged in transit
+         *     * `misprint` - misprinted or pages missing
+         *     * `wrong_item` - not the book ordered
+         *     * `late` - delivered late
+         *     * `not_as_described` - not as described
+         *     * `other` - another reason
+         * @enum {string}
+         */
+        ReturnReasonEnum: "damaged" | "misprint" | "wrong_item" | "late" | "not_as_described" | "other";
+        ReturnRow: {
+            readonly id: number;
+            readonly number: string;
+            readonly order: string;
+            readonly status: components["schemas"]["ReturnStatusEnum"];
+            readonly status_label: string;
+            readonly reason: components["schemas"]["ReturnReasonEnum"];
+            readonly reason_label: string;
+            readonly lines: components["schemas"]["ReturnLine"][];
+            /** @description Asked for on the website, not by staff. */
+            readonly by_customer: boolean;
+            /** @description Told to the customer: why it was declined. */
+            readonly decision_note: string;
+            readonly return_courier: string;
+            readonly return_awb: string;
+            /** @description how many: GET photos/{index}/ each */
+            readonly photos: number;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            /** Format: date-time */
+            readonly inspected_at: string | null;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description * `requested` - requested
+         *     * `approved` - approved: send it back
+         *     * `declined` - declined
+         *     * `label_sent` - return label sent
+         *     * `received` - received
+         *     * `restocked` - inspected: back in stock
+         *     * `damaged` - inspected: damaged
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        ReturnStatusEnum: "requested" | "approved" | "declined" | "label_sent" | "received" | "restocked" | "damaged" | "refunded";
         RevealReasonRequest: {
             /** @description why: kept in the audit log */
             reason: string;
@@ -9936,6 +11584,109 @@ export interface components {
             impersonating: components["schemas"]["StaffImpersonating"] | null;
             /** @description changes when anything above changes: fetch again */
             manifest_version: string;
+        };
+        /**
+         * @description * `phone` - by phone
+         *     * `whatsapp` - on WhatsApp
+         *     * `school` - for a school
+         *     * `email` - by email
+         * @enum {string}
+         */
+        StaffOrderChannelEnum: "phone" | "whatsapp" | "school" | "email";
+        StaffOrderLineRequest: {
+            /** @description a product on sale */
+            product: string;
+            quantity: number;
+        };
+        /** @description What the staff order would be: priced as the checkout prices it, and the approval rule's answer. */
+        StaffOrderPreview: {
+            lines: components["schemas"]["StaffOrderPreviewLine"][];
+            /** Format: decimal */
+            subtotal: string;
+            /**
+             * Format: decimal
+             * @description the automatic offers' rupees
+             */
+            offers: string;
+            /**
+             * Format: decimal
+             * @description yours, at most the books' value
+             */
+            discount: string;
+            /**
+             * Format: decimal
+             * @description of the books after the offers
+             */
+            percent: string;
+            /** Format: decimal */
+            shipping: string | null;
+            /** Format: decimal */
+            total: string;
+            /**
+             * Format: decimal
+             * @description yours; null: none
+             */
+            limit: string | null;
+            /** @description why a second person approves it; null: made at once */
+            approval: string | null;
+            /** @description what stops it: off sale, sold out */
+            problems: string[];
+        };
+        StaffOrderPreviewAskRequest: {
+            lines: components["schemas"]["StaffOrderLineRequest"][];
+            /** @description the delivery address's state code: the shipping rate's */
+            state: string;
+            /** @description the customer's: offers once a person */
+            email?: string;
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            discount: string;
+            /** Format: decimal */
+            shipping?: string | null;
+        };
+        StaffOrderPreviewLine: {
+            product: string;
+            title: string;
+            /** Format: decimal */
+            unit_price: string;
+            quantity: number;
+            /** Format: decimal */
+            line_total: string;
+            /** @description copies that can be sold now */
+            available: number;
+        };
+        StaffOrderRequest: {
+            channel: components["schemas"]["StaffOrderChannelEnum"];
+            lines: components["schemas"]["StaffOrderLineRequest"][];
+            /**
+             * Format: email
+             * @description the customer's: the order, the payment link and the invoice go there
+             */
+            email: string;
+            /** @description the PIN code's state is checked against India Post's directory */
+            address: components["schemas"]["ShippingAddressRequest"];
+            /**
+             * Format: decimal
+             * @description rupees off the books, after the offers
+             * @default 0.00
+             */
+            discount: string;
+            /**
+             * Format: decimal
+             * @description null: the shipping rates'
+             */
+            shipping?: string | null;
+            /**
+             * @description email a Razorpay payment link
+             * @default true
+             */
+            send_link: boolean;
+            /** @description an internal note */
+            note?: string;
+            /** @description why (the approvals' and the audit log's) */
+            reason: string;
         };
         StaffSystem: {
             health: unknown;
@@ -12665,6 +14416,31 @@ export interface operations {
             };
         };
     };
+    orders_returns_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReturnRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
     orders_lookup_create: {
         parameters: {
             query?: never;
@@ -15146,8 +16922,11 @@ export interface operations {
                  *     * `credit_note_missing` - a refund without its credit note
                  *     * `processor_task` - a processor to tell: erase, or stop
                  *     * `compliance` - a compliance duty: a self-audit, a held erasure
+                 *     * `order_hold` - order on hold
+                 *     * `return_request` - return asked for
+                 *     * `bank_refund` - refund to transfer by bank or UPI
                  */
-                kind?: "approval" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "processor_task" | "reconciliation" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
+                kind?: "approval" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -15427,8 +17206,12 @@ export interface operations {
                  *     * `bulk_action` - bulk action
                  *     * `erp_initial_load` - ERPNext initial load
                  *     * `gstr1_export` - GSTR-1 export
+                 *     * `orders_pack` - orders marked packed
+                 *     * `orders_print` - order documents printed
+                 *     * `orders_cancel` - orders cancelled
+                 *     * `orders_export` - order export
                  */
-                kind?: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export";
+                kind?: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -15600,6 +17383,1081 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Note"];
+                };
+            };
+        };
+    };
+    staff_orders_list: {
+        parameters: {
+            query?: {
+                /** @description a courier's name, as on its parcels */
+                courier?: string;
+                /** @description a day (India time), from it on */
+                created_from?: string;
+                /** @description a day (India time), up to its end */
+                created_to?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                hold?: boolean;
+                /** @description default: the live site's own (test orders only when asked) */
+                livemode?: boolean;
+                /**
+                 * @description * `razorpay` - online (UPI, card, net banking)
+                 *     * `cod` - cash on delivery
+                 *     * `offline` - bank transfer or UPI to our account
+                 */
+                method?: "cod" | "offline" | "razorpay";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a number, name, email, phone digits, AWB, document, code */
+                q?: string;
+                /**
+                 * @description * `low` - low
+                 *     * `medium` - medium
+                 *     * `high` - high
+                 */
+                risk?: "high" | "low" | "medium";
+                /** @description a parcel status, or none (no parcel) */
+                shipping?: string;
+                /**
+                 * @description * `pending` - awaiting payment
+                 *     * `paid` - paid
+                 *     * `packed` - packed
+                 *     * `shipped` - shipped
+                 *     * `delivered` - delivered
+                 *     * `cancelled` - cancelled
+                 *     * `refunded` - refunded
+                 */
+                status?: "cancelled" | "delivered" | "packed" | "paid" | "pending" | "refunded" | "shipped";
+                /**
+                 * @description the panel's tabs
+                 *
+                 *     * `to_pack` - paid, or placed to pay on delivery, not packed, not on hold
+                 *     * `shipped` - on their way
+                 *     * `returns` - a parcel coming back or back, or a return asked for
+                 *     * `cancelled` - cancelled
+                 *     * `drafts` - made by staff and waiting for their payment
+                 */
+                tab?: "cancelled" | "drafts" | "returns" | "shipped" | "to_pack";
+                tag?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOrderRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOrderRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_credit_notes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note: number;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_deliver_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_documents_label_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_documents_packing_slip_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_hold_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderHoldReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_invoice_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_invoice_regenerate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDocumentsQueued"];
+                };
+            };
+        };
+    };
+    staff_orders_invoice_resend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderInvoiceSent"];
+                };
+            };
+        };
+    };
+    staff_orders_notify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderNotifyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderNotified"];
+                };
+            };
+        };
+    };
+    staff_orders_offline_payment_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderOfflinePaymentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_pack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_payment_link_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderPaymentLinkRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPaymentLinkSent"];
+                };
+            };
+        };
+    };
+    staff_orders_refunds_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRefundAskRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefundAsked"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefundAsked"];
+                };
+            };
+        };
+    };
+    staff_orders_release_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnAskRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_ship_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderShipRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_tags_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderTagsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_packing_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPackingRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_pick_list_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickListRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOrderPreviewAskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOrderPreview"];
+                };
+            };
+        };
+    };
+    staff_orders_products_list: {
+        parameters: {
+            query?: {
+                /** @description a title, slug or ISBN: 2 characters or more */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPick"][];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `new` - new
+                 *     * `quoted` - quotation made
+                 *     * `ordered` - ordered
+                 *     * `closed` - closed
+                 */
+                status?: "closed" | "new" | "ordered" | "quoted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedQuoteRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_convert_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteConvertRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_quotation_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_refunds_mark_paid_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this refund. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundMarkPaidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefund"];
+                };
+            };
+        };
+    };
+    staff_orders_refunds_payee_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this refund. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundPayeeReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundPayee"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_list: {
+        parameters: {
+            query?: {
+                by_customer?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: not decided, received or inspected yet */
+                open?: boolean;
+                order?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `damaged` - damaged in transit
+                 *     * `misprint` - misprinted or pages missing
+                 *     * `wrong_item` - not the book ordered
+                 *     * `late` - delivered late
+                 *     * `not_as_described` - not as described
+                 *     * `other` - another reason
+                 */
+                reason?: "damaged" | "late" | "misprint" | "not_as_described" | "other" | "wrong_item";
+                /**
+                 * @description * `requested` - requested
+                 *     * `approved` - approved: send it back
+                 *     * `declined` - declined
+                 *     * `label_sent` - return label sent
+                 *     * `received` - received
+                 *     * `restocked` - inspected: back in stock
+                 *     * `damaged` - inspected: damaged
+                 *     * `refunded` - refunded
+                 */
+                status?: "approved" | "damaged" | "declined" | "label_sent" | "received" | "refunded" | "requested" | "restocked";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedReturnRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_decline_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnDeclineRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_inspect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnInspectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_label_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnLabelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_photos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ReturnPhotoRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_photos_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+        };
+    };
+    staff_orders_returns_receive_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
                 };
             };
         };

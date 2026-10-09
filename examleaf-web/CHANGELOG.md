@@ -96,6 +96,50 @@ dry run names); website: Vitest 213.
   **The website** (`../examleaf-frontend/`): © the legal name, the Grievance Officer and the certificate in the footer,
   the whole block on the contact page, "Version N, in force from …" with `/<page>/versions/`, and a parent's
   confirmation of their child's deletion on their own link.
+## Phase B, Orders (9 October 2026)
+
+The Admin Control Panel's Orders module (plan 5.3; [shop/README.md](shop/README.md), API.md "Orders (staff)"): staff
+find, act on, refund, take back, make and pack orders in the panel instead of the Django admin and the shell, every
+rule the shop's own and every money step through the approvals. 1,101 backend tests pass on SQLite (11 skipped),
+31 of them new (`shop/test_staff_orders_api.py`, two in `insights/tests/test_risk.py`), with 40 rows for the module's
+endpoints in the authorization matrix. Console: Vitest 97 (10 new), Playwright 8 in mock mode (2 new) and 10 against
+this backend (`E2E_STAFF_API=real`, the Orders journey new); website: Vitest 210 (3 new).
+
+- **Orders for staff** (`/api/v1/staff/orders/`, `shop/staff_orders.py`): the list with its tabs (to pack, shipped,
+  returns, cancelled, drafts), filters and saved views, test orders out unless asked; a search by number, document,
+  email, phone digits, AWB, book code or name, a search for a person being a `customer.lookup` event with the query's
+  keyed hash; the record with what each book was invoiced at, payments, refunds, documents, parcels, the customer
+  masked, risk, hold, tags, its ERPNext documents, the moves the state machine allows for the person (and the one
+  next step) and a timeline of its history, payments, parcels, messages, notes, returns and, for the log's readers,
+  its audit events. A child's order opened is a `sensitive_read`. Moves: pack, send by hand, deliver, cancel, hold,
+  release, tags, a message again, the invoice made or sent again, payment links, offline payments.
+- **Refunds by line or by bank**: the lines' invoiced values (their share of the coupon and offers off) and the
+  shipping, the copies back into stock or not, to the source through Razorpay (normal or optimum) or by bank or UPI
+  (cash on delivery and transfers; an online payment with the customer's agreement): the payee encrypted and masked,
+  FINANCE marking the transfer paid with its UTR, which makes the credit note once. The 6-month warning, the
+  Idempotency-Key and the change request kept on the refund. A cash-on-delivery parcel back undelivered is cancelled
+  with its invoice credited and no money moving (no `returned` state, the plan's 10.1).
+- **Returns** (`ReturnRequest`): asked for on the website within `SHOP_RETURN_DAYS` of delivery
+  (`POST /api/v1/orders/<number>/returns/`; the order shows `returns`, `can_return`, `return_until`) or by staff;
+  approved or declined, the label sent, received and inspected (back into stock or damaged), refunded; an inbox item
+  due in 48 hours, the customer emailed at each step. Deciding (`staff.handle_return`) is apart from receiving
+  (`staff.receive_return`).
+- **Staff orders and quotes**: `order.staff_discount`: within the maker's `discount_percent` made at once, beyond it or
+  at ₹0 the order does not exist until FINANCE approves; `POST orders/preview/` shows the price and the rule's answer
+  before saving; quotes made into orders once. The owners' weekly email (Mondays 08:00, once) lists staff discounts,
+  offline payments and ₹0 orders by who gave them.
+- **The packing room**: the queue oldest first (PACKER's scope now includes cash-on-delivery orders placed), the A4
+  packing slip with a QR code, the 4×6 label for parcels sent by hand, the pick list; bulk jobs `orders_pack`,
+  `orders_print`, `orders_cancel` (250 at most) and `orders_export` (a CSV line per book with the GST split).
+- **Cash-on-delivery risk** (`insights/jobs/risk.py`): the PIN code's and district's returned parcels from the shipping
+  app's outcomes, the customer's past returns by keyed hashes, a first COD order, its value
+  (`SHOP_COD_HIGH_VALUE_INR`), an address no courier could find; a high score holds the order for a payment check
+  while `SHOP_COD_HIGH_RISK_HOLD` is on. Nothing about a person is stored.
+- **Messages**: every status message recorded with its SMS sent, held or dropped; an SMS due between 21:00 and 08:00
+  sent at 08:00 if still true; a "packed" email; bank refunds and returns emailed.
+- **The console** (`../examleaf-admin/`): `/orders/`, `/orders/<number>/`, `/orders/packing/`, `/orders/returns/`,
+  `/orders/new/`, `/orders/quotes/`; DataTable's fixed views, chosen rows with a bulk bar, and Space to look at a row.
+  **The website** (`../examleaf-frontend/`): the order page's return form and each return's state.
 
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 

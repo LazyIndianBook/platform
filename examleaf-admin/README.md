@@ -47,7 +47,9 @@ typed from the same generated schema as the real calls (`fixtures.ts`, `handler.
 browser's `/api/v1/staff/…` to the route handler `src/app/api/mock/staff/[...path]/`, and server components call the
 handler in the same process. It is for working on a screen quickly and for the states a fresh database does not have:
 change requests in every state (pending, approved, rejected, expired, executed, failed), jobs queued,
-running, done, failed and cancelled, an overdue inbox, a data request near its clock, an incident's 6-hour clock, a
+running, done, failed and cancelled, orders in every state (paid and to pack, held, cash on delivery with a high risk,
+sent, delivered with returns, cancelled, a staff order waiting for its payment, a bank refund to mark paid, a test
+order; `src/mocks/staff/orders.ts`), an overdue inbox, a data request near its clock, an incident's 6-hour clock, a
 scheduled setting, revoked API keys, a person who left. Signing in stays real: each mock request asks the Django
 backend whose session cookie it carries who is signed in (`GET /api/v1/me/`: 401 signed out, 403 `mfa_setup_required`
 for staff without two-step sign-in, the role groups otherwise), "confirm it's you" reads allauth's own record of the
@@ -153,9 +155,14 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   month, cancelled, the test series apart) and `/tax/documents/<number with dashes>/` (its lines, Rule 46's checks, the
   PDF, cancelling it with its number typed), `/tax/series/` (table 13 of a year or a month), `/tax/gstr1/` (the
   month's or the quarter's export as a job, and the person's exports with their files). Every record page has its
-  notes and its audit trail beside it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`,
-  `/course/`, `/partners/` (distributors, schools, teachers) and `/insights/` say they come in the next phase and where
-  that work is done today.
+  notes and its audit trail beside it. The Orders module: `/orders/` (the tabs all, to pack, shipped, returns,
+  cancelled and drafts, the filters in the address, saved views, the bulk bar: mark packed with 5 s to undo, print,
+  cancel with the count typed, export; Space looks at an order beside the list), `/orders/<number>/` (the next step,
+  its books, money, documents, parcels, the customer masked, risk, hold and tags, the timeline; Danger: cancel, the
+  refund dialog, a return), `/orders/packing/` (packer mode), `/orders/returns/` and `<id>/`, `/orders/new/` (a staff
+  order, the discount rule's answer before saving) and `/orders/quotes/` and `<id>/` (made into an order once).
+  `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`, `/course/`, `/partners/` (distributors, schools, teachers)
+  and `/insights/` say they come in the next phase and where that work is done today.
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
   GST returns `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
@@ -197,15 +204,20 @@ nothing animates with reduced motion.
   you", a note, impersonation and End, a setting with a reason found in the audit trail, jobs (cancel one, download a
   file), ⌘K; legal and privacy (the cockpit, a child's deletion confirmed for the parent with the evidence, a legal
   hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
-  idle sign-out; and a break-glass session's reason and a policy acknowledged before anything else.
-- **Against the real backend** an OWNER and a SUPPORT member are made for the run, with an adult customer, an order
-  of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest and the inbox and
-  asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve: 403); the OWNER
-  approves it from the inbox and finds both steps in the audit trail; invites a colleague (a privileged role waits for
-  another person, never the maker); searches for the customer and reveals their address with a reason (audited);
-  acknowledges the data request; changes a setting with a reason; signs in to the website as the customer with the
-  real token and ends it (both audited); puts a legal hold on the customer, which the erasure's dry run then names;
-  and the idle sign-out comes at SUPPORT's 30 minutes, after which the API answers 401.
+  Orders module (SUPPORT's refund of two books above their limit answered with its change request; the packing queue's
+  mark packed undone, then sent); the idle sign-out; and a break-glass session's reason and a policy acknowledged
+  before anything else.
+- **Against the real backend** an OWNER, a SUPPORT, a SALES and a FINANCE member are made for the run, with an adult
+  customer, an order of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest
+  and the inbox and asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve:
+  403); the OWNER approves it from the inbox and finds both steps in the audit trail; invites a colleague (a privileged
+  role waits for another person, never the maker); searches for the customer and reveals their address with a reason
+  (audited); acknowledges the data request; changes a setting with a reason; signs in to the website as the customer
+  with the real token and ends it (both audited); puts a legal hold on the customer, which the erasure's dry run then
+  names; and the idle sign-out comes at SUPPORT's 30 minutes, after which the API answers 401. Then the Orders module,
+  on three books and an order of one of each paid online and sent: SALES makes a staff order (the rule's answer shown
+  before saving; made at once within 20%), FINANCE finds it by the customer's email, and SUPPORT asks for a refund of
+  two of its books, ₹1,900: the 202 and its change request.
 
 ## Deploy
 
@@ -283,3 +295,16 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   document cancelled already and for an invoice whose credit notes stand); `GET tax/series/` (`financial_year`,
   `month`), `GET tax/thresholds/`, `GET tax/calendar/` (`month`); `POST tax/gstr1/` (`{month, months, dry_run}`,
   `months` 1 or 3: 202 with a `gstr1_export` job, followed through `jobs/`).
+- **Orders** (API.md "Orders (staff)"): `GET orders/` (`tab`, `status`, `method`, `risk`, `hold`, `livemode`,
+  `shipping`, `courier`, `tag`, `created_from`, `created_to`, `q`), `GET orders/{number}/` (the record: `actions` with
+  the `primary` one, `refund` the dialog's facts, `timeline`; a number or an id), `POST orders/{number}/pack/`,
+  `ship/`, `deliver/`, `release/`, `hold/`, `tags/`, `notify/`, `payment-link/`, `cancel/` and `offline-payment/` (a
+  202 with a change request above the limit), `refunds/` (by line, by bank with the payee; 201 or 202, with an
+  `Idempotency-Key`), `returns/`, `invoice/regenerate/` and `invoice/resend/`; its PDFs (`documents/packing-slip/`,
+  `documents/label/`, `invoice/`, `credit-notes/{id}/`) opened as links; `GET orders/packing/`,
+  `POST orders/pick-list/` (a PDF); `POST orders/` (a staff order: 201, or 202 and nothing made),
+  `POST orders/preview/` and `GET orders/products/?q=` (its form); `GET orders/returns/`, `orders/returns/{id}/` and their moves (`approve/`,
+  `decline/`, `label/`, `receive/`, `inspect/`, `photos/`); `POST orders/refunds/{id}/payee/` and `mark-paid/`
+  (FINANCE); `GET orders/quotes/`, `orders/quotes/{id}/`, `POST orders/quotes/{id}/convert/`; bulk work as `POST jobs/`
+  with `orders_pack`, `orders_print`, `orders_cancel` (250 at most) and `orders_export`. The saved views' `list_key`
+  is `orders`.

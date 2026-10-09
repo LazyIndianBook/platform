@@ -1,7 +1,8 @@
 {% autoescape off %}Your order {{ order.number }} has been cancelled.{% if reason %}
 Reason: {{ reason }}{% endif %}
 
-{% if refund %}The full amount, {{ refund.amount }}, is being refunded to the account, card or UPI ID you paid from. Refunds
+{% if refund.method == "bank" %}The full amount, {{ refund.amount }}, is being refunded by bank transfer or UPI to the account you gave
+us ({{ refund.payee_masked }}); we email you when it is sent.{% elif refund %}The full amount, {{ refund.amount }}, is being refunded to the account, card or UPI ID you paid from. Refunds
 reach you within 5–7 working days; we email you when it is sent.{% else %}Nothing has been charged.{% endif %}
 
 Your order: {{ site_url }}{{ order.get_link_url }}

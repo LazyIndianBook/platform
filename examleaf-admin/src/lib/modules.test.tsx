@@ -93,8 +93,9 @@ describe("visibleModules", () => {
   });
 
   it("finds a planned module only for whoever holds its permission", () => {
-    expect(soonModule("orders", manifestWith(["shop.view_order"]))?.key).toBe("orders");
-    expect(soonModule("orders", manifestWith([P.usersView]))).toBeNull();
+    expect(soonModule("catalogue", manifestWith(["shop.view_product"]))?.key).toBe("catalogue");
+    expect(soonModule("catalogue", manifestWith([P.usersView]))).toBeNull();
+    expect(soonModule("orders", manifestWith([P.ordersView]))).toBeNull(); // built: its own pages
     expect(soonModule("users", manifestWith([P.usersView]))).toBeNull();
   });
 

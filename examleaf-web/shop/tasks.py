@@ -50,6 +50,8 @@ def refund_payment(refund_id):
         refund = mine.filter(pk=refund_id).first()  # None: another worker has it (or it is gone)
         if refund is None or refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
             return
+        if refund.method != Refund.Method.SOURCE:  # by bank or UPI (FINANCE transfers it), or no money at all
+            return
         client, payment_id, ours = payments.client(), refund.payment.razorpay_payment_id, str(refund.pk)
         made = client.payment.fetch_multiple_refund(payment_id, timeout=payments.TIMEOUT).get("items", [])
         notes = [r["notes"] if isinstance(r.get("notes"), dict) else {} for r in made]  # Razorpay: [] when empty
@@ -59,7 +61,7 @@ def refund_payment(refund_id):
                 payment_id,
                 {
                     "amount": paise(refund.amount),
-                    "speed": "normal",
+                    "speed": refund.speed,  # normal, or optimum (instant where the bank allows)
                     "receipt": f"refund-{refund.pk}",
                     "notes": {"order": refund.order.number, "refund_id": ours},
                 },
@@ -71,7 +73,7 @@ def refund_payment(refund_id):
         refund.razorpay_refund_id = result["id"]
         refund.save(update_fields=["razorpay_refund_id", "modified"])
     if result.get("status") == "processed":  # otherwise the refund.processed webhook finishes it
-        services.refund_processed(refund_id)
+        services.refund_processed(refund_id, arn=(result.get("acquirer_data") or {}).get("arn") or "")
 
 
 @shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6, **PDF_TASK)
@@ -147,6 +149,7 @@ def clean_up():
     services.expire_unpaid_orders(reconcile=payments.reconcile)
     hour_ago = timezone.now() - timedelta(hours=1)
     lost_refunds = Refund.objects.filter(status=Refund.Status.PENDING, razorpay_refund_id=None, created__lt=hour_ago)
+    lost_refunds = lost_refunds.filter(method=Refund.Method.SOURCE)  # Razorpay's: a bank refund waits for FINANCE
     for pk in lost_refunds.values_list("pk", flat=True):
         refund_payment.delay(pk)
     S = Order.Status
@@ -212,3 +215,68 @@ def low_stock_report():
     if products := list(low.order_by("stock", "title")):
         context = {"products": products, "low_stock": settings.SHOP_LOW_STOCK}
         services.email_staff("Books running out", "shop/email/low_stock.txt", context)
+
+
+# Phase B: orders
+
+
+@shared_task
+@single_run(300)
+def send_held_sms():
+    """At 08:00 (India time): the order SMS held through the night (services.notify: none goes from 21:00 to 08:00),
+    each claimed before it goes (a second run, or this one run again, finds it taken) and sent only if still true."""
+    from ops.sms import send_order_sms
+
+    from .models import OrderMessage
+
+    still = {  # what each news needs to be still true; the others go as they are
+        "confirmation": lambda order: order.status not in (Order.Status.CANCELLED, Order.Status.REFUNDED),
+        "shipped": lambda order: order.status == Order.Status.SHIPPED,
+        "delivered": lambda order: order.status == Order.Status.DELIVERED,
+    }
+    sent = 0
+    for message in OrderMessage.objects.filter(sms=OrderMessage.Sms.HELD).select_related("order__user"):
+        true = still.get(message.kind, lambda order: True)(message.order)
+        state = OrderMessage.Sms.SENT if true else OrderMessage.Sms.DROPPED
+        if not OrderMessage.objects.filter(pk=message.pk, sms=OrderMessage.Sms.HELD).update(sms=state):
+            continue  # taken by another run
+        if true:
+            send_order_sms(message.order, message.kind)
+            sent += 1
+    return sent
+
+
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
+def weekly_staff_grants(today=None):
+    """Mondays at 08:00 (India time): the owners are emailed last week's staff discounts, payments recorded offline
+    and ₹0 orders, by the member of staff who gave them (inventory I6: "one person can give goods away"). Once a week:
+    its audit event marks the week sent, so a second run, or this one delivered again, sends nothing."""
+    from staff.audit import ActorType, owners_emails, record
+    from staff.models import AuditEvent
+
+    from .services import staff_grants
+
+    today = today or timezone.localdate()
+    end = today - timedelta(days=today.weekday())  # this Monday: the week before it, Monday to Sunday
+    start = end - timedelta(days=7)
+    week = start.isoformat()
+    if AuditEvent.objects.filter(action="order.grants_emailed", target_id=week).exists():
+        return 0
+    grants = staff_grants(start, end)
+    body = render_to_string(
+        "shop/email/staff_grants.txt",
+        {**grants, "start": start, "end": end - timedelta(days=1), "site_url": settings.SITE_URL},
+    )
+    counts = {name: len(grants[name]) for name in ("discounts", "offline", "free")}
+    with transaction.atomic():
+        target = ("shop.staffgrants", week, f"Week of {week}")
+        record("order.grants_emailed", actor_type=ActorType.SYSTEM, target=target, details=counts)
+        recipients = owners_emails()
+        transaction.on_commit(
+            lambda: [
+                queue_text_email(address, f"Staff grants, week of {start:%d %b %Y}", body) for address in recipients
+            ],
+            robust=True,
+        )
+    return len(recipients)

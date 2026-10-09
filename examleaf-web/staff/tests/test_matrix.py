@@ -18,8 +18,10 @@ from insights.models import FraudSignal
 from integrations.models import IntegrationAccount
 from shipping.api import OrderQuoteView, ShipmentViewSet
 from shipping.models import CodRemittance, PickupLocation, ShipmentCharge, ShippingException
-from shop.factories import ProductFactory, make_order
-from shop.models import Invoice, Shipment
+from shop import services as shop
+from shop.factories import ProductFactory, captured, make_order
+from shop.models import Invoice, Order, QuoteRequest, Refund, ReturnRequest, Shipment
+from shop.staff_orders import OrderViewSet
 from staff import approvals, catalogue
 from staff import urls as staff_urls
 from staff.api import StaffView
@@ -166,6 +168,47 @@ ENDPOINTS = [
     ("post", "privacy/dark-pattern-audits/{audit}/complete/", "staff.manage_compliance"),
     ("get", "privacy/dark-pattern-audits/{audit}/file/", "staff.view_darkpatternaudit"),
     ("post", "privacy/dark-pattern-audits/{audit}/file/", "staff.manage_compliance"),
+    # Orders (shop/staff_orders.py)
+    ("get", "orders/", "shop.view_order"),
+    ("post", "orders/", "shop.add_order"),
+    ("post", "orders/preview/", "shop.add_order"),
+    ("get", "orders/products/", "shop.view_product"),
+    ("get", "orders/packing/", "shop.view_order"),
+    ("post", "orders/pick-list/", "staff.pack_order"),
+    ("get", "orders/{order}/", "shop.view_order"),
+    ("get", "orders/{order}/documents/packing-slip/", "staff.pack_order"),  # the address on it
+    ("get", "orders/{order}/documents/label/", "staff.pack_order"),
+    ("get", "orders/{order}/invoice/", "shop.view_invoice"),
+    ("get", "orders/{order}/credit-notes/1/", "shop.view_creditnote"),
+    ("post", "orders/{order}/tags/", "shop.change_order"),
+    ("post", "orders/{order}/hold/", "shop.change_order"),
+    ("post", "orders/{order}/release/", "shop.change_order"),
+    ("post", "orders/{order}/notify/", "shop.change_order"),
+    ("post", "orders/{order}/payment-link/", "shop.change_order"),
+    ("post", "orders/{order}/invoice/regenerate/", "shop.change_order"),
+    ("post", "orders/{order}/invoice/resend/", "shop.change_order"),
+    ("post", "orders/{order}/refunds/", "staff.refund_order"),
+    ("post", "orders/{order}/offline-payment/", "staff.record_offline_payment"),
+    ("post", "orders/{order}/returns/", "staff.handle_return"),
+    ("post", "orders/{order}/cancel/", "shop.change_order"),
+    ("post", "orders/{order}/pack/", "staff.pack_order"),
+    ("post", "orders/{order}/ship/", "staff.pack_order"),
+    ("post", "orders/{order}/deliver/", "staff.pack_order"),
+    ("get", "orders/returns/", "shop.view_returnrequest"),
+    ("get", "orders/returns/{back}/", "shop.view_returnrequest"),
+    ("get", "orders/returns/{back}/photos/0/", "shop.view_returnrequest"),
+    ("post", "orders/returns/{back}/approve/", "staff.handle_return"),
+    ("post", "orders/returns/{back}/decline/", "staff.handle_return"),
+    ("post", "orders/returns/{back}/label/", "staff.handle_return"),
+    ("post", "orders/returns/{back}/receive/", "staff.receive_return"),
+    ("post", "orders/returns/{back}/inspect/", "staff.receive_return"),
+    ("post", "orders/returns/{back}/photos/", "staff.receive_return"),
+    ("post", "orders/refunds/{refund}/mark-paid/", "staff.approve_refund"),
+    ("post", "orders/refunds/{refund}/payee/", "staff.approve_refund"),
+    ("get", "orders/quotes/", "shop.view_quoterequest"),
+    ("get", "orders/quotes/{quote}/", "shop.view_quoterequest"),
+    ("get", "orders/quotes/{quote}/quotation/", "shop.view_quoterequest"),
+    ("post", "orders/quotes/{quote}/convert/", "shop.change_quoterequest"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
@@ -192,8 +235,22 @@ def objects():
         order=make_order((ProductFactory(stock=5), 1)), number="EL/2026-27/00001", financial_year="2026-27", serial=1,
         series="EL", document_type="bill_of_supply",
     )  # fmt: skip
+    order, delivered = make_order((ProductFactory(stock=5), 1)), make_order((ProductFactory(stock=5), 2))
+    shop.record_capture(captured(order))
+    Order.objects.filter(pk=delivered.pk).update(status="delivered", placed_at=timezone.now())
+    back = ReturnRequest.objects.create(order=delivered, lines=[{"item": delivered.items.get().pk, "quantity": 1}],
+                                        reason="damaged")  # fmt: skip
+    payment = delivered.payments.get()
+    refund = Refund.objects.create(order=delivered, payment=payment, amount=10, reason="Damaged", method="bank")
+    quote = QuoteRequest.objects.create(school="Cotton Collegiate", contact_name="Anita Das", email="o@example.com",
+                                        phone="+919864012345", delivery_pin="781001",
+                                        items=[{"product": "x", "title": "X", "quantity": 1}])  # fmt: skip
     return {
         "document": document.number.replace("/", "-"),
+        "order": order.number,
+        "back": back.pk,
+        "refund": refund.pk,
+        "quote": quote.pk,
         "item": InboxItem.objects.create(
             kind="failed_job", title="A task failed", permission="staff.view_inbox", target_type="t", target_id="1"
         ).pk,
@@ -381,8 +438,10 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
 
 
 # Two reads that need more than a view_ permission: the courier's quote (asked of the courier, for a booking) and the
-# label's PDF (the customer's address on it): the packing room's, staff.book_parcel.
+# label's PDF (the customer's address on it): the packing room's, staff.book_parcel. And the Orders module's packing
+# slip and hand label (the address whole on each): staff.pack_order.
 BOOKING_READS = {(OrderQuoteView, "GET"), (ShipmentViewSet, "label")}
+BOOKING_READS |= {(OrderViewSet, "packing_slip"), (OrderViewSet, "label")}
 
 
 def test_api_md_lists_every_staff_endpoint_and_field_as_the_code_has_them():

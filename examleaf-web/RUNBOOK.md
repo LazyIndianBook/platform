@@ -387,8 +387,12 @@ the parent", with the time).
 
 ## The shop
 
-Orders are found in the admin (Shop → Orders): search by order number, email, name, phone or tracking number. An order's
-page lists its payments, refunds, shipments and internal notes, and its History button shows every change of status.
+Orders are found in the panel's Orders (`https://admin.<domain>/orders/`, shop/README.md): search by order number, an
+invoice's or credit note's number, email, name, a phone's last digits, tracking number or book code (a search for a
+person is recorded in the audit trail by its hash); the tabs To pack, Shipped, Returns, Cancelled and Drafts; an order's
+record lists its books with what each was invoiced at, payments, refunds, documents, parcels, its hold and tags, and its
+timeline. The Django admin (Shop → Orders) stays for superusers and break-glass sessions, with the shell steps below
+as the fallback when the panel is down.
 
 Who does what (`accounts/roles.py`; `dj bootstrap_roles` after a change): CONTENT_EDITOR keeps the catalogue (products,
 categories, collections, product types and attributes, pictures) and the course content; SALES the orders (staff orders,
@@ -429,19 +433,22 @@ page. If it did not:
    refund limit (`ROLE_LIMITS`: ADMIN ₹10,000) it runs at once; above it the message names a change request that
    FINANCE (or an owner) approves in the panel, and nothing is refunded until then. "Cancel" on an order paid online is
    the same refund.
-2. Cash-on-delivery orders, and payments recorded offline, are refunded by bank transfer or UPI, outside the site: pay it
-   from the business account and note it in your support mailbox (or on the order's internal notes). The refund action
-   refunds nothing for them and changes nothing; cancel an order not yet shipped with "Cancel" (its copies go back and
-   the customer is emailed).
-3. A refused parcel is refunded less the shipping: the same action with an amount (shipped or delivered orders only; an
-   order not yet shipped is cancelled and refunded in full whatever amount is typed). A part-refunded order then reads
-   "refunded".
+2. Cash-on-delivery orders, and payments recorded offline, are refunded by bank transfer or UPI: the order's Refund in
+   the panel, "By bank transfer or UPI", with the customer's UPI ID or account (kept encrypted, shown masked). It waits
+   for FINANCE (an inbox item due in `SHOP_BANK_REFUND_DAYS`): on the order's Refunds, "Show the account" (with a
+   reason, recorded), transfer it from the business account, then "Mark paid" with the UTR: the refund is made, the
+   customer emailed with the reference and the credit note issued, once. An online payment goes to a bank account only
+   when the customer agrees (tick it in the dialog), for instance a payment older than 6 months that Razorpay refuses.
+3. Part of an order (a damaged book, a refused parcel less the shipping): the refund dialog's copies of each book (from 0)
+   and the shipping, the amount from what each book was invoiced at (its share of the coupon and offers taken off), and
+   whether the copies go back into stock. An order not yet sent is cancelled and refunded in full. Above your refund
+   limit FINANCE approves it first (the dialog shows the change request).
 4. A refund made in the Razorpay Dashboard is recorded when its webhook arrives ("Refunded in the Razorpay dashboard."):
    the order turns "refunded", the customer is emailed and the credit note is made. Stock is not put back by itself:
    correct it in Products.
-5. Every refund of an invoiced order that the site records has a credit note (admin → Credit notes, and on the order
-   page); a refund paid outside the site (cash on delivery, an offline payment) has none: ask the accountant how to
-   issue the credit note.
+5. Every refund of an invoiced order has a credit note (on the order's record, and admin → Credit notes), bank refunds
+   included once marked paid. Without the panel: `dj shell -c "from shop import services; from shop.models import
+   Refund; services.mark_bank_refund_paid(Refund.objects.get(pk=<id>), '<UTR>')"`.
 
 A refund whose answer was lost (Razorpay slow) is never sent twice: each retry first asks Razorpay for the payment's
 refunds and takes over the one that carries the site's refund number in its notes.
@@ -505,7 +512,8 @@ The order page says "The invoice will appear here in a few minutes" for a paid o
 invoice is made when the parcel is marked shipped). Look in `docker compose logs worker | grep -i invoice` (or Sentry).
 The usual cause is the seller's details: while `SELLER_ADDRESS`, `SELLER_EMAIL` or `SELLER_PHONE` still hold their
 `[placeholder]`, no real invoice is numbered ("SELLER_* still holds placeholders"): set them in `.env` and
-`docker compose up -d`. The 04:30 clean-up then makes what is missing, or at once:
+`docker compose up -d`. The 04:30 clean-up then makes what is missing, or at once: the order's Actions in the panel,
+"Make missing documents" (its invoice and credit notes; "Email the invoice again" sends its link). Without the panel:
 `dj shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"` (the id is the number in the
 order's address in the admin). WeasyPrint failing (fonts, Pango) is in the same log. A missing credit note is made the
 same way: `dj shell -c "from shop.tasks import generate_credit_note; generate_credit_note(<refund id>)"` (the id is the
@@ -612,7 +620,12 @@ with).
 
 ### Staff orders and payment links
 
-For a phone order or a school's quotation accepted: Orders → "Add order" (the button reads "Add order"; it opens "New
+For a phone order or a school's quotation accepted: the panel's Orders → New order (`/orders/new/`): how it came,
+the books (found by title or ISBN), the customer's email and address, a discount in rupees and the shipping; what it
+comes to and whether it is made at once (within your `discount_percent` of the books) or waits for FINANCE (above it,
+or a ₹0 order: nothing exists until approved) show before you save. The payment link is sent, sent again or cancelled
+from the order's Actions. The owners get the week's staff discounts, offline payments and ₹0 orders by email on Monday
+at 08:00. The Django admin's way stays for superusers: Orders → "Add order" (the button reads "Add order"; it opens "New
 phone or school order"): the customer's email (an account whose confirmed address it is gets the order: needed for a
 course), the delivery address, the products and copies (rows left empty are skipped), a discount in rupees (after the
 offers), the shipping (empty: the shipping rates'), an internal note. With "Email a Razorpay payment link now" ticked,
@@ -630,12 +643,13 @@ asked.
 ### Payments received offline (NEFT, IMPS, UPI)
 
 1. Check on the bank statement that the whole total has arrived; note its reference (UTR or UPI reference).
-2. Orders → tick the order (one) → "Record a payment received offline" → type the reference → "Record the payment".
+2. The order's Actions in the panel → "Record a payment" → the reference and a reason (above your `offline_inr` FINANCE
+   approves it first). In the Django admin: Orders → tick the order (one) → "Record a payment received offline" → type
+   the reference → "Record the payment".
 3. The order is paid (copies taken, the customer emailed, the invoice made with "bank transfer or UPI to our account,
    reference …"). Refused if the order is no longer waiting for payment or a book has sold out (nothing recorded).
 
-Refunds of such payments are made by bank transfer by hand ("I have not got my refund", above); cancelling the order
-puts its copies back and emails the customer.
+Refunds of such payments go by bank transfer or UPI through the refund dialog ("I have not got my refund", above).
 
 ### Notes, the customer page, the dashboard
 
@@ -743,9 +757,9 @@ later delivery closes the exception by itself.
 "Returning" opens an RTO exception and emails the customer; "returned" brings it forward (2 days) and notes the order.
 In the packing room: scan the parcel back in, check it, put the copies back in stock (Products → the product's stock)
 or mark them damaged, and acknowledge the RTO in Shiprocket's panel (no API for it). Then the order: a cash-on-delivery
-order cannot be marked cancelled once shipped (its state machine has no such step, and no "returned" state: a decision
-for the founder): it stays shipped, with the note; a prepaid order is sent again (book a new parcel: it gets the
-reference `<order>-R1`) or refunded (the order's refund action). A lost or damaged parcel: claim it with Shiprocket
+parcel back undelivered is cancelled from its record in the panel ("Cancel the order": its copies back into stock unless
+damaged, its invoice credited with a credit note, no money moving); a prepaid order is sent again (book a new parcel: it
+gets the reference `<order>-R1`) or refunded (the refund dialog). A lost or damaged parcel: claim it with Shiprocket
 (up to ₹5,000 or the order's value), then reship or refund. Resolve the exception with what was done.
 
 ### COD remittances
@@ -792,11 +806,20 @@ requests:
 2. Select it → "Make the quotation PDF": today's prices, valid 15 days, stored in the private storage; status "quotation
    made". Download it from the request's page and email it to the contact with the bank details (NEFT) or the UPI ID,
    or a Razorpay Payment Link for the total.
-3. When the school accepts, enter the order: Orders → "Add order" with the school's email, the delivery address (the
-   request has only a PIN code: ask for the rest) and the books of the quotation ("Staff orders and payment links"),
-   then either send the Payment Link or, when the money arrives by NEFT or UPI, "Record a payment received offline".
-   The order is then paid, its copies taken, its invoice made by the site. Set the request's status to "ordered"; a
-   request that comes to nothing, "closed". The site does not turn a request into an order by itself.
+3. When the school accepts: the panel's Orders → Quotes → the request → "Make the order", with the delivery address
+   (the request has only a PIN code: ask for the rest): a staff order of its books with its discount and shipping, once
+   (the request keeps its order and reads "ordered"; above your discount limit FINANCE approves it first). Then send the
+   Payment Link or, when the money arrives by NEFT or UPI, "Record a payment". A request that comes to nothing:
+   "closed" in the admin.
+
+### Returns
+
+A customer asks on the website's order page within `SHOP_RETURN_DAYS` (15) of delivery (staff for them by phone, at
+any time: the order's "Ask for a return"). Each request is an inbox item due in 48 hours. In the panel's Orders →
+Returns: approve (the customer is emailed how to send it back) or decline with the reason; send the return label (the
+courier and AWB); the packing room marks it received, adds photographs and inspects it: back into stock (the copies
+added, with the return as the reason) or damaged. Then "Refund it" refunds its books through the refund dialog (above
+your limit FINANCE approves). Exchanges are not built: refund, and the customer orders again.
 
 ### Stock, stock alerts and the low-stock email
 

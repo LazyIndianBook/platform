@@ -4,7 +4,8 @@
 // when it was placed and its status chip, the number, the timeline (with shipments and refunds) beside the address
 // and the payment, "Your papers" (G20: the open sample of each book bought, and how the QR codes work); then the
 // items on paper 2, Pay now (an unpaid order of the owner or of a guest's link), the GST invoice and credit notes,
-// Cancel while allowed.
+// Cancel while allowed. The state of each return asked for, and for the owner of a delivered order within its days,
+// the form to send books back (return-request.tsx).
 // Done page (Done artboard, Phone done; States "Payment pending"): what the API answered after the checkout: paid
 // (the PAID stamp, only then), placed to pay on delivery, still being confirmed ("We're confirming your payment",
 // one update, no stamp, nothing to pay again), or not completed. Success is never claimed before the API says so.
@@ -27,6 +28,7 @@ import { shortCode, subjectOf } from "@/lib/site";
 import { CancelOrder } from "./cancel-order";
 import { Confirming } from "./confirming";
 import { OrderSummary, shippingText } from "./order-summary";
+import { ReturnRequest, ReturnStates } from "./return-request";
 import { addressLines, checkoutSteps, formatDate, orderOutcome, orderTimeline, pathOf, stateName } from "./shop";
 
 type LineProduct = Pick<Product, "cover" | "subject" | "kind">;
@@ -219,6 +221,7 @@ export function OrderView({
               .
             </p>
           ))}
+          <ReturnStates returns={order.returns} />
         </div>
         <dl className="m-0 flex flex-col gap-1.5 text-base leading-relaxed">
           {digital ? null : (
@@ -249,6 +252,12 @@ export function OrderView({
         </section>
       ) : placed && bought.length ? (
         <YourPapers bought={bought} delivered={order.status === "delivered"} />
+      ) : null}
+
+      {owner && order.can_return ? (
+        <WhileImpersonated what="Sending books back">
+          <ReturnRequest number={number} order={order} />
+        </WhileImpersonated>
       ) : null}
 
       {mode === "link" ? (
