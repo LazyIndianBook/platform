@@ -13,12 +13,18 @@
 // books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
 // submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
 // the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
+// Customers: the OWNER opens the customer's timeline and finds the views it logged, in the timeline's own rows and in the
+// audit trail (a search for the customer one lookup event, its hash and never the address); a student of 14 waits for a
+// parent, a bulk action is checked first (a child among the targets needs a second person), the parent's consent is
+// recorded by hand with a reference, never a contact, and it is in the audit trail with its method and no evidence.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
   type ContentWorld,
   createStaff,
+  type CustomersWorld,
+  deleteCustomersWorld,
   deleteOrdersWorld,
   deleteContent,
   deleteRealWorld,
@@ -27,6 +33,7 @@ import {
   type OrdersWorld,
   type RealTicket,
   type RealWorld,
+  seedCustomersWorld,
   seedOrdersWorld,
   seedContent,
   seedRealWorld,
@@ -57,6 +64,7 @@ const editorCodes: Codes = { last: null };
 const reviewerCodes: Codes = { last: null };
 let content: ContentWorld;
 let ticket: RealTicket;
+let people: CustomersWorld;
 let supportId: number;
 let editorId: number;
 let reviewerId: number;
@@ -75,12 +83,14 @@ test.beforeAll(() => {
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
   ticket = seedTicket(world);
+  people = seedCustomersWorld(stamp, world.customer);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
   if (content) deleteContent(content);
+  if (people) deleteCustomersWorld(people);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -223,7 +233,9 @@ test("OWNER: finds the customer and reveals their address (audited), acknowledge
     await page.goto(`/users/?q=${encodeURIComponent(world.email)}`);
     await page.getByRole("link", { name: "Real E2E Customer" }).click();
     await expect(page.getByText("Opening this record is recorded in the audit trail.")).toBeVisible();
-    await expect(page.getByText(world.order)).toBeVisible();
+    // the customer's live order (their test-mode one is left out of the record, as a test order is on a live site)
+    await expect(page.getByText(people.order)).toBeVisible();
+    await expect(page.getByText(world.order)).toHaveCount(0);
     await page.getByRole("button", { name: /^Reveal email address/ }).click();
     await page.getByRole("dialog").getByLabel("Reason").fill("Checking the address for the refund (e2e).");
     await page.getByRole("button", { name: "Reveal it" }).click();
@@ -256,6 +268,153 @@ test("OWNER: finds the customer and reveals their address (audited), acknowledge
     await expect(row.getByText("Console", { exact: true })).toBeVisible();
     await row.locator("summary", { hasText: "History" }).click();
     await expect(row.getByText(new RegExp(`switched by the console's tests \\(${stamp}\\)`)).first()).toBeVisible();
+  });
+  await page.context().close();
+});
+
+test("OWNER: the customer's timeline and the views it logged; the child waiting for a parent, and a consent recorded by hand", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, owner, `/users/${world.customer}/timeline/`, ownerCodes);
+  const rows = page.getByRole("region", { name: "The timeline" });
+  const table = page.getByRole("region", { name: "Audit trail, a table" });
+  const sheet = page.getByRole("dialog", { name: "Audit event" });
+
+  await test.step("the timeline holds the order and its payment, each a link to its page", async () => {
+    await expect(page.getByRole("heading", { level: 1, name: "Real E2E Customer" })).toBeVisible();
+    await expect(rows.getByRole("link", { name: new RegExp(`^Order ${people.order}:`) })).toHaveAttribute(
+      "href",
+      `/orders/${people.order}/`,
+    );
+    await expect(rows.getByText(new RegExp(`^Payment of ₹[\\d.,]+ for order ${people.order}`))).toBeVisible();
+    // the other order of theirs is a test-mode one: not in the timeline of a live site
+    await expect(rows.getByText(world.order)).toHaveCount(0);
+  });
+
+  await test.step("what they bought: the live order's counts and money, from the orders", async () => {
+    await page.goto(`/users/${world.customer}/`);
+    const bought = page.getByRole("region", { name: "What they bought" });
+    await expect(bought).toContainText("Spent");
+    await expect(bought).toContainText("₹1,500");
+    await expect(bought).toContainText("Spent less refunded");
+  });
+
+  await test.step("opened again, the first look and the earlier reveal are among the staff's own actions on the account", async () => {
+    await page.goto(`/users/${world.customer}/timeline/?kind=staff`);
+    await expect(rows.getByText(/^Timeline opened by Real E2E OWNER/).first()).toBeVisible();
+    await expect(rows.getByText(/^Contact details revealed by Real E2E OWNER/).first()).toBeVisible();
+  });
+
+  await test.step("the audit trail shows the logged view, a customer's (no child mark)", async () => {
+    await page.goto(`/audit/?target_type=accounts.user&target_id=${world.customer}&action=sensitive_read`);
+    let seen = false;
+    for (let index = 0; index < 8 && !seen; index += 1) {
+      await table.getByRole("button").nth(index).click();
+      seen = await sheet.getByText('"what": "timeline"').isVisible();
+      if (seen) await expect(sheet.getByText('"child": false')).toBeVisible();
+      await page.keyboard.press("Escape");
+    }
+    expect(seen, "a sensitive_read of the timeline in the audit trail").toBe(true);
+  });
+
+  await test.step("a search for the customer by email is one lookup event: a hash, never the address", async () => {
+    await page.goto(`/users/?q=${encodeURIComponent(world.email)}`);
+    await expect(page.getByRole("link", { name: "Real E2E Customer" })).toBeVisible();
+    await page.goto("/audit/?action=customer.lookup");
+    await table.getByRole("button").first().click();
+    await expect(sheet.getByText('"list": "users"')).toBeVisible();
+    await expect(sheet.getByText('"kind": "email"')).toBeVisible();
+    await expect(sheet.getByText(/"query": "hash:[0-9a-f]{16}"/)).toBeVisible();
+    await expect(sheet.getByText(world.email)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  });
+
+  await test.step("the student waits for a parent: the contact masked, the one link sent, the day's use", async () => {
+    await page.goto("/users/consent-pending/");
+    const row = page
+      .getByRole("region", { name: "Waiting for a parent, a table" })
+      .getByRole("row")
+      .filter({ hasText: people.childName });
+    await expect(row).toContainText("ad•••@example.com (email)");
+    await expect(row).toContainText("Works until");
+    await expect(row).toContainText("1 of 3");
+  });
+
+  await test.step("the guest buyers: the order's address, masked", async () => {
+    await page.goto("/users/?kind=guests");
+    const guest = page
+      .getByRole("region", { name: "Guest buyers, a table" })
+      .getByRole("row")
+      .filter({ hasText: people.guestName });
+    await expect(guest).toContainText("ad•••@example.com");
+  });
+
+  await test.step("a bulk action is checked first: a child among the targets needs a second person, an adult alone runs at once", async () => {
+    await page.goto(`/users/?q=${encodeURIComponent(`admin-ui-child-${stamp}@example.com`)}`);
+    await page.getByRole("checkbox", { name: `Choose ${people.childName}` }).check();
+    await page.getByRole("button", { name: "Sign out everywhere" }).click();
+    let dialog = page.getByRole("dialog", { name: "Sign 1 account out everywhere?" });
+    await dialog.getByLabel("Reason").fill("A shared computer at the school (the console's tests).");
+    await dialog.getByRole("button", { name: "Check first" }).click();
+    await settle(page, dialog.getByText("1 account can be changed."), owner, ownerCodes);
+    await expect(dialog.getByText("1 of them is the account of a student under 18.")).toBeVisible();
+    await expect(dialog.getByText(/A second person has to approve it before it runs/)).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.goto(`/users/?q=${encodeURIComponent(world.email)}`);
+    await page.getByRole("checkbox", { name: "Choose Real E2E Customer" }).check();
+    await page.getByRole("button", { name: "Sign out everywhere" }).click();
+    dialog = page.getByRole("dialog", { name: "Sign 1 account out everywhere?" });
+    await dialog.getByLabel("Reason").fill("A shared computer (the console's tests).");
+    await dialog.getByRole("button", { name: "Check first" }).click();
+    await settle(page, dialog.getByText("1 account can be changed."), owner, ownerCodes);
+    await expect(dialog.getByText("It runs at once, within your limits.")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Run it for 1 account" })).toBeEnabled();
+    await page.keyboard.press("Escape");
+  });
+
+  await test.step("the consent by hand: the evidence a reference, never a contact; the record says so", async () => {
+    await page.goto(`/users/${people.child}/`);
+    await expect(page.getByText("Under 18: every view is logged")).toBeVisible();
+    await expect(page.getByRole("list", { name: "About the account" })).toContainText("13 to 17");
+    await page.getByRole("button", { name: "Record the consent by hand" }).click();
+    const dialog = page.getByRole("dialog", { name: "Record a parent's consent by hand" });
+    await dialog.getByLabel("Where the evidence is").fill("parent@example.com");
+    await dialog.getByLabel("Reason").fill("Her mother called us (the console's tests).");
+    await dialog.getByRole("button", { name: "Record the consent" }).click();
+    await settle(page, dialog.getByText(/not a contact's details/).first(), owner, ownerCodes);
+    await dialog.getByLabel("Where the evidence is").fill(`Ticket T-${stamp}`);
+    await dialog.getByRole("button", { name: "Record the consent" }).click();
+    await settle(page, toast(page, "Consent recorded"), owner, ownerCodes);
+    await expect(page.getByRole("list", { name: "About the account" })).toContainText(
+      "Parent's consent: confirmed, recorded by hand",
+    );
+    await expect(page.getByRole("button", { name: "Record the consent by hand" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Consent records" })).toContainText(`evidence: Ticket T-${stamp}`);
+  });
+
+  await test.step("the audit trail has the method, and neither the evidence nor the parent's address", async () => {
+    await page.goto(`/audit/?target_type=accounts.user&target_id=${people.child}&action=user.consent_verified`);
+    await table.getByRole("button").first().click();
+    await expect(sheet.getByText('"method": "staff_manual"')).toBeVisible();
+    await expect(sheet.getByText('"child": true')).toBeVisible();
+    await expect(sheet.getByText("Her mother called us (the console's tests).")).toBeVisible();
+    await expect(sheet.getByText(`Ticket T-${stamp}`)).toHaveCount(0);
+    await expect(sheet.getByText("parent@example.com")).toHaveCount(0);
+    await expect(sheet.getByText(`admin-ui-parent-${stamp}@example.com`)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  });
+
+  await test.step("the student left the waiting list, and the timeline lists the consent and what staff did", async () => {
+    await page.goto("/users/consent-pending/");
+    await expect(page.getByRole("row").filter({ hasText: people.childName })).toHaveCount(0);
+    await page.goto(`/users/${people.child}/timeline/`);
+    await expect(page.getByText("A student under 18: the course shows as counts, never as a trail.")).toBeVisible();
+    await expect(
+      rows.getByText(new RegExp(`^Consent given by the parent \\(.*evidence: Ticket T-${stamp}`)),
+    ).toBeVisible();
+    await expect(rows.getByText(/^Parent's consent recorded by hand by Real E2E OWNER/)).toBeVisible();
   });
   await page.context().close();
 });
@@ -403,7 +562,14 @@ for (const width of [1280, 390]) {
         `/people/${supportId}/`,
         "/people/access-review/",
         "/users/",
+        "/users/?kind=students",
+        "/users/?kind=parents",
+        "/users/?kind=guests",
+        "/users/consent-pending/",
         `/users/${world.customer}/`,
+        `/users/${world.customer}/timeline/`,
+        `/users/${people.child}/`,
+        `/users/${people.child}/timeline/`,
         "/privacy/requests/",
         `/privacy/requests/${world.request}/`,
         "/privacy/incidents/",

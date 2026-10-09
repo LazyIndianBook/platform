@@ -1,8 +1,8 @@
 "use client";
 
 // A customer's record, the parts that act: the contact details (masked; Reveal with a reason, POST users/{id}/reveal/
-// {show: [...]}), the everyday actions (the parent's consent link again while it waits, a password reset link, unlock,
-// sign them out everywhere), and the Danger section (suspend or lift it with a reason, reset two-step sign-in, which a
+// {show: [...]}), the everyday actions (a password reset link, unlock, sign them out everywhere; the parent's consent
+// link again is with the consent, consent.tsx), and the Danger section (suspend or lift it with a reason, reset two-step sign-in, which a
 // second person approves, and signing in to the website as them for 15 minutes, with a ticket, a reason and the name
 // typed). Each is drawn when the manifest allows it; the API decides, may ask to confirm it's you, and records it.
 import { useRouter } from "next/navigation";
@@ -85,14 +85,8 @@ export function CustomerActions({ user }: { user: CustomerDetail }) {
   const can = useCan();
   const { run, busy, error } = useAction();
   const [pressed, setPressed] = useState<CustomerAction | null>(null);
+  // the parent's link again is a part of the consent section (consent.tsx), beside recording the consent by hand
   const simple: Simple[] = [
-    {
-      action: "resend-verification",
-      label: copy.users.action.resendVerification,
-      done: copy.users.done.resendVerification,
-      permission: P.usersResendVerification,
-      when: user.consent === "pending",
-    },
     {
       action: "password-reset",
       label: copy.users.action.passwordReset,

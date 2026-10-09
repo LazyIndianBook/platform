@@ -95,6 +95,16 @@ const PAGES = [
   "/content/errata/",
   "/content/imports/",
   "/content/legal-deposits/",
+  // Phase B: customers
+  "/users/?kind=students",
+  "/users/?kind=parents",
+  "/users/?kind=guests",
+  "/users/consent-pending/",
+  "/users/7104/",
+  "/users/7102/",
+  "/users/7101/timeline/",
+  "/users/7104/timeline/",
+  "/users/7102/timeline/?kind=order",
   "/users/99999/",
   "/support/",
   "/support/?tab=all",
@@ -192,6 +202,231 @@ for (const width of [1280, 390]) {
         await card.getByRole("button", { name: "Mark packed" }).click();
         await expect(toast(page, "Marked packed")).toBeVisible();
         await expect(page.getByRole("heading", { name: "EL-2026-000133" })).toHaveCount(0);
+      });
+      await page.context().clearCookies({ name: "staff_mock_role" });
+    });
+
+    test("customers: the tabs, a child's record and timeline, a consent recorded by hand and found in the audit trail, the children waiting, a bulk action checked before it runs", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/users/", codes);
+      const site = new URL("/", page.url()).href;
+      const as = (role: string) => page.context().addCookies([{ name: "staff_mock_role", value: role, url: site }]);
+      const tabs = page.getByRole("navigation", { name: "Kinds of customer" });
+      const table = page.getByRole("region", { name: "Customers, a table" });
+
+      await test.step("the tabs: students, parents and the guest buyers", async () => {
+        await expect(page.getByRole("heading", { level: 1, name: "Customers" })).toBeVisible();
+        await tabs.getByRole("link", { name: "Students" }).click();
+        await expect(tabs.getByRole("link", { name: "Students" })).toHaveAttribute("aria-current", "page");
+        await expect(table.getByRole("link", { name: "Arjun Baruah" })).toBeVisible();
+        await expect(table.getByRole("link", { name: "Bikash Deka" })).toHaveCount(0);
+        // a child's consent in words, an age band, what is verified
+        const arjun = table.getByRole("row").filter({ hasText: "Arjun Baruah" });
+        await expect(arjun).toContainText("13 to 17");
+        await expect(arjun).toContainText("Waiting for the parent");
+        await tabs.getByRole("link", { name: "Parents" }).click();
+        await expect(table.getByRole("link", { name: "Bikash Deka" })).toBeVisible();
+        await expect(table.getByRole("link", { name: "Kavita Nath" })).toBeVisible();
+        await expect(table.getByRole("link", { name: "Arjun Baruah" })).toHaveCount(0);
+        await tabs.getByRole("link", { name: "Guest buyers" }).click();
+        const guests = page.getByRole("region", { name: "Guest buyers, a table" });
+        await expect(guests.getByText("an•••@example.com")).toBeVisible();
+        await expect(guests.getByRole("link", { name: "Anita Gogoi" })).toHaveAttribute(
+          "href",
+          "/orders/EL-2026-000132/",
+        );
+        // a search for a person in the guests is a lookup the API records, and finds them by their name
+        await page.getByRole("searchbox", { name: "Search guest buyers" }).fill("anita");
+        await page.getByRole("button", { name: "Apply" }).click();
+        await expect(guests.getByRole("link", { name: "Anita Gogoi" })).toBeVisible();
+        await expect(guests.getByRole("link", { name: "Cotton Collegiate" })).toHaveCount(0);
+      });
+
+      await test.step("a child's record: the banner, the badges, the consent and its link", async () => {
+        await page.goto("/users/?kind=students");
+        await table.getByRole("link", { name: "Arjun Baruah" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Arjun Baruah" })).toBeVisible();
+        await expect(page.getByText("Under 18: every view is logged")).toBeVisible();
+        await expect(page.getByText("opening it is recorded as a look at a child's data")).toBeVisible();
+        const badges = page.getByRole("list", { name: "About the account" });
+        await expect(badges).toContainText("13 to 17");
+        await expect(badges).toContainText("Parent's consent: waiting");
+        const consent = page.getByRole("region", { name: "Parent's consent" });
+        await expect(consent.getByText(/^2, the last on /)).toBeVisible();
+        await expect(consent.getByText("1 of 3")).toBeVisible();
+        await expect(consent.getByRole("button", { name: "Send the link again" })).toBeVisible();
+        await expect(consent.getByRole("button", { name: "Record the consent by hand" })).toBeVisible();
+        // what they bought: a child's counts only
+        await expect(page.getByRole("region", { name: "What they bought" })).toContainText("No order yet.");
+      });
+
+      await test.step("the timeline: a child's rows, narrowed to texts; a child's course is counts, never a trail", async () => {
+        await page.getByRole("navigation", { name: "Details" }).getByRole("link", { name: "Timeline" }).click();
+        await expect(page).toHaveURL(/\/users\/7104\/timeline\/$/);
+        await expect(page.getByText("Under 18: every view is logged")).toBeVisible();
+        const rows = page.getByRole("region", { name: "The timeline" });
+        await expect(rows.getByText("SMS (parent consent): Sent, Delivered")).toHaveCount(2);
+        await page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Texts" }).click();
+        await expect(page).toHaveURL(/kind=sms/);
+        await expect(
+          page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Texts" }),
+        ).toHaveAttribute("aria-current", "page");
+        await page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Orders" }).click();
+        await expect(page.getByText("Nothing of this kind.")).toBeVisible();
+        await page.goto("/users/7101/timeline/");
+        await expect(page.getByText("A student under 18: the course shows as counts, never as a trail.")).toBeVisible();
+        const course = page
+          .getByRole("region", { name: "The timeline" })
+          .getByRole("row")
+          .filter({ hasText: "Course use" });
+        await expect(course).toHaveCount(1);
+        await expect(course).toContainText("7 chapters opened; last active in the week of");
+        await expect(page.getByText(/clips completed/)).toHaveCount(0);
+        // a row names the console's page for it
+        await expect(
+          page.getByRole("region", { name: "The timeline" }).getByRole("link", { name: /^Order EL-2026-000123/ }),
+        ).toHaveAttribute("href", "/orders/EL-2026-000123/");
+      });
+
+      await test.step("an adult's long timeline: the newest 200 rows, then the older ones", async () => {
+        await page.goto("/users/7102/timeline/");
+        const rows = page.getByRole("region", { name: "The timeline" }).getByRole("row");
+        await expect(rows).toHaveCount(201); // the header and 200
+        await expect(page.getByText(/clips completed/).first()).toBeVisible(); // an adult's weeks of the course
+        await page.getByRole("link", { name: "Older rows" }).click();
+        await expect(page).toHaveURL(/before=/);
+        await expect(rows.nth(1)).toBeVisible();
+        expect(await rows.count()).toBeLessThan(201);
+        await expect(page.getByText("That is all of it.")).toBeVisible();
+        await page.getByRole("link", { name: "Back to the newest rows" }).click();
+        await expect(rows).toHaveCount(201);
+      });
+
+      await test.step("a consent recorded by hand: a contact is refused as evidence, then it is recorded", async () => {
+        await page.goto("/users/7104/");
+        await page.getByRole("button", { name: "Record the consent by hand" }).click();
+        const dialog = page.getByRole("dialog", { name: "Record a parent's consent by hand" });
+        await expect(dialog.getByText(/You will be asked to confirm it's you/)).toBeVisible();
+        expect.soft((await axe(page)).violations, "axe on the consent dialog").toEqual([]);
+        await dialog.getByRole("button", { name: "Record the consent" }).click();
+        await expect(dialog.getByText("This field may not be blank.").first()).toBeVisible();
+        await dialog.getByLabel("Where the evidence is").fill("mother@example.com");
+        await dialog.getByLabel("Reason").fill("Her mother wrote to us (ticket 4416).");
+        await dialog.getByRole("button", { name: "Record the consent" }).click();
+        await expect(dialog.getByText(/not a contact's details/).first()).toBeVisible();
+        await dialog.getByLabel("Where the evidence is").fill("Ticket 4416");
+        await dialog.getByRole("button", { name: "Record the consent" }).click();
+        await settle(page, toast(page, "Consent recorded"), staff, codes);
+        // the record says so, and the way back is closed
+        await expect(page.getByRole("list", { name: "About the account" })).toContainText(
+          "Parent's consent: confirmed, recorded by hand",
+        );
+        await expect(page.getByRole("button", { name: "Record the consent by hand" })).toHaveCount(0);
+        await expect(page.getByRole("region", { name: "Consent records" })).toContainText(
+          /Given, by the parent, Recorded by hand, notice 2026-10-01, recorded by staff #\d+, evidence: Ticket 4416/,
+        );
+        // the audit trail beside the record, and the audit trail page, hold the reads and the consent
+        const side = page.getByRole("complementary", { name: "Notes and audit trail" });
+        await expect(side.getByText("user.consent_verified")).toBeVisible();
+        await page.goto("/audit/?target_type=accounts.user&target_id=7104");
+        const trail = page.getByRole("region", { name: "Audit trail, a table" });
+        await expect(trail.getByText("user.consent_verified")).toBeVisible();
+        await expect(trail.getByText("sensitive_read").first()).toBeVisible();
+        // and the timeline lists what was done to the account, with its evidence in the consent's own row
+        await page.goto("/users/7104/timeline/");
+        const rows = page.getByRole("region", { name: "The timeline" });
+        await expect(
+          rows.getByText(/^Consent given by the parent \(Recorded by staff; evidence: Ticket 4416\)/),
+        ).toBeVisible();
+        await expect(rows.getByText(/^Parent's consent recorded by hand by Admin E2E/)).toBeVisible();
+        await expect(rows.getByText(/^Timeline opened by Admin E2E/).first()).toBeVisible();
+      });
+
+      await test.step("the children waiting for a parent: the oldest first; the link again, up to the day's limit", async () => {
+        await page.goto("/users/");
+        await page.getByRole("main").getByRole("link", { name: "Waiting for a parent" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Waiting for a parent" })).toBeVisible();
+        const waiting = page.getByRole("region", { name: "Waiting for a parent, a table" });
+        // Arjun is no longer here; Dipti registered ten days ago, Tina two
+        await expect(waiting.getByRole("link", { name: "Arjun Baruah" })).toHaveCount(0);
+        await expect(waiting.getByRole("row").nth(1)).toContainText("Dipti Saikia");
+        await expect(waiting.getByRole("row").nth(2)).toContainText("Tina Rabha");
+        const dipti = waiting.getByRole("row").filter({ hasText: "Dipti Saikia" });
+        await expect(dipti).toContainText("Ended on");
+        await expect(dipti).toContainText("0 of 3");
+        await expect(waiting.getByRole("row").filter({ hasText: "Tina Rabha" })).toContainText("No link sent");
+        const send = dipti.getByRole("button", { name: /^Send the link again/ });
+        for (const sent of [1, 2, 3]) {
+          await send.click();
+          await expect(toast(page, "Link sent").first()).toBeVisible();
+          await expect(dipti).toContainText(`${sent} of 3`);
+          await expect(dipti).toContainText("Works until");
+        }
+        // the fourth is refused in the API's words, the page unchanged
+        await send.click();
+        await expect(dipti.getByRole("alert")).toContainText("has had its links for today");
+        await expect(dipti).toContainText("3 of 3");
+      });
+
+      await test.step("a bulk action: checked first, a child among them needs a second person, the adults alone run at once", async () => {
+        await page.goto("/users/");
+        await page.getByRole("checkbox", { name: "Choose Riya Das" }).check();
+        await page.getByRole("checkbox", { name: "Choose Bikash Deka" }).check();
+        await expect(page.getByRole("status").filter({ hasText: "2 accounts chosen" })).toBeVisible();
+        await page.getByRole("button", { name: "Sign out everywhere" }).click();
+        let dialog = page.getByRole("dialog", { name: "Sign 2 accounts out everywhere?" });
+        const run = dialog.getByRole("button", { name: "Run it for 2 accounts" });
+        await expect(run).toBeDisabled();
+        await dialog.getByRole("button", { name: "Check first" }).click();
+        await expect(dialog.getByText("Say why.").first()).toBeVisible();
+        await dialog.getByLabel("Reason").fill("A shared computer at the school.");
+        await dialog.getByRole("button", { name: "Check first" }).click();
+        await expect(dialog.getByText("2 accounts can be changed.")).toBeVisible();
+        await expect(dialog.getByText("1 of them is the account of a student under 18.")).toBeVisible();
+        await expect(dialog.getByText(/A second person has to approve it before it runs/)).toBeVisible();
+        expect.soft((await axe(page)).violations, "axe on the bulk dialog").toEqual([]);
+        await run.click();
+        await expect(toast(page, "Started")).toBeVisible();
+        await expect(page.getByText(/Waiting for a second person to approve it: change request/)).toBeVisible();
+        await expect(page.getByRole("link", { name: /^Open the change request/ })).toBeVisible();
+
+        // an adult alone: the check says it runs at once, and the run is carried out
+        await page.goto("/users/");
+        await page.getByRole("checkbox", { name: "Choose Bikash Deka" }).check();
+        await page.getByRole("button", { name: "Suspend", exact: true }).click();
+        dialog = page.getByRole("dialog", { name: "Suspend 1 account?" });
+        await dialog.getByLabel("Reason").fill("Spam sign-ups from this address.");
+        // suspending is a high-risk permission: "confirm it's you" may ask first
+        await dialog.getByRole("button", { name: "Check first" }).click();
+        await settle(page, dialog.getByText("1 account can be changed."), staff, codes);
+        await expect(dialog.getByText("It runs at once, within your limits.")).toBeVisible();
+        await dialog.getByRole("button", { name: "Run it for 1 account" }).click();
+        await settle(page, page.getByText("All done"), staff, codes);
+        await expect(
+          page.getByRole("region", { name: "Customers, a table" }).getByRole("row").filter({ hasText: "Bikash Deka" }),
+        ).toContainText("Suspended");
+      });
+
+      await test.step("SUPPORT: the staff's own actions are not theirs to read, and they may not suspend", async () => {
+        await as("SUPPORT");
+        await page.goto("/users/7101/timeline/");
+        await expect(page.getByText("Not shown to you, as your role does not read them: Staff actions.")).toBeVisible();
+        await expect(
+          page.getByRole("navigation", { name: "Show" }).getByRole("link", { name: "Staff actions" }),
+        ).toHaveCount(0);
+        await page.goto("/users/");
+        await page.getByRole("checkbox", { name: "Choose Riya Das" }).check();
+        await expect(page.getByRole("button", { name: "Sign out everywhere" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Suspend", exact: true })).toHaveCount(0);
+        // SUPPORT may record a consent by hand, and send the link again
+        await page.goto("/users/consent-pending/");
+        await expect(
+          page
+            .getByRole("row")
+            .filter({ hasText: "Dipti Saikia" })
+            .getByRole("button", { name: /^Record the consent by hand/ }),
+        ).toBeVisible();
       });
       await page.context().clearCookies({ name: "staff_mock_role" });
     });

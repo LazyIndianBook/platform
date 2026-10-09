@@ -15,6 +15,7 @@ import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
 import { type ContentWorld, createContent } from "./content";
 import { createSupportWorld, type SupportWorld } from "./support-fixtures";
+import { type CustomersWorld, customersWorld } from "./customers";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -82,6 +83,8 @@ export type World = {
   content: ContentWorld;
   /** The support module's tickets, saved replies and the requesters' sidebar (support-fixtures.ts). */
   support: SupportWorld;
+  /** The customers module's guest buyers, spending summaries and timelines (customers.ts). */
+  customers: CustomersWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1142,11 +1145,16 @@ export function createWorld(me: Me, now = Date.now()): World {
     login_phone_verified: Boolean(masked[1]),
     created: at(-24 * 120),
     last_login: at(-27),
+    age_band: "adult",
+    consent_method: "",
+    mfa_on: false,
     roles: ["STUDENT"],
     locked: false,
     mfa: [],
     teacher: "none",
     parent_contact: "",
+    parent_link: null,
+    linked: [],
     orders: [],
     consents: [
       {
@@ -1162,16 +1170,55 @@ export function createWorld(me: Me, now = Date.now()): World {
     deletion_due_at: null,
     ...row,
   });
+  // a parent's consent on record (the ledger's row): given by the parent, checked by the way named
+  const parentConsent = (method: string, hours: number, extra: Record<string, unknown> = {}) => ({
+    event: "given",
+    method,
+    by_parent: true,
+    verified_at: at(hours),
+    verified_by: null,
+    evidence_ref: "",
+    notice_version: "2026-10-01",
+    created: at(hours),
+    ...extra,
+  });
+  const signup = (hours: number) => ({
+    event: "given",
+    method: "signup",
+    by_parent: false,
+    verified_at: null,
+    notice_version: "2026-10-01",
+    created: at(hours),
+  });
+  // a student's consent link: what went, when it stops working (7 days), how many today of the day's 3
+  const parentLink = (sent: number, lastHours: number | null, today = 0): S["CustomerParentLink"] => {
+    const last = lastHours === null ? null : at(lastHours);
+    const expires = lastHours === null ? null : at(lastHours + 24 * 7);
+    return {
+      sent,
+      last_at: last,
+      expires_at: expires,
+      expired: expires !== null && Date.parse(expires) <= now,
+      today,
+      daily_limit: 3,
+    };
+  };
   const users: S["CustomerDetail"][] = [
     customer(7101, "Riya Das", ["ri•••@example.com", "••••••2210"], {
       under_18: true,
       consent: "verified",
+      age_band: "13_17",
+      consent_method: "adult_account",
       parent_contact: "bi•••@example.com",
+      parent_link: parentLink(1, -24 * 100),
+      linked: [{ id: 7102, full_name: "Bikash Deka", relation: "parent" }],
       orders: [{ number: "EL-2026-000123", status: "shipped", created: at(-24 * 6) }],
+      consents: [signup(-24 * 120), parentConsent("adult_account", -24 * 99)],
     }),
     customer(7102, "Bikash Deka", ["bi•••@example.com", "••••••1873"], {
       class_level: null,
       board: "",
+      linked: [{ id: 7101, full_name: "Riya Das", relation: "child" }],
       orders: [
         { number: "EL-2026-000130", status: "paid", created: at(-24) },
         { number: "EL-2026-000098", status: "refunded", created: at(-24 * 9) },
@@ -1183,11 +1230,14 @@ export function createWorld(me: Me, now = Date.now()): World {
       roles: ["TEACHER"],
       teacher: "verified",
       mfa: ["totp"],
+      mfa_on: true,
     }),
     customer(7104, "Arjun Baruah", ["ar•••@example.com", ""], {
       under_18: true,
       consent: "pending",
+      age_band: "13_17",
       parent_contact: "••••••4410",
+      parent_link: parentLink(2, -30, 1),
       created: at(-72),
       consents: [],
     }),
@@ -1195,13 +1245,20 @@ export function createWorld(me: Me, now = Date.now()): World {
       locked: true,
       class_level: 10,
       board: "SEBA",
+      age_band: "unknown",
     }),
     customer(7106, "Sneha Borah", ["sn•••@example.com", ""], { status: "suspended", sessions: [] }),
     customer(7107, "Pallavi Nath", ["pa•••@example.com", "••••••0640"], {
       under_18: true,
       consent: "verified",
+      age_band: "under_13",
+      consent_method: "email_link",
       status: "pending_deletion",
       deletion_due_at: at(24 * 5),
+      parent_contact: "ka•••@example.com",
+      parent_link: parentLink(1, -24 * 40),
+      linked: [{ id: 7113, full_name: "Kavita Nath", relation: "parent" }],
+      consents: [signup(-24 * 120), parentConsent("email_link", -24 * 39)],
     }),
     customer(7108, "Hemanta Talukdar", ["he•••@example.com", "••••••4302"], {
       status: "pending_deletion",
@@ -1211,6 +1268,36 @@ export function createWorld(me: Me, now = Date.now()): World {
     }),
     customer(7109, "Jyoti Kakati", ["jy•••@example.com", ""], { class_level: null, board: "", teacher: "requested" }),
     customer(7110, "Manash Dutta", ["ma•••@example.com", "••••••7557"], { created: at(-24 * 14) }),
+    // a student whose parent's link ended a week ago unanswered, one whose parent was never sent a link (their own
+    // email is not confirmed yet; the parent has a mobile number), and a parent with an account of her own
+    customer(7111, "Dipti Saikia", ["di•••@example.com", ""], {
+      under_18: true,
+      consent: "pending",
+      age_band: "13_17",
+      class_level: 10,
+      board: "SEBA",
+      parent_contact: "pa•••@example.com",
+      parent_link: parentLink(1, -24 * 9),
+      created: at(-24 * 10),
+      consents: [],
+    }),
+    customer(7112, "Tina Rabha", ["ti•••@example.com", ""], {
+      under_18: true,
+      consent: "pending",
+      age_band: "under_13",
+      class_level: 10,
+      board: "SEBA",
+      email_verified: false,
+      parent_contact: "••••••3302",
+      parent_link: parentLink(0, null),
+      created: at(-24 * 2),
+      consents: [],
+    }),
+    customer(7113, "Kavita Nath", ["ka•••@example.com", ""], {
+      class_level: null,
+      board: "",
+      linked: [{ id: 7107, full_name: "Pallavi Nath", relation: "child" }],
+    }),
   ];
   const contacts: World["contacts"] = {
     "7101": {
@@ -1224,10 +1311,23 @@ export function createWorld(me: Me, now = Date.now()): World {
     "7104": { email: "arjun.baruah@example.com", phone: "", login_phone: "", parent_contact: "+919706044410" },
     "7105": { email: "kabir.ahmed@example.com", phone: "+916001022118", login_phone: "", parent_contact: "" },
     "7106": { email: "sneha.borah@example.com", phone: "", login_phone: "", parent_contact: "" },
-    "7107": { email: "pallavi.nath@example.com", phone: "+918811030640", login_phone: "", parent_contact: "" },
+    "7107": {
+      email: "pallavi.nath@example.com",
+      phone: "+918811030640",
+      login_phone: "",
+      parent_contact: "kavita.nath@example.com",
+    },
     "7108": { email: "hemanta.talukdar@example.com", phone: "+919706044302", login_phone: "", parent_contact: "" },
     "7109": { email: "jyoti.kakati@example.com", phone: "", login_phone: "", parent_contact: "" },
     "7110": { email: "manash.dutta@example.com", phone: "+919101077557", login_phone: "", parent_contact: "" },
+    "7111": {
+      email: "dipti.saikia@example.com",
+      phone: "",
+      login_phone: "",
+      parent_contact: "paran.saikia@example.com",
+    },
+    "7112": { email: "tina.rabha@example.com", phone: "", login_phone: "", parent_contact: "+919706043302" },
+    "7113": { email: "kavita.nath@example.com", phone: "", login_phone: "", parent_contact: "" },
   };
 
   const notes: Note[] = [
@@ -1921,5 +2021,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     orders: ordersWorld(at),
     content: content.world,
     support: createSupportWorld(me, now),
+    customers: customersWorld(at),
   };
 }
