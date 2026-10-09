@@ -180,7 +180,7 @@ class OrderRowSerializer(serializers.ModelSerializer):
         return order.created_by_id is not None
 
 
-class LineSerializer(serializers.Serializer):
+class OrderLineSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     product = serializers.CharField(help_text="its slug")
     title = serializers.CharField()
@@ -198,7 +198,7 @@ class LineSerializer(serializers.Serializer):
     digital = serializers.BooleanField()
 
 
-class PaymentRowSerializer(serializers.ModelSerializer):
+class OrderPaymentSerializer(serializers.ModelSerializer):
     amount = money("amount.amount")
     refundable = serializers.SerializerMethodField(help_text="what is left of it to refund")
     older_than_6_months = serializers.SerializerMethodField(help_text="Razorpay may refuse a normal refund")
@@ -219,16 +219,16 @@ class PaymentRowSerializer(serializers.ModelSerializer):
         return payment.method == Order.Method.RAZORPAY and payment.created < timezone.now() - SIX_MONTHS
 
 
-class RefundLineSerializer(serializers.Serializer):
+class OrderRefundLineSerializer(serializers.Serializer):
     item = serializers.IntegerField()
     quantity = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
 
 
-class RefundRowSerializer(serializers.ModelSerializer):
+class OrderRefundSerializer(serializers.ModelSerializer):
     amount = money("amount.amount")
     shipping_amount = money("shipping_amount.amount")
-    lines = RefundLineSerializer(many=True, read_only=True)
+    lines = OrderRefundLineSerializer(many=True, read_only=True)
     credit_note = serializers.SerializerMethodField()
     payment_method = serializers.CharField(source="payment.method", read_only=True)
 
@@ -256,7 +256,7 @@ class OrderDocumentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
 
 
-class ParcelRowSerializer(ParcelSerializer):
+class OrderParcelSerializer(ParcelSerializer):
     """A parcel of the order (the shipping app's) and its last scan."""
 
     last_event = serializers.SerializerMethodField()
@@ -356,7 +356,7 @@ class ReturnDetailSerializer(ReturnRowSerializer):
         return list(dict.fromkeys(found))
 
 
-class ActionSerializer(serializers.Serializer):
+class OrderActionSerializer(serializers.Serializer):
     name = serializers.CharField(
         help_text="pack, ship, deliver, cancel, hold, release, payment_link, offline_payment, …"
     )
@@ -364,7 +364,7 @@ class ActionSerializer(serializers.Serializer):
     primary = serializers.BooleanField(help_text="the one next action: the header's button")
 
 
-class RefundOptionsSerializer(serializers.Serializer):
+class OrderRefundOptionsSerializer(serializers.Serializer):
     payment = serializers.IntegerField(allow_null=True)
     payment_method = serializers.CharField(allow_null=True)
     refundable = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="what is left to refund")
@@ -375,7 +375,7 @@ class RefundOptionsSerializer(serializers.Serializer):
     warnings = serializers.ListField(child=serializers.CharField())
 
 
-class TimelineEntrySerializer(serializers.Serializer):
+class OrderTimelineEntrySerializer(serializers.Serializer):
     at = serializers.DateTimeField()
     kind = serializers.CharField(
         help_text="status, payment, refund, parcel, scan, message, note, hold, return, audit, erp"
@@ -385,7 +385,7 @@ class TimelineEntrySerializer(serializers.Serializer):
     details = serializers.DictField()
 
 
-class ErpLinkSerializer(serializers.Serializer):
+class OrderErpLinkSerializer(serializers.Serializer):
     model = serializers.CharField()
     object_id = serializers.CharField()
     doctype = serializers.CharField()
@@ -402,10 +402,10 @@ class OrderDetailSerializer(OrderRowSerializer):
     savings = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
     lines = serializers.SerializerMethodField()
-    payments = PaymentRowSerializer(many=True, read_only=True)
-    refunds = RefundRowSerializer(many=True, read_only=True)
+    payments = OrderPaymentSerializer(many=True, read_only=True)
+    refunds = OrderRefundSerializer(many=True, read_only=True)
     documents = serializers.SerializerMethodField()
-    shipments = ParcelRowSerializer(many=True, read_only=True)
+    shipments = OrderParcelSerializer(many=True, read_only=True)
     returns = ReturnRowSerializer(many=True, read_only=True)
     hold = serializers.SerializerMethodField()
     risk_reasons = serializers.ListField(child=serializers.CharField(), read_only=True)
@@ -451,7 +451,7 @@ class OrderDetailSerializer(OrderRowSerializer):
         }
         return {**address, "phone": mask_phone((order.shipping_address or {}).get("phone", ""))}
 
-    @extend_schema_field(LineSerializer(many=True))
+    @extend_schema_field(OrderLineSerializer(many=True))
     def get_lines(self, order):
         known, left = services.refund_lines(order), services.returnable(order)
         rows = []
@@ -476,7 +476,7 @@ class OrderDetailSerializer(OrderRowSerializer):
                     "digital": item.product.digital_only,
                 }
             )
-        return LineSerializer(rows, many=True).data
+        return OrderLineSerializer(rows, many=True).data
 
     @extend_schema_field(OrderDocumentSerializer(many=True))
     def get_documents(self, order):
@@ -528,19 +528,19 @@ class OrderDetailSerializer(OrderRowSerializer):
     def get_created_by(self, order) -> str | None:
         return staff_name(order.created_by) or None
 
-    @extend_schema_field(ActionSerializer(many=True))
+    @extend_schema_field(OrderActionSerializer(many=True))
     def get_actions(self, order):
         return actions_for(order, self.context["request"].user)
 
-    @extend_schema_field(RefundOptionsSerializer)
+    @extend_schema_field(OrderRefundOptionsSerializer)
     def get_refund(self, order):
         return refund_options(order)
 
-    @extend_schema_field(ErpLinkSerializer(many=True))
+    @extend_schema_field(OrderErpLinkSerializer(many=True))
     def get_erp(self, order):
         return erp_links(order)
 
-    @extend_schema_field(TimelineEntrySerializer(many=True))
+    @extend_schema_field(OrderTimelineEntrySerializer(many=True))
     def get_timeline(self, order):
         return timeline(order, self.context["request"].user)
 
@@ -711,31 +711,31 @@ def timeline(order, user):
             )
         audit.record("audit.read", target=order, details={"what": "order timeline"})
     rows.sort(key=lambda row: row["at"])
-    return TimelineEntrySerializer(rows, many=True).data
+    return OrderTimelineEntrySerializer(rows, many=True).data
 
 
 # ---- Requests ----
 
 
-class LineAskSerializer(serializers.Serializer):
+class OrderLineAskSerializer(serializers.Serializer):
     item = serializers.IntegerField(help_text="an order line's id")
     quantity = serializers.IntegerField(min_value=0, max_value=5000, help_text="copies; 0: not this line")
 
 
-class PayeeSerializer(serializers.Serializer):
+class RefundPayeeSerializer(serializers.Serializer):
     upi = serializers.CharField(required=False, allow_blank=True, max_length=300, help_text="name@bank")
     account = serializers.CharField(required=False, allow_blank=True, max_length=30)
     ifsc = serializers.CharField(required=False, allow_blank=True, max_length=11)
     name = serializers.CharField(required=False, allow_blank=True, max_length=120, help_text="the account holder")
 
 
-class RefundAskSerializer(serializers.Serializer):
-    lines = LineAskSerializer(many=True, required=False, help_text="the copies refunded; quantities start at 0")
+class OrderRefundAskSerializer(serializers.Serializer):
+    lines = OrderLineAskSerializer(many=True, required=False, help_text="the copies refunded; quantities start at 0")
     shipping = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, min_value=Decimal(0))
     restock = serializers.BooleanField(required=False, default=False, help_text="the copies go back into stock")
     method = serializers.ChoiceField(choices=["source", "bank"], required=False, help_text="default: the payment's")
     speed = serializers.ChoiceField(choices=Refund.Speed.choices, required=False, default=Refund.Speed.NORMAL)
-    payee = PayeeSerializer(required=False, help_text="method bank: the customer's UPI ID, or bank account")
+    payee = RefundPayeeSerializer(required=False, help_text="method bank: the customer's UPI ID, or bank account")
     customer_agreed = serializers.BooleanField(required=False, default=False, help_text="bank for an online payment")
     reason = serializers.CharField(max_length=200)
 
@@ -758,51 +758,51 @@ class RefundAskSerializer(serializers.Serializer):
         return data
 
 
-class RefundAskedSerializer(ChangeRequestSerializer):
+class OrderRefundAskedSerializer(ChangeRequestSerializer):
     warnings = serializers.ListField(child=serializers.CharField(), read_only=True)
 
     class Meta(ChangeRequestSerializer.Meta):
         fields = [*ChangeRequestSerializer.Meta.fields, "warnings"]
 
 
-class CancelSerializer(serializers.Serializer):
+class OrderCancelSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, help_text="told to the customer")
     customer_requested = serializers.BooleanField(required=False, default=False, help_text="the customer asked")
     restock = serializers.BooleanField(required=False, default=True, help_text="a parcel back: its copies sellable")
 
 
-class HoldSerializer(serializers.Serializer):
+class OrderHoldReasonSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, help_text="an address to check, a payment to confirm …")
 
 
-class TagsSerializer(serializers.Serializer):
+class OrderTagsSerializer(serializers.Serializer):
     add = serializers.ListField(child=serializers.CharField(max_length=60), required=False, default=list)
     remove = serializers.ListField(child=serializers.CharField(max_length=60), required=False, default=list)
 
 
-class ShipSerializer(serializers.Serializer):
+class OrderShipSerializer(serializers.Serializer):
     courier = serializers.ChoiceField(choices=Shipment.Courier.choices)
     tracking_number = serializers.CharField(max_length=80)
     tracking_url = serializers.URLField(required=False, allow_blank=True, default="")
 
 
-class NotifySerializer(serializers.Serializer):
+class OrderNotifySerializer(serializers.Serializer):
     kind = serializers.ChoiceField(
         choices=["placed", "paid", "packed", "shipped", "delivered", "cancelled", "refunded"]
     )
 
 
-class PaymentLinkSerializer(serializers.Serializer):
+class OrderPaymentLinkSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["send", "cancel"], default="send")
 
 
-class OfflinePaymentSerializer(serializers.Serializer):
+class OrderOfflinePaymentSerializer(serializers.Serializer):
     reference = serializers.CharField(max_length=60, help_text="the UTR or UPI reference, as on the bank statement")
     reason = serializers.CharField(max_length=500)
 
 
 class ReturnAskSerializer(serializers.Serializer):
-    lines = LineAskSerializer(many=True)
+    lines = OrderLineAskSerializer(many=True)
     reason = serializers.ChoiceField(choices=ReturnRequest.Reason.choices)
     note = serializers.CharField(required=False, allow_blank=True, max_length=1000, help_text="the customer's words")
 
@@ -848,7 +848,7 @@ class StaffOrderSerializer(serializers.Serializer):
         return [{"product": slug, "quantity": quantity} for slug, quantity in copies.items()]
 
 
-class ConvertSerializer(serializers.Serializer):
+class QuoteConvertSerializer(serializers.Serializer):
     address = ShippingAddressSerializer(help_text="where the books go (the quote has only its PIN code)")
     email = serializers.EmailField(required=False, help_text="default: the quote's")
     send_link = serializers.BooleanField(required=False, default=True)
@@ -856,7 +856,7 @@ class ConvertSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, default="A school's quotation accepted.")
 
 
-class MarkPaidSerializer(serializers.Serializer):
+class RefundMarkPaidSerializer(serializers.Serializer):
     utr = serializers.CharField(max_length=60, help_text="the transfer's UTR or UPI reference")
 
 
@@ -864,16 +864,16 @@ class PickListSerializer(serializers.Serializer):
     orders = serializers.ListField(child=serializers.CharField(max_length=20), min_length=1, max_length=500)
 
 
-class InspectSerializer(serializers.Serializer):
+class ReturnInspectSerializer(serializers.Serializer):
     outcome = serializers.ChoiceField(choices=["restocked", "damaged"])
 
 
-class LabelSerializer(serializers.Serializer):
+class ReturnLabelSerializer(serializers.Serializer):
     courier = serializers.CharField(max_length=80)
     awb = serializers.CharField(max_length=80)
 
 
-class DeclineSerializer(serializers.Serializer):
+class ReturnDeclineSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=300, help_text="why: the customer is told")
 
 
@@ -1222,14 +1222,14 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         self.log("order.packed", order)
         return self.answer(order)
 
-    @extend_schema(request=ShipSerializer, responses=OrderRowSerializer)
+    @extend_schema(request=OrderShipSerializer, responses=OrderRowSerializer)
     @action(detail=True, methods=["post"])
     def ship(self, request, *args, **kwargs):
         """Sent by hand at the counter (India Post, a courier without an API): the courier and the number; the
         customer is told with the tracking link. A courier booked through Shiprocket is the shipping app's."""
         from shipping import services as shipping
 
-        data = ShipSerializer(data=request.data)
+        data = OrderShipSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         order, values = self.order(), data.validated_data
         try:
@@ -1252,7 +1252,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return self.answer(order)
 
     @extend_schema(
-        request=CancelSerializer,
+        request=OrderCancelSerializer,
         responses={200: OrderRowSerializer, 201: ChangeRequestSerializer, 202: ChangeRequestSerializer},
     )
     @action(detail=True, methods=["post"])
@@ -1261,7 +1261,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         (staff.approvals "order.refund": your refund limit, FINANCE above it). Paid by transfer: refund it by bank or
         UPI (refunds/), which cancels it. A cash-on-delivery parcel back undelivered (RTO): cancelled, its copies back
         unless damaged (`restock`), its invoice credited."""
-        data = CancelSerializer(data=request.data)
+        data = OrderCancelSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         order, values, user = self.order(), data.validated_data, self.human()
         reason = values["reason"].strip()
@@ -1291,11 +1291,11 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         self.log("order.cancelled", order, reason=reason, details=details)
         return self.answer(order)
 
-    @extend_schema(request=HoldSerializer, responses=OrderRowSerializer)
+    @extend_schema(request=OrderHoldReasonSerializer, responses=OrderRowSerializer)
     @action(detail=True, methods=["post"])
     def hold(self, request, *args, **kwargs):
         """Hold it, with the reason (it leaves the packing queue until released)."""
-        data = HoldSerializer(data=request.data)
+        data = OrderHoldReasonSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         return self.answer(call(services.hold, self.order(), data.validated_data["reason"], self.human(), request))
 
@@ -1305,11 +1305,11 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         """Release a held order: back in the packing queue."""
         return self.answer(call(services.release, self.order(), self.human(), request))
 
-    @extend_schema(request=TagsSerializer, responses=OrderRowSerializer)
+    @extend_schema(request=OrderTagsSerializer, responses=OrderRowSerializer)
     @action(detail=True, methods=["post"])
     def tags(self, request, *args, **kwargs):
         """Add and remove tags (school, awaiting reprint …)."""
-        data = TagsSerializer(data=request.data)
+        data = OrderTagsSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         values = data.validated_data
         order = self.order()
@@ -1317,12 +1317,12 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return self.answer(order)
 
     @extend_schema(
-        request=NotifySerializer, responses=inline_serializer("Notified", {"detail": serializers.CharField()})
+        request=OrderNotifySerializer, responses=inline_serializer("OrderNotified", {"detail": serializers.CharField()})
     )
     @action(detail=True, methods=["post"])
     def notify(self, request, *args, **kwargs):
         """Send a status message again (the email, and an SMS where the customer asked for them), when it is true."""
-        data = NotifySerializer(data=request.data)
+        data = OrderNotifySerializer(data=request.data)
         data.is_valid(raise_exception=True)
         order, kind = self.order(), data.validated_data["kind"]
         context = call(services.renotify, order, kind)
@@ -1330,16 +1330,16 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response({"detail": f"Sent again: {context}."})
 
     @extend_schema(
-        request=PaymentLinkSerializer,
+        request=OrderPaymentLinkSerializer,
         responses=inline_serializer(
-            "PaymentLinkSent", {"detail": serializers.CharField(), "url": serializers.CharField(allow_blank=True)}
+            "OrderPaymentLinkSent", {"detail": serializers.CharField(), "url": serializers.CharField(allow_blank=True)}
         ),
     )
     @action(detail=True, methods=["post"], url_path="payment-link")
     def payment_link(self, request, *args, **kwargs):
         """A staff order's Razorpay Payment Link: sent (made once; then the same link again), or cancelled (the next
         one sent is new). 503 while Razorpay cannot be reached."""
-        data = PaymentLinkSerializer(data=request.data)
+        data = OrderPaymentLinkSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         order = self.order()
         if order.status != Order.Status.PENDING or order.placed_at or order.is_cod:
@@ -1358,7 +1358,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response({"detail": "Emailed to the customer.", "url": payment.payment_link_url})
 
     @extend_schema(
-        request=OfflinePaymentSerializer,
+        request=OrderOfflinePaymentSerializer,
         responses={201: ChangeRequestSerializer, 202: ChangeRequestSerializer},
         parameters=[IDEMPOTENCY],
     )
@@ -1366,7 +1366,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
     def offline_payment(self, request, *args, **kwargs):
         """A payment received by transfer or UPI: staff.approvals "order.offline_payment" (above your limit, or a ₹0
         order, FINANCE approves)."""
-        data = OfflinePaymentSerializer(data=request.data)
+        data = OrderOfflinePaymentSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         change_request, created = approvals.ask(
             "order.offline_payment",
@@ -1383,8 +1383,8 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return response
 
     @extend_schema(
-        request=RefundAskSerializer,
-        responses={201: RefundAskedSerializer, 202: RefundAskedSerializer},
+        request=OrderRefundAskSerializer,
+        responses={201: OrderRefundAskedSerializer, 202: OrderRefundAskedSerializer},
         parameters=[IDEMPOTENCY],
     )
     @action(detail=True, methods=["post"])
@@ -1394,7 +1394,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         payment with the customer's agreement), or a return's (`return`); not sent yet: cancelled and refunded in
         full. Through staff.approvals "order.refund": within your refund limit it runs at once (201), above it FINANCE
         approves (202). `warnings`: a payment older than 6 months."""
-        data = RefundAskSerializer(data=request.data)
+        data = OrderRefundAskSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         order = self.order()
         payload = data.payload()
@@ -1440,7 +1440,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response(ReturnDetailSerializer(back).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
-        request=None, responses={202: inline_serializer("Regenerating", {"detail": serializers.CharField()})}
+        request=None, responses={202: inline_serializer("OrderDocumentsQueued", {"detail": serializers.CharField()})}
     )
     @action(detail=True, methods=["post"], url_path="invoice/regenerate")
     def invoice_regenerate(self, request, *args, **kwargs):
@@ -1451,7 +1451,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         self.log("order.documents_regenerated", order, details={"documents": made})
         return Response({"detail": "Being made: the documents appear on the order within a minute."}, status=202)
 
-    @extend_schema(request=None, responses=inline_serializer("InvoiceSent", {"detail": serializers.CharField()}))
+    @extend_schema(request=None, responses=inline_serializer("OrderInvoiceSent", {"detail": serializers.CharField()}))
     @action(detail=True, methods=["post"], url_path="invoice/resend")
     def invoice_resend(self, request, *args, **kwargs):
         """Email the customer the invoice's link again (the order's page, where its PDF is)."""
@@ -1593,19 +1593,19 @@ class ReturnViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin
         """Approved: the customer is told how to send it back."""
         return self.moved(services.decide_return, True)
 
-    @extend_schema(request=DeclineSerializer, responses=ReturnDetailSerializer)
+    @extend_schema(request=ReturnDeclineSerializer, responses=ReturnDetailSerializer)
     @action(detail=True, methods=["post"])
     def decline(self, request, *args, **kwargs):
         """Declined, with the reason the customer is told."""
-        data = DeclineSerializer(data=request.data)
+        data = ReturnDeclineSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         return self.moved(services.decide_return, False, data.validated_data["note"])
 
-    @extend_schema(request=LabelSerializer, responses=ReturnDetailSerializer)
+    @extend_schema(request=ReturnLabelSerializer, responses=ReturnDetailSerializer)
     @action(detail=True, methods=["post"])
     def label(self, request, *args, **kwargs):
         """The return label sent: the courier and the AWB the customer hands the parcel over with."""
-        data = LabelSerializer(data=request.data)
+        data = ReturnLabelSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         return self.moved(services.send_return_label, data.validated_data["courier"], data.validated_data["awb"])
 
@@ -1615,11 +1615,11 @@ class ReturnViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin
         """The parcel is back with us."""
         return self.moved(services.receive_return)
 
-    @extend_schema(request=InspectSerializer, responses=ReturnDetailSerializer)
+    @extend_schema(request=ReturnInspectSerializer, responses=ReturnDetailSerializer)
     @action(detail=True, methods=["post"])
     def inspect(self, request, *args, **kwargs):
         """Inspected: back into stock (its copies added, the return the reason) or damaged."""
-        data = InspectSerializer(data=request.data)
+        data = ReturnInspectSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         return self.moved(services.inspect_return, data.validated_data["outcome"] == "restocked")
 
@@ -1652,23 +1652,23 @@ class RefundViewSet(OrdersView, viewsets.GenericViewSet):
     marked paid with the transfer's UTR (the refund processed, the credit note made, the customer told; once)."""
 
     queryset = Refund.objects.select_related("order", "payment")
-    serializer_class = RefundRowSerializer
+    serializer_class = OrderRefundSerializer
     permissions = {"mark_paid": "staff.approve_refund", "payee": "staff.approve_refund"}
     throttle_scopes = {"mark_paid": "staff_money", "payee": "staff_reveal"}
 
-    @extend_schema(request=MarkPaidSerializer, responses=RefundRowSerializer)
+    @extend_schema(request=RefundMarkPaidSerializer, responses=OrderRefundSerializer)
     @action(detail=True, methods=["post"], url_path="mark-paid")
     def mark_paid(self, request, *args, **kwargs):
-        data = MarkPaidSerializer(data=request.data)
+        data = RefundMarkPaidSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         refund = call(
             services.mark_bank_refund_paid, self.get_object(), data.validated_data["utr"], self.human(), request
         )
-        return Response(RefundRowSerializer(refund).data)
+        return Response(OrderRefundSerializer(refund).data)
 
     @extend_schema(
-        request=inline_serializer("PayeeReason", {"reason": serializers.CharField(max_length=500)}),
-        responses=PayeeSerializer,
+        request=inline_serializer("RefundPayeeReason", {"reason": serializers.CharField(max_length=500)}),
+        responses=RefundPayeeSerializer,
     )
     @action(detail=True, methods=["post"])
     def payee(self, request, *args, **kwargs):
@@ -1688,7 +1688,7 @@ class RefundViewSet(OrdersView, viewsets.GenericViewSet):
             "child": bool(refund.order.user and refund.order.user.is_minor),
         }
         audit.record("sensitive_read", request=request, target=refund.order, reason=reason[:500], details=details)
-        return Response(PayeeSerializer(json.loads(decrypt(refund.payee))).data)
+        return Response(RefundPayeeSerializer(json.loads(decrypt(refund.payee))).data)
 
 
 class QuoteRowSerializer(serializers.ModelSerializer):
@@ -1773,7 +1773,7 @@ class QuoteViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
             raise Http404 from error
 
     @extend_schema(
-        request=ConvertSerializer,
+        request=QuoteConvertSerializer,
         responses={201: ChangeRequestSerializer, 202: ChangeRequestSerializer},
         parameters=[IDEMPOTENCY],
     )
@@ -1786,7 +1786,7 @@ class QuoteViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
             raise refused(f"Quotation {quote.number} is order {quote.order.number} already.")
         if pending := waiting_conversion(quote):
             raise refused(f"Quotation {quote.number} waits for approval as change request #{pending}.")
-        data = ConvertSerializer(data=request.data)
+        data = QuoteConvertSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         values = data.validated_data
         slugs = [item["product"] for item in quote.items]

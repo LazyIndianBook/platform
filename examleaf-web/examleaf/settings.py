@@ -829,6 +829,9 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the orders mo
     QuoteStatusEnum="shop.models.QuoteRequest.Status",
     StaffOrderChannelEnum="shop.staff_orders.CHANNELS",
     ChannelEnum="staff.models.DataRequest.Channel",  # its name as before: a staff order's channel is another
+    ReturnReasonEnum="shop.models.ReturnRequest.Reason",
+    RefundSpeedEnum="shop.models.Refund.Speed",
+    OrderRiskEnum="shop.models.Order.Risk",
 )
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------

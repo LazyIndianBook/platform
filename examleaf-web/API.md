@@ -1525,38 +1525,38 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/orders/pick-list/` | `staff.pack_order` |  | `PickListRequest` | 200 `application/pdf` |
 | GET | `staff/orders/quotes/` | `shop.view_quoterequest` | `cursor`, `page_size`, `status` |  | 200 `PaginatedQuoteRowList` |
 | GET | `staff/orders/quotes/{id}/` | `shop.view_quoterequest` |  |  | 200 `QuoteDetail` |
-| POST | `staff/orders/quotes/{id}/convert/` | `shop.change_quoterequest` |  | `ConvertRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| POST | `staff/orders/quotes/{id}/convert/` | `shop.change_quoterequest` |  | `QuoteConvertRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
 | GET | `staff/orders/quotes/{id}/quotation/` | `shop.view_quoterequest` |  |  | 200 `application/pdf` |
-| POST | `staff/orders/refunds/{id}/mark-paid/` | `staff.approve_refund` |  | `MarkPaidRequest` | 200 `RefundRow` |
-| POST | `staff/orders/refunds/{id}/payee/` | `staff.approve_refund` |  | `PayeeReasonRequest` | 200 `Payee` |
+| POST | `staff/orders/refunds/{id}/mark-paid/` | `staff.approve_refund` |  | `RefundMarkPaidRequest` | 200 `OrderRefund` |
+| POST | `staff/orders/refunds/{id}/payee/` | `staff.approve_refund` |  | `RefundPayeeReasonRequest` | 200 `RefundPayee` |
 | GET | `staff/orders/returns/` | `shop.view_returnrequest` | `by_customer`, `cursor`, `open`, `order`, `page_size`, `reason`, `status` |  | 200 `PaginatedReturnRowList` |
 | GET | `staff/orders/returns/{id}/` | `shop.view_returnrequest` |  |  | 200 `ReturnDetail` |
 | POST | `staff/orders/returns/{id}/approve/` | `staff.handle_return` |  |  | 200 `ReturnDetail` |
-| POST | `staff/orders/returns/{id}/decline/` | `staff.handle_return` |  | `DeclineRequest` | 200 `ReturnDetail` |
-| POST | `staff/orders/returns/{id}/inspect/` | `staff.receive_return` |  | `InspectRequest` | 200 `ReturnDetail` |
-| POST | `staff/orders/returns/{id}/label/` | `staff.handle_return` |  | `LabelRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/decline/` | `staff.handle_return` |  | `ReturnDeclineRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/inspect/` | `staff.receive_return` |  | `ReturnInspectRequest` | 200 `ReturnDetail` |
+| POST | `staff/orders/returns/{id}/label/` | `staff.handle_return` |  | `ReturnLabelRequest` | 200 `ReturnDetail` |
 | POST | `staff/orders/returns/{id}/photos/` | `staff.receive_return` |  | `ReturnPhotoRequest` | 200 `ReturnDetail` |
 | GET | `staff/orders/returns/{id}/photos/{index}/` | `shop.view_returnrequest` |  |  | 200 `image/*` |
 | POST | `staff/orders/returns/{id}/receive/` | `staff.receive_return` |  |  | 200 `ReturnDetail` |
 | GET | `staff/orders/{number}/` | `shop.view_order` |  |  | 200 `OrderDetail` |
-| POST | `staff/orders/{number}/cancel/` | `shop.change_order` |  | `CancelRequest` | 200 `OrderRow`; 201 `ChangeRequest`; 202 `ChangeRequest` |
+| POST | `staff/orders/{number}/cancel/` | `shop.change_order` |  | `OrderCancelRequest` | 200 `OrderRow`; 201 `ChangeRequest`; 202 `ChangeRequest` |
 | GET | `staff/orders/{number}/credit-notes/{note}/` | `shop.view_creditnote` |  |  | 200 `application/pdf` |
 | POST | `staff/orders/{number}/deliver/` | `staff.pack_order` |  |  | 200 `OrderRow` |
 | GET | `staff/orders/{number}/documents/label/` | `staff.pack_order` |  |  | 200 `application/pdf` |
 | GET | `staff/orders/{number}/documents/packing-slip/` | `staff.pack_order` |  |  | 200 `application/pdf` |
-| POST | `staff/orders/{number}/hold/` | `shop.change_order` |  | `HoldRequest` | 200 `OrderRow` |
+| POST | `staff/orders/{number}/hold/` | `shop.change_order` |  | `OrderHoldReasonRequest` | 200 `OrderRow` |
 | GET | `staff/orders/{number}/invoice/` | `shop.view_invoice` |  |  | 200 `application/pdf` |
-| POST | `staff/orders/{number}/invoice/regenerate/` | `shop.change_order` |  |  | 202 `Regenerating` |
-| POST | `staff/orders/{number}/invoice/resend/` | `shop.change_order` |  |  | 200 `InvoiceSent` |
-| POST | `staff/orders/{number}/notify/` | `shop.change_order` |  | `NotifyRequest` | 200 `Notified` |
-| POST | `staff/orders/{number}/offline-payment/` | `staff.record_offline_payment` |  | `OfflinePaymentRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| POST | `staff/orders/{number}/invoice/regenerate/` | `shop.change_order` |  |  | 202 `OrderDocumentsQueued` |
+| POST | `staff/orders/{number}/invoice/resend/` | `shop.change_order` |  |  | 200 `OrderInvoiceSent` |
+| POST | `staff/orders/{number}/notify/` | `shop.change_order` |  | `OrderNotifyRequest` | 200 `OrderNotified` |
+| POST | `staff/orders/{number}/offline-payment/` | `staff.record_offline_payment` |  | `OrderOfflinePaymentRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
 | POST | `staff/orders/{number}/pack/` | `staff.pack_order` |  |  | 200 `OrderRow` |
-| POST | `staff/orders/{number}/payment-link/` | `shop.change_order` |  | `PaymentLinkRequest` | 200 `PaymentLinkSent` |
-| POST | `staff/orders/{number}/refunds/` | `staff.refund_order` |  | `RefundAskRequest` | 201 `RefundAsked`; 202 `RefundAsked` |
+| POST | `staff/orders/{number}/payment-link/` | `shop.change_order` |  | `OrderPaymentLinkRequest` | 200 `OrderPaymentLinkSent` |
+| POST | `staff/orders/{number}/refunds/` | `staff.refund_order` |  | `OrderRefundAskRequest` | 201 `OrderRefundAsked`; 202 `OrderRefundAsked` |
 | POST | `staff/orders/{number}/release/` | `shop.change_order` |  |  | 200 `OrderRow` |
 | POST | `staff/orders/{number}/returns/` | `staff.handle_return` |  | `ReturnAskRequest` | 201 `ReturnDetail` |
-| POST | `staff/orders/{number}/ship/` | `staff.pack_order` |  | `ShipRequest` | 200 `OrderRow` |
-| POST | `staff/orders/{number}/tags/` | `shop.change_order` |  | `TagsRequest` | 200 `OrderRow` |
+| POST | `staff/orders/{number}/ship/` | `staff.pack_order` |  | `OrderShipRequest` | 200 `OrderRow` |
+| POST | `staff/orders/{number}/tags/` | `shop.change_order` |  | `OrderTagsRequest` | 200 `OrderRow` |
 | GET | `staff/people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
 | POST | `staff/people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
 | GET | `staff/people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
@@ -1605,7 +1605,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
 - **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
-- **Action**: `name` string (required); `permission` string (required); `primary` boolean (required)
 - **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
 - **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
@@ -1620,7 +1619,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **BlankEnum**: null
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
-- **CancelRequest**: `reason` string (required); `customer_requested` boolean; `restock` boolean
 - **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
@@ -1635,7 +1633,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
-- **ConvertRequest**: `address` ShippingAddressRequest (required); `email` email; `send_link` boolean; `note` string; `reason` string
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
@@ -1646,7 +1643,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DecisionEnum**: one of `approve`, `reject`
-- **DeclineRequest**: `note` string (required)
 - **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
 - **Detail**: `detail` string (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
@@ -1658,7 +1654,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ErpDifference**: `id` integer (required, read-only); `run` integer (required, read-only); `kind` ErpDifferenceKindEnum (required, read-only); `key` string (required, read-only); `platform_value` string (required, read-only); `erp_value` string (required, read-only); `note` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only)
 - **ErpDifferenceKindEnum**: one of `invoices`, `credit_notes`, `payments`, `settlements`, `deliveries`, `stock`, `missing`
 - **ErpDiscardRequest**: `reason` string (required)
-- **ErpLink**: `model` string (required); `object_id` string (required); `doctype` string (required); `name` string (required); `synced_at` date-time (required)
 - **ErpOutbox**: `id` integer (required, read-only); `aggregate_type` string (required, read-only); `aggregate_id` string (required, read-only); `sequence` integer (required, read-only); `event` string (required, read-only); `examleaf_ref` string (required, read-only); `model` string (required, read-only); `object_id` string (required, read-only); `idempotency_key` string (required, read-only); `payload` any (required, null, read-only); `state` ErpOutboxStateEnum (required, read-only); `attempts` integer (required, read-only); `next_at` date-time (required, read-only); `last_error` string (required, read-only); `created` date-time (required, read-only); `sent_at` date-time (required, null, read-only); `response` any (required, null, read-only); `dead_letter` integer (required, null, read-only)
 - **ErpOutboxStateEnum**: one of `pending`, `sending`, `sent`, `failed`, `dead`, `discarded`
 - **ErpReconciliationStateEnum**: one of `running`, `done`, `failed`
@@ -1673,7 +1668,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
 - **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
-- **HoldRequest**: `reason` string (required)
 - **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
@@ -1682,44 +1676,62 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
-- **InspectOutcomeEnum**: one of `restocked`, `damaged`
-- **InspectRequest**: `outcome` InspectOutcomeEnum (required)
 - **InviteRequest**: `email` email (required); `role` RoleEnum (required); `reason` string (required)
-- **InvoiceSent**: `detail` string (required)
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
 - **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
-- **LabelRequest**: `courier` string (required); `awb` string (required)
 - **LevelEnum**: one of `ok`, `watch`, `act`
-- **Line**: `id` integer (required); `product` string (required); `title` string (required); `isbn` string (required); `hsn_code` string (required); `gst_rate` decimal (required); `mrp` decimal (required, read-only); `unit_price` decimal (required, read-only); `quantity` integer (required); `line_total` decimal (required, read-only); `discount` decimal (required, read-only); `invoiced` decimal (required, read-only); `refunded` integer (required); `returnable` integer (required); `digital` boolean (required)
-- **LineAskRequest**: `item` integer (required); `quantity` integer (required)
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
-- **MarkPaidRequest**: `utr` string (required)
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
 - **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
 - **NoteRequest**: `target_type` string (required); `target_id` string (required); `body` string (required); `pinned` boolean
-- **Notified**: `detail` string (required)
-- **NotifyKindEnum**: one of `placed`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
-- **NotifyRequest**: `kind` NotifyKindEnum (required)
 - **NullEnum**: null
 - **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
-- **OfflinePaymentRequest**: `reference` string (required); `reason` string (required)
+- **OrderAction**: `name` string (required); `permission` string (required); `primary` boolean (required)
 - **OrderAddress**: `name` string (required); `phone` string (required); `line1` string (required); `line2` string (required); `city` string (required); `district` string (required); `state` string (required); `pin` string (required)
+- **OrderCancelRequest**: `reason` string (required); `customer_requested` boolean; `restock` boolean
 - **OrderCourier**: `name` string (required); `tracking_number` string (required)
 - **OrderCustomer**: `id` integer (required, null); `name` string (required); `email` string (required); `phone` string (required); `is_minor` boolean (required)
-- **OrderDetail**: `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` RiskBucketEnum (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only); `subtotal` decimal (required, read-only); `discount` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `coupon_code` string (required, read-only); `savings` [OrderSaving] (required, read-only); `address` OrderAddress (required, read-only); `lines` [Line] (required, read-only); `payments` [PaymentRow] (required, read-only); `refunds` [RefundRow] (required, read-only); `documents` [OrderDocument] (required, read-only); `shipments` [ParcelRow] (required, read-only); `returns` [ReturnRow] (required, read-only); `hold` OrderHold (required, null, read-only); `risk_reasons` [string] (required, read-only); `is_digital` boolean (required, read-only); `quote` string (required, null, read-only); `created_by` string (required, null, read-only); `actions` [Action] (required, read-only); `refund` RefundOptions (required, read-only); `erp` [ErpLink] (required, read-only); `timeline` [TimelineEntry] (required, read-only); `modified` date-time (required, read-only)
+- **OrderDetail**: `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` OrderRiskEnum (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only); `subtotal` decimal (required, read-only); `discount` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `coupon_code` string (required, read-only); `savings` [OrderSaving] (required, read-only); `address` OrderAddress (required, read-only); `lines` [OrderLine] (required, read-only); `payments` [OrderPayment] (required, read-only); `refunds` [OrderRefund] (required, read-only); `documents` [OrderDocument] (required, read-only); `shipments` [OrderParcel] (required, read-only); `returns` [ReturnRow] (required, read-only); `hold` OrderHold (required, null, read-only); `risk_reasons` [string] (required, read-only); `is_digital` boolean (required, read-only); `quote` string (required, null, read-only); `created_by` string (required, null, read-only); `actions` [OrderAction] (required, read-only); `refund` OrderRefundOptions (required, read-only); `erp` [OrderErpLink] (required, read-only); `timeline` [OrderTimelineEntry] (required, read-only); `modified` date-time (required, read-only)
 - **OrderDocument**: `kind` OrderDocumentKindEnum (required); `id` integer (required); `number` string (required); `created` date-time (required); `ready` boolean (required); `url` string (required); `amount` decimal (required, null)
 - **OrderDocumentKindEnum**: one of `invoice`, `credit_note`
+- **OrderDocumentsQueued**: `detail` string (required)
+- **OrderErpLink**: `model` string (required); `object_id` string (required); `doctype` string (required); `name` string (required); `synced_at` date-time (required)
 - **OrderHold**: `at` date-time (required); `by` string (required); `reason` string (required)
-- **OrderRow**: `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` RiskBucketEnum (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only)
+- **OrderHoldReasonRequest**: `reason` string (required)
+- **OrderInvoiceSent**: `detail` string (required)
+- **OrderLine**: `id` integer (required); `product` string (required); `title` string (required); `isbn` string (required); `hsn_code` string (required); `gst_rate` decimal (required); `mrp` decimal (required, read-only); `unit_price` decimal (required, read-only); `quantity` integer (required); `line_total` decimal (required, read-only); `discount` decimal (required, read-only); `invoiced` decimal (required, read-only); `refunded` integer (required); `returnable` integer (required); `digital` boolean (required)
+- **OrderLineAskRequest**: `item` integer (required); `quantity` integer (required)
+- **OrderNotified**: `detail` string (required)
+- **OrderNotifyKindEnum**: one of `placed`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
+- **OrderNotifyRequest**: `kind` OrderNotifyKindEnum (required)
+- **OrderOfflinePaymentRequest**: `reference` string (required); `reason` string (required)
+- **OrderParcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `last_event` ShipmentEvent (required, null, read-only)
+- **OrderPayment**: `id` integer (required, read-only); `method` PaymentMethodEnum (required, read-only); `amount` decimal (required, read-only); `status` OrderPaymentStatusEnum (required, read-only); `razorpay_order_id` string (required, null, read-only); `razorpay_payment_id` string (required, null, read-only); `payment_link_url` uri (required, read-only); `reference` string (required, read-only); `error` string (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `refundable` decimal (required, read-only); `older_than_6_months` boolean (required, read-only)
+- **OrderPaymentLinkActionEnum**: one of `send`, `cancel`
+- **OrderPaymentLinkRequest**: `action` OrderPaymentLinkActionEnum
+- **OrderPaymentLinkSent**: `detail` string (required); `url` string (required)
+- **OrderPaymentStatusEnum**: one of `created`, `authorized`, `captured`, `failed`, `refunded`
+- **OrderRefund**: `id` integer (required, read-only); `amount` decimal (required, read-only); `status` RefundStatusEnum (required, read-only); `reason` string (required, read-only); `method` OrderRefundMethodEnum (required, read-only); `speed` RefundSpeedEnum (required, read-only); `lines` [OrderRefundLine] (required, read-only); `shipping_amount` decimal (required, read-only); `restock` boolean (required, read-only); `payee_masked` string (required, read-only); `utr` string (required, read-only); `arn` string (required, read-only); `razorpay_refund_id` string (required, null, read-only); `change_request` integer (required, null, read-only); `created` date-time (required, read-only); `processed_at` date-time (required, null, read-only); `error` string (required, read-only); `credit_note` string (required, null, read-only); `payment_method` string (required, read-only)
+- **OrderRefundAskMethodEnum**: one of `source`, `bank`
+- **OrderRefundAskRequest**: `lines` [OrderLineAskRequest]; `shipping` decimal; `restock` boolean; `method` OrderRefundAskMethodEnum; `speed` RefundSpeedEnum; `payee` RefundPayeeRequest; `customer_agreed` boolean; `reason` string (required); `return` integer
+- **OrderRefundAsked**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only); `warnings` [string] (required, read-only)
+- **OrderRefundLine**: `item` integer (required); `quantity` integer (required); `amount` decimal (required)
+- **OrderRefundMethodEnum**: one of `source`, `bank`, `none`
+- **OrderRefundOptions**: `payment` integer (required, null); `payment_method` string (required, null); `refundable` decimal (required); `shipping_left` decimal (required); `methods` [string] (required); `cancels` boolean (required); `payment_age_days` integer (required, null); `warnings` [string] (required)
+- **OrderRiskEnum**: one of `low`, `medium`, `high`
+- **OrderRow**: `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` OrderRiskEnum (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only)
 - **OrderSaving**: `label` string (required); `amount` decimal (required)
+- **OrderShipRequest**: `courier` CourierEnum (required); `tracking_number` string (required); `tracking_url` any
 - **OrderStatusEnum**: one of `pending`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
+- **OrderTagsRequest**: `add` [string]; `remove` [string]
+- **OrderTimelineEntry**: `at` date-time (required); `kind` string (required); `label` string (required); `actor` string (required); `details` object (required)
 - **PackingRow**: `number` string (required); `placed_at` date-time (required); `payment_method` string (required); `is_cod` boolean (required); `total` decimal (required); `risk_bucket` string (required); `tags` [string] (required); `destination` string (required); `weight_g` integer (required, null); `pick` [PickLine] (required)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
@@ -1759,22 +1771,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Parcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only)
 - **ParcelDetail**: `carrier` CarrierEnum (required, read-only); `account` integer (required, null, read-only); `status` any (required, null, read-only); `reference` string (required, read-only); `external_order_id` string (required, read-only); `external_shipment_id` string (required, read-only); `courier_company_id` integer (required, null, read-only); `courier_name` string (required, read-only); `weight_g` integer (required, null, read-only); `length_cm` integer (required, null, read-only); `breadth_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `charged_weight_g` integer (required, null, read-only); `quoted_rate` decimal (required, null, read-only); `cod_amount` decimal (required, null, read-only); `declared_value` decimal (required, null, read-only); `last_event_at` date-time (required, null, read-only); `pickup_location` integer (required, null, read-only); `pickup_date` date (required, null, read-only); `manifested_at` date-time (required, null, read-only); `has_label` boolean (required, read-only); `has_photo` boolean (required, read-only)
 - **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
-- **ParcelRow**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `last_event` ShipmentEvent (required, null, read-only)
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
-- **Payee**: `upi` string; `account` string; `ifsc` string; `name` string
-- **PayeeReasonRequest**: `reason` string (required)
-- **PayeeRequest**: `upi` string; `account` string; `ifsc` string; `name` string
-- **PaymentLinkActionEnum**: one of `send`, `cancel`
-- **PaymentLinkRequest**: `action` PaymentLinkActionEnum
-- **PaymentLinkSent**: `detail` string (required); `url` string (required)
 - **PaymentMethodEnum**: one of `razorpay`, `cod`, `offline`
-- **PaymentRow**: `id` integer (required, read-only); `method` PaymentMethodEnum (required, read-only); `amount` decimal (required, read-only); `status` PaymentRowStatusEnum (required, read-only); `razorpay_order_id` string (required, null, read-only); `razorpay_payment_id` string (required, null, read-only); `payment_link_url` uri (required, read-only); `reference` string (required, read-only); `error` string (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `refundable` decimal (required, read-only); `older_than_6_months` boolean (required, read-only)
-- **PaymentRowStatusEnum**: one of `created`, `authorized`, `captured`, `failed`, `refunded`
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
 - **PickLine**: `title` string (required); `isbn` string (required); `quantity` integer (required)
@@ -1790,34 +1793,35 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
+- **QuoteConvertRequest**: `address` ShippingAddressRequest (required); `email` email; `send_link` boolean; `note` string; `reason` string
 - **QuoteDetail**: `id` integer (required, read-only); `number` string (required, read-only); `school` string (required, read-only); `contact_name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `gstin` string (required, read-only); `delivery_pin` string (required, read-only); `copies` integer (required, read-only); `status` QuoteStatusEnum (required, read-only); `discount_percent` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `quoted_at` date-time (required, null, read-only); `valid_until` date (required, null, read-only); `has_quotation` boolean (required, read-only); `order` string (required, null, read-only); `created` date-time (required, read-only); `items` [object] (required, read-only); `note` string (required, read-only); `waiting` integer (required, null, read-only)
 - **QuoteResult**: `couriers` [Quote] (required); `india_post` [PostalPrice] (required); `weight_g` integer (required); `stale` boolean (required); `error` string (required)
 - **QuoteRow**: `id` integer (required, read-only); `number` string (required, read-only); `school` string (required, read-only); `contact_name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `gstin` string (required, read-only); `delivery_pin` string (required, read-only); `copies` integer (required, read-only); `status` QuoteStatusEnum (required, read-only); `discount_percent` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `quoted_at` date-time (required, null, read-only); `valid_until` date (required, null, read-only); `has_quotation` boolean (required, read-only); `order` string (required, null, read-only); `created` date-time (required, read-only)
 - **QuoteStatusEnum**: one of `new`, `quoted`, `ordered`, `closed`
-- **ReasonEnum**: one of `damaged`, `misprint`, `wrong_item`, `late`, `not_as_described`, `other`
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
-- **RefundAskMethodEnum**: one of `source`, `bank`
-- **RefundAskRequest**: `lines` [LineAskRequest]; `shipping` decimal; `restock` boolean; `method` RefundAskMethodEnum; `speed` SpeedEnum; `payee` PayeeRequest; `customer_agreed` boolean; `reason` string (required); `return` integer
-- **RefundAsked**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only); `warnings` [string] (required, read-only)
-- **RefundLine**: `item` integer (required); `quantity` integer (required); `amount` decimal (required)
-- **RefundOptions**: `payment` integer (required, null); `payment_method` string (required, null); `refundable` decimal (required); `shipping_left` decimal (required); `methods` [string] (required); `cancels` boolean (required); `payment_age_days` integer (required, null); `warnings` [string] (required)
-- **RefundRow**: `id` integer (required, read-only); `amount` decimal (required, read-only); `status` RefundStatusEnum (required, read-only); `reason` string (required, read-only); `method` RefundRowMethodEnum (required, read-only); `speed` SpeedEnum (required, read-only); `lines` [RefundLine] (required, read-only); `shipping_amount` decimal (required, read-only); `restock` boolean (required, read-only); `payee_masked` string (required, read-only); `utr` string (required, read-only); `arn` string (required, read-only); `razorpay_refund_id` string (required, null, read-only); `change_request` integer (required, null, read-only); `created` date-time (required, read-only); `processed_at` date-time (required, null, read-only); `error` string (required, read-only); `credit_note` string (required, null, read-only); `payment_method` string (required, read-only)
-- **RefundRowMethodEnum**: one of `source`, `bank`, `none`
+- **RefundMarkPaidRequest**: `utr` string (required)
+- **RefundPayee**: `upi` string; `account` string; `ifsc` string; `name` string
+- **RefundPayeeReasonRequest**: `reason` string (required)
+- **RefundPayeeRequest**: `upi` string; `account` string; `ifsc` string; `name` string
+- **RefundSpeedEnum**: one of `normal`, `optimum`
 - **RefundStatusEnum**: one of `pending`, `processed`, `failed`
-- **Regenerating**: `detail` string (required)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
-- **ReturnAskRequest**: `lines` [LineAskRequest] (required); `reason` ReasonEnum (required); `note` string
-- **ReturnDetail**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `note` string (required, read-only); `next` [string] (required, read-only)
+- **ReturnAskRequest**: `lines` [OrderLineAskRequest] (required); `reason` ReturnReasonEnum (required); `note` string
+- **ReturnDeclineRequest**: `note` string (required)
+- **ReturnDetail**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReturnReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `note` string (required, read-only); `next` [string] (required, read-only)
+- **ReturnInspectOutcomeEnum**: one of `restocked`, `damaged`
+- **ReturnInspectRequest**: `outcome` ReturnInspectOutcomeEnum (required)
+- **ReturnLabelRequest**: `courier` string (required); `awb` string (required)
 - **ReturnLine**: `item` integer (required); `title` string (required); `quantity` integer (required)
 - **ReturnPhotoRequest**: `photo` binary (required)
-- **ReturnRow**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **ReturnReasonEnum**: one of `damaged`, `misprint`, `wrong_item`, `late`, `not_as_described`, `other`
+- **ReturnRow**: `id` integer (required, read-only); `number` string (required, read-only); `order` string (required, read-only); `status` ReturnStatusEnum (required, read-only); `status_label` string (required, read-only); `reason` ReturnReasonEnum (required, read-only); `reason_label` string (required, read-only); `lines` [ReturnLine] (required, read-only); `by_customer` boolean (required, read-only); `decision_note` string (required, read-only); `return_courier` string (required, read-only); `return_awb` string (required, read-only); `photos` integer (required, read-only); `received_at` date-time (required, null, read-only); `inspected_at` date-time (required, null, read-only); `refund` integer (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **ReturnStatusEnum**: one of `requested`, `approved`, `declined`, `label_sent`, `received`, `restocked`, `damaged`, `refunded`
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
-- **RiskBucketEnum**: one of `low`, `medium`, `high`
 - **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
 - **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
@@ -1827,7 +1831,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **SessionsEnded**: `sessions` integer (required); `tokens` integer (required)
 - **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required)
 - **SettingSourceEnum**: one of `environment`, `database`
-- **ShipRequest**: `courier` CourierEnum (required); `tracking_number` string (required); `tracking_url` any
 - **ShipmentCharge**: `id` integer (required, read-only); `shipment` integer (required, null, read-only); `kind` ShipmentChargeKindEnum (required, read-only); `amount` decimal (required, read-only); `charged_weight_g` integer (required, null, read-only); `awb` string (required, read-only); `description` string (required, read-only); `statement_line_id` string (required, read-only); `charged_at` date-time (required, read-only)
 - **ShipmentChargeKindEnum**: one of `freight`, `freight_reversal`, `cod`, `cod_reversal`, `rto_freight`, `rto_freight_reversal`, `excess_weight`, `excess_weight_reversal`, `other`
 - **ShipmentEvent**: `source` ShipmentEventSourceEnum (required); `carrier_code` string; `carrier_label` string; `status` any (null); `occurred_at` date-time (required); `location` string; `activity` string
@@ -1838,7 +1841,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
 - **SnoozeRequest**: `until` date-time (required)
-- **SpeedEnum**: one of `normal`, `optimum`
 - **StaffBreakGlass**: `reason_required` boolean (required); `reason` string (required, null); `ends_at` date-time (required)
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
 - **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
@@ -1852,8 +1854,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StateEnum**: one of `KA`, `AP`, `KL`, `TN`, `MH`, `UP`, `GA`, `GJ`, `RJ`, `HP`, `TG`, `AR`, `AS`, `BR`, `CT`, `HR`, `JH`, `MP`, `MN`, `ML`, `MZ`, `NL`, `OR`, `PB`, `SK`, `TR`, `UT`, `WB`, `AN`, `CH`, `DH`, `DL`, `JK`, `LD`, `LA`, `PY`
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
-- **TagsRequest**: `add` [string]; `remove` [string]
-- **TimelineEntry**: `at` date-time (required); `kind` string (required); `label` string (required); `actor` string (required); `details` object (required)
 - **TokenRequest**: `token` string (required)
 - **Unlocked**: `attempts_cleared` integer (required)
 - **VerifyIdentityRequest**: `note` string (required)
