@@ -1,0 +1,6 @@
+# The production image's second stage copies apps/examleaf_erp only: send nothing else to the builder (compose/.env
+# holds development passwords).
+*
+!apps/examleaf_erp/
+apps/examleaf_erp/**/__pycache__
+apps/examleaf_erp/.ruff_cache

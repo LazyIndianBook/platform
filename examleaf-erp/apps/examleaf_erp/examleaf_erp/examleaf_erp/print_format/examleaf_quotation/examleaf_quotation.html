@@ -1,0 +1,17 @@
+{#- A quotation for a school, a distributor or a bookseller. Not a tax document: the invoice or bill of supply follows
+    the order. -#}
+{% from "examleaf_erp/templates/print/answer_script.html" import style, head, buyer, supply, lines_table, sums, footer %}
+{{ style() }}
+{%- set data = invoice_lines(doc) -%}
+{%- set taxed = data.lines | selectattr("exempt", "equalto", False) | list | length > 0 -%}
+{%- set refs = [] -%}
+{%- if doc.valid_till %}{% set _ = refs.append("Valid until " ~ frappe.utils.formatdate(doc.valid_till, "d MMMM yyyy")) %}{% endif -%}
+{%- if doc.payment_terms_template %}{% set _ = refs.append("Payment terms: " ~ doc.payment_terms_template) %}{% endif -%}
+<div class="el-doc">
+{{ head(doc, "Quotation", refs) }}
+<table class="parties"><tr><td>{{ buyer(doc, label="For") }}</td><td>{{ supply(doc) }}</td></tr></table>
+{{ lines_table(data, taxed=taxed) }}
+{{ sums(doc, data, total_label="Total quoted") }}
+{% if doc.terms %}<h2>Terms</h2><div class="note">{{ doc.terms }}</div>{% endif %}
+{{ footer("A quotation is not a tax invoice: the invoice or bill of supply comes with the order.") }}
+</div>

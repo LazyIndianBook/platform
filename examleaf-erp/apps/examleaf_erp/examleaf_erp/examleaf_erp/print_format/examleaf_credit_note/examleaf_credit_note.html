@@ -1,0 +1,4 @@
+{#- Credit note (Rule 53(1A)): a return Sales Invoice, against the original invoice. -#}
+{% from "examleaf_erp/templates/print/answer_script.html" import style, credit_note %}
+{{ style() }}
+{{ credit_note(doc) }}

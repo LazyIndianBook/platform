@@ -1,0 +1,197 @@
+{#- The Answer Script look of the platform's own invoices (examleaf-web/templates/shop/invoice.html): white paper, the
+    wordmark and headings in a serif, labels, codes and amounts in a mono, hairlines in the paper's tone, the one red
+    thing a double rule under the head. Tables, not flexbox, so wkhtmltopdf lays it out as Chrome does. Meaning is
+    never carried by colour: exempt lines say "Exempt", copies say which copy they are. The fonts fall back to the
+    image's DejaVu (it has the rupee sign). -#}
+
+{% macro style() -%}
+<style>
+  .el-doc { --ink: #1d2230; --muted: #5b6170; --hair: #dcd4c4; --rule: #b3342a;
+    --serif: "Source Serif 4", Georgia, "DejaVu Serif", "Noto Serif", serif;
+    --mono: "IBM Plex Mono", "DejaVu Sans Mono", "Noto Sans Mono", Menlo, "Courier New", monospace;
+    color: var(--ink); background: #fff; font: 9pt/1.45 "Public Sans", "DejaVu Sans", "Noto Sans", Arial, sans-serif; }
+  .el-doc p { margin: 0; }
+  .el-doc table { width: 100%; border-collapse: collapse; }
+  .el-doc .head td { vertical-align: top; padding: 0 0 4mm; border-bottom: 3px double var(--rule); }
+  .el-doc .brand { margin: 0 0 2mm; font: 700 20pt/1 var(--serif); }
+  .el-doc .brand span { color: #1a6e30; }
+  .el-doc .seller { font-size: 8.5pt; color: var(--muted); }
+  .el-doc .seller strong { color: var(--ink); }
+  .el-doc .doc { text-align: right; }
+  .el-doc h1 { margin: 0 0 1.5mm; font: 600 13pt/1.25 var(--serif); letter-spacing: 0.02em; }
+  .el-doc .doc p { font: 500 8.5pt/1.5 var(--mono); color: var(--muted); }
+  .el-doc .copy { display: inline-block; margin-bottom: 2mm; padding: 0.5mm 2mm; border: 1px solid var(--ink);
+    font: 600 7.5pt/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .el-doc .parties td { vertical-align: top; width: 50%; padding: 4mm 4mm 0 0; font-size: 8.5pt; }
+  .el-doc .label { margin: 0 0 1mm; font: 500 7pt/1.2 var(--mono); letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--muted); }
+  .el-doc .lines { margin-top: 4mm; font-size: 8.3pt; }
+  .el-doc .lines th, .el-doc .lines td { padding: 1.6mm 1.6mm; vertical-align: top; border-bottom: 1px solid var(--hair); }
+  .el-doc .lines tr { page-break-inside: avoid; }
+  .el-doc .lines th:first-child, .el-doc .lines td:first-child { padding-left: 0; }
+  .el-doc .lines th:last-child, .el-doc .lines td:last-child { padding-right: 0; }
+  .el-doc .lines thead th { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--ink); vertical-align: bottom;
+    font: 500 6.5pt/1.25 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; text-align: left;
+    color: var(--muted); }
+  .el-doc .num { text-align: right !important; white-space: nowrap; font-family: var(--mono); }
+  .el-doc .code { font-family: var(--mono); }
+  .el-doc .tag { font: 600 7pt/1.2 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .el-doc .totals { width: 60%; margin: 3mm 0 0 auto; font-size: 9pt; }
+  .el-doc .totals th { padding: 1mm 0; font-weight: 400; text-align: left; }
+  .el-doc .totals td { padding: 1mm 0; }
+  .el-doc .grand th, .el-doc .grand td { padding-top: 2.2mm; border-top: 1.5px solid var(--ink); font-size: 10pt;
+    font-weight: 700; }
+  .el-doc .words { margin-top: 1.5mm; font-size: 8pt; color: var(--muted); text-align: right; }
+  .el-doc h2 { margin: 5mm 0 0; font: 600 9pt/1.3 var(--serif); }
+  .el-doc .note { margin-top: 4mm; font-size: 8pt; color: var(--muted); }
+  .el-doc .sign { margin-top: 10mm; text-align: right; font-size: 8.5pt; }
+  .el-doc .qr img { width: 32mm; height: 32mm; }
+  .el-doc .page-break { page-break-after: always; }
+</style>
+{%- endmacro %}
+
+{% macro money(value) -%}{{ frappe.utils.fmt_money(value or 0, 2) }}{%- endmacro %}
+
+{% macro address_lines(name) -%}
+  {%- if name -%}
+    {%- set a = frappe.get_doc("Address", name) -%}
+    {%- for line in [a.address_line1, a.address_line2] if line and line != a.city -%}<p>{{ line }}</p>{%- endfor -%}
+    <p>{{ a.city }}{% if a.county %}, {{ a.county }} district{% endif %}</p>
+    <p>{{ a.state }}{% if a.gst_state_number %} (state code {{ a.gst_state_number }}){% endif %} {{ a.pincode }}</p>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro head(doc, title, references=[], copy=None, company_name=None, day=None) -%}
+{%- set company = frappe.get_doc("Company", company_name or doc.company) -%}
+{%- set company_address = doc.get("company_address") or frappe.db.get_value("Address", {"is_your_company_address": 1, "is_primary_address": 1}, "name") -%}
+<table class="head"><tr>
+  <td>
+    <p class="brand">Exam<span>Leaf</span></p>
+    <div class="seller">
+      <p><strong>{{ company.company_name }}</strong></p>
+      {{ address_lines(company_address) }}
+      <p>GSTIN <span class="code">{{ doc.get("company_gstin") or company.gstin or "not registered" }}</span></p>
+    </div>
+  </td>
+  <td class="doc">
+    {% if copy %}<span class="copy">{{ copy }}</span>{% endif %}
+    <h1>{{ title }}</h1>
+    <p><strong>{{ doc.name }}</strong> · {{ frappe.utils.formatdate(day or doc.get("posting_date") or doc.get("transaction_date"), "d MMMM yyyy") }}</p>
+    {% for line in references %}<p>{{ line }}</p>{% endfor %}
+  </td>
+</tr></table>
+{%- endmacro %}
+
+{% macro buyer(doc, address_field="customer_address", label="Billed to") -%}
+  <p class="label">{{ label }}</p>
+  <p><strong>{{ doc.get("customer_name") or doc.get("party_name") }}</strong></p>
+  {{ address_lines(doc.get(address_field)) }}
+  {% if doc.get("billing_address_gstin") %}<p>GSTIN <span class="code">{{ doc.billing_address_gstin }}</span></p>
+  {% else %}<p>Not registered for GST</p>{% endif %}
+{%- endmacro %}
+
+{% macro supply(doc) -%}
+  <p class="label">Place of supply</p>
+  <p>{{ doc.get("place_of_supply") or "—" }}</p>
+  <p class="label" style="margin-top: 2mm">Tax payable on reverse charge</p>
+  <p>{{ "Yes" if doc.get("is_reverse_charge") else "No" }}</p>
+  {% if doc.get("shipping_address_name") and doc.shipping_address_name != doc.get("customer_address") %}
+  <p class="label" style="margin-top: 2mm">Delivered to</p>
+  {{ address_lines(doc.shipping_address_name) }}
+  {% endif %}
+{%- endmacro %}
+
+{#- The lines with every tax column a GST document needs; signs flipped for credit notes (they store negatives). -#}
+{% macro lines_table(data, taxed=True, sign=1, value_label="Taxable value") -%}
+<table class="lines">
+  <thead><tr>
+    <th>#</th><th>Item</th><th>HSN/SAC</th><th class="num">Qty</th><th class="num">Rate ₹</th>
+    <th class="num">Discount ₹</th><th class="num">{{ value_label }} ₹</th>
+    {% if taxed %}{% if data.intra_state %}<th class="num">CGST</th><th class="num">SGST</th>{% else %}<th class="num">IGST</th>{% endif %}{% endif %}
+    <th class="num">Amount ₹</th>
+  </tr></thead>
+  <tbody>
+  {% for line in data.lines %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ line.row.item_name }}{% if line.exempt and taxed %}<br><span class="tag">Exempt</span>{% endif %}</td>
+      <td class="code">{{ line.hsn }}</td>
+      <td class="num">{{ "{:g}".format(sign * line.qty) }} {{ line.uom }}</td>
+      <td class="num">{{ money(line.rate) }}</td>
+      <td class="num">{{ money(sign * line.discount) }}</td>
+      <td class="num">{{ money(sign * line.taxable) }}</td>
+      {% if taxed %}
+        {% for tax in (["cgst", "sgst"] if data.intra_state else ["igst"]) %}
+        <td class="num">{% if line.exempt %}—{% else %}{{ "{:g}".format(line.taxes[tax][0]) }}%<br>{{ money(sign * line.taxes[tax][1]) }}{% endif %}</td>
+        {% endfor %}
+      {% endif %}
+      <td class="num">{{ money(sign * line.total) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% macro hsn_summary(data, taxed=True, sign=1) -%}
+<h2>Summary by HSN/SAC</h2>
+<table class="lines">
+  <thead><tr><th>HSN/SAC</th><th>Treatment</th><th class="num">Qty</th><th class="num">Value ₹</th>
+    {% if taxed %}<th class="num">CGST ₹</th><th class="num">SGST ₹</th><th class="num">IGST ₹</th>{% endif %}</tr></thead>
+  <tbody>
+  {% for row in data.hsn_summary %}
+    <tr><td class="code">{{ row.hsn }}</td><td>{{ row.treatment }}</td><td class="num">{{ "{:g}".format(sign * row.qty) }}</td>
+      <td class="num">{{ money(sign * row.taxable) }}</td>
+      {% if taxed %}<td class="num">{{ money(sign * row.cgst) }}</td><td class="num">{{ money(sign * row.sgst) }}</td><td class="num">{{ money(sign * row.igst) }}</td>{% endif %}</tr>
+  {% endfor %}
+  </tbody>
+</table>
+{%- endmacro %}
+
+{% macro sums(doc, data, sign=1, total_label="Total") -%}
+{%- set ns = namespace(taxed=0, exempt=0, cgst=0, sgst=0, igst=0) -%}
+{%- for line in data.lines -%}
+  {%- if line.exempt %}{% set ns.exempt = ns.exempt + line.taxable %}{% else %}{% set ns.taxed = ns.taxed + line.taxable %}{% endif -%}
+  {%- set ns.cgst = ns.cgst + line.taxes.cgst[1] -%}{%- set ns.sgst = ns.sgst + line.taxes.sgst[1] -%}{%- set ns.igst = ns.igst + line.taxes.igst[1] -%}
+{%- endfor -%}
+<table class="totals">
+  {% if ns.taxed %}<tr><th>Taxable value</th><td class="num">{{ money(sign * ns.taxed) }}</td></tr>{% endif %}
+  {% if ns.exempt %}<tr><th>Value of exempt supplies</th><td class="num">{{ money(sign * ns.exempt) }}</td></tr>{% endif %}
+  {% if ns.cgst %}<tr><th>CGST</th><td class="num">{{ money(sign * ns.cgst) }}</td></tr>{% endif %}
+  {% if ns.sgst %}<tr><th>SGST</th><td class="num">{{ money(sign * ns.sgst) }}</td></tr>{% endif %}
+  {% if ns.igst %}<tr><th>IGST</th><td class="num">{{ money(sign * ns.igst) }}</td></tr>{% endif %}
+  {#- the paisa ERPNext's per-tax rounding leaves between the lines and the price paid (its grand_total_diff), and any
+      rounding of the total -#}
+  {%- set total = doc.get("rounded_total") or doc.grand_total -%}
+  {%- set off = (total - ns.taxed - ns.exempt - ns.cgst - ns.sgst - ns.igst) | round(2) -%}
+  {% if off %}<tr><th>Round off</th><td class="num">{{ money(sign * off) }}</td></tr>{% endif %}
+  <tr class="grand"><th>{{ total_label }}</th><td class="num">₹{{ money(sign * total) }}</td></tr>
+</table>
+<p class="words">{{ frappe.utils.money_in_words(sign * total, "INR") }}</p>
+{%- endmacro %}
+
+{% macro footer(note="") -%}
+<p class="note">{{ note }}{% if note %} {% endif %}Computer generated: an electronic document needs no signature (proviso to Rule 46).</p>
+<p class="sign">For the supplier · authorised signatory</p>
+{%- endmacro %}
+
+{#- A return Sales Invoice as Rule 53(1A) wants it: the original invoice's number and date, the credited value, rate and
+    tax. Used by the Credit Note format, and by the Invoice format when it is handed a return. -#}
+{% macro credit_note(doc) -%}
+{%- set data = invoice_lines(doc) -%}
+{%- set refs = [] -%}
+{%- if doc.return_against -%}
+  {%- set original_date = frappe.db.get_value("Sales Invoice", doc.return_against, "posting_date") -%}
+  {%- set _ = refs.append("Against " ~ doc.return_against ~ " of " ~ frappe.utils.formatdate(original_date, "d MMMM yyyy")) -%}
+{%- endif -%}
+{%- if doc.get("examleaf_order_no") %}{% set _ = refs.append("Order " ~ doc.examleaf_order_no) %}{% endif -%}
+{%- set taxed = doc.get("examleaf_doc_kind") != "bill_of_supply" -%}
+<div class="el-doc">
+{{ head(doc, "Credit note", refs) }}
+<table class="parties"><tr><td>{{ buyer(doc) }}</td><td>{{ supply(doc) }}
+  {% if doc.remarks %}<p class="label" style="margin-top: 2mm">Reason</p><p>{{ doc.remarks }}</p>{% endif %}</td></tr></table>
+{{ lines_table(data, taxed=taxed, sign=-1, value_label="Credited value") }}
+{{ sums(doc, data, sign=-1, total_label="Total credited") }}
+{{ hsn_summary(data, taxed=taxed, sign=-1) }}
+{{ footer("Credited at the original invoice's rates and place of supply (Rule 53(1A)).") }}
+</div>
+{%- endmacro %}

@@ -1,0 +1,113 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-09 10:39:50.390480",
+  "name": "EL Admin",
+  "role_profile": "EL Admin",
+  "roles": [
+   {
+    "role": "EL Admin"
+   },
+   {
+    "role": "System Manager"
+   },
+   {
+    "role": "Sales Manager"
+   },
+   {
+    "role": "Sales User"
+   },
+   {
+    "role": "Stock Manager"
+   },
+   {
+    "role": "Stock User"
+   },
+   {
+    "role": "Purchase Manager"
+   },
+   {
+    "role": "Purchase User"
+   },
+   {
+    "role": "Item Manager"
+   },
+   {
+    "role": "Report Manager"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-09 10:39:50.404839",
+  "name": "EL Finance",
+  "role_profile": "EL Finance",
+  "roles": [
+   {
+    "role": "EL Finance"
+   },
+   {
+    "role": "Accounts Manager"
+   },
+   {
+    "role": "Accounts User"
+   },
+   {
+    "role": "Report Manager"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-09 10:39:50.410966",
+  "name": "EL Packer",
+  "role_profile": "EL Packer",
+  "roles": [
+   {
+    "role": "EL Packer"
+   },
+   {
+    "role": "Stock User"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-09 10:39:50.414395",
+  "name": "EL Sales",
+  "role_profile": "EL Sales",
+  "roles": [
+   {
+    "role": "EL Sales"
+   },
+   {
+    "role": "Sales User"
+   },
+   {
+    "role": "Sales Manager"
+   },
+   {
+    "role": "Stock User"
+   }
+  ]
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Role Profile",
+  "modified": "2026-10-09 10:39:50.417121",
+  "name": "EL Auditor",
+  "role_profile": "EL Auditor",
+  "roles": [
+   {
+    "role": "EL Auditor"
+   },
+   {
+    "role": "Auditor"
+   }
+  ]
+ }
+]

@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1.7
+# Stage two of the production image (build.sh): the base built by frappe_docker v4.0.0's layered Containerfile from
+# apps.json (frappe v16.50.0, erpnext, india_compliance, hrms, offsite_backups), plus this repository's examleaf_erp.
+# frappe_docker's layered file only fetches apps from git (bench init clones each apps.json entry inside the builder,
+# which never sees the build context), so an app that lives in a monorepo directory comes in here instead. The app has
+# no JavaScript or CSS bundle, so nothing is added to the baked assets.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG APP_VERSION=dev
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.title="ExamLeaf ERP" \
+      org.opencontainers.image.description="ERPNext v16.50.0 with India Compliance, HRMS, offsite_backups and examleaf_erp" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.licenses="GPL-3.0-only"
+
+USER frappe
+WORKDIR /home/frappe/frappe-bench
+COPY --chown=frappe:0 apps/examleaf_erp apps/examleaf_erp
+# an editable install, as bench makes for every app (frappe reads hooks, fixtures and doctype JSON from apps/<app>)
+RUN env/bin/python -m pip install --no-cache-dir --no-deps --quiet -e apps/examleaf_erp \
+ && find apps/examleaf_erp -name __pycache__ -prune -exec rm -rf {} + \
+ && ls -1 apps > sites/apps.txt \
+ && chmod -R g=u apps/examleaf_erp

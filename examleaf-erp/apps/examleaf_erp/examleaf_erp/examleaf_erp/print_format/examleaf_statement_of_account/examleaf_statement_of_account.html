@@ -1,0 +1,47 @@
+{#- A customer's statement for the financial year so far: the ledger with its running balance, and what is owed aged by
+    due date (research-b2b-predictive 1.2). For other periods or emailing, ERPNext's Process Statement Of Accounts. -#}
+{% from "examleaf_erp/templates/print/answer_script.html" import style, head, address_lines, money, footer %}
+{{ style() }}
+{%- set s = statement_of_account(doc.name) -%}
+<div class="el-doc">
+{{ head(doc, "Statement of account", ["From " ~ frappe.utils.formatdate(s.from_date, "d MMMM yyyy") ~ " to " ~ frappe.utils.formatdate(s.to_date, "d MMMM yyyy")], company_name=s.company, day=s.to_date) }}
+<table class="parties"><tr>
+  <td>
+    <p class="label">Customer</p>
+    <p><strong>{{ doc.customer_name }}</strong></p>
+    {{ address_lines(doc.customer_primary_address) }}
+    {% if doc.get("gstin") %}<p>GSTIN <span class="code">{{ doc.gstin }}</span></p>{% endif %}
+  </td>
+  <td>
+    <p class="label">Opening balance</p><p class="code">₹{{ money(s.opening) }}</p>
+    <p class="label" style="margin-top: 2mm">Closing balance</p><p class="code"><strong>₹{{ money(s.closing) }}</strong></p>
+  </td>
+</tr></table>
+<table class="lines">
+  <thead><tr><th>Date</th><th>Document</th><th>Description</th><th class="num">Debit ₹</th><th class="num">Credit ₹</th><th class="num">Balance ₹</th></tr></thead>
+  <tbody>
+    <tr><td style="white-space: nowrap">{{ frappe.utils.formatdate(s.from_date, "d MMM yyyy") }}</td><td></td><td>Opening balance</td><td class="num"></td><td class="num"></td><td class="num">{{ money(s.opening) }}</td></tr>
+    {% for line in s.lines %}
+    <tr>
+      <td style="white-space: nowrap">{{ frappe.utils.formatdate(line.posting_date, "d MMM yyyy") }}</td>
+      <td style="white-space: nowrap"><span class="code">{{ line.voucher_no }}</span><br><span class="tag">{{ line.voucher_type }}</span></td>
+      <td>{{ (line.remarks or "") | truncate(60) }}</td>
+      <td class="num">{{ money(line.debit) if line.debit else "" }}</td>
+      <td class="num">{{ money(line.credit) if line.credit else "" }}</td>
+      <td class="num">{{ money(line.balance) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<h2>What is owed, by days past due</h2>
+<table class="lines">
+  <thead><tr><th class="num">Not yet due</th>{% for label in s.ageing %}<th class="num">{{ label }} days</th>{% endfor %}<th class="num">Owed</th></tr></thead>
+  <tbody><tr>
+    <td class="num">{{ money(s.not_due) }}</td>
+    {% for label, amount in s.ageing.items() %}<td class="num">{{ money(amount) }}</td>{% endfor %}
+    <td class="num"><strong>{{ money(s.not_due + s.ageing.values() | sum) }}</strong></td>
+  </tr></tbody>
+</table>
+{% if s.unallocated_credit %}<p class="note">Credit not yet set against an invoice: ₹{{ money(s.unallocated_credit) }}.</p>{% endif %}
+{{ footer("Please tell us within 15 days if anything here does not match your books.") }}
+</div>

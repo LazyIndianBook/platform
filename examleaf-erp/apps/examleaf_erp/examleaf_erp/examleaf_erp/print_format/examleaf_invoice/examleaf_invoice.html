@@ -1,0 +1,37 @@
+{#- Tax invoice (Rule 46), bill of supply (Rule 49) or invoice-cum-bill of supply (Rule 46A): one format, switching on
+    examleaf_doc_kind, which events.set_document_kind derives from the lines' GST treatment. A return is printed as a
+    credit note. -#}
+{% from "examleaf_erp/templates/print/answer_script.html" import style, head, buyer, supply, lines_table, hsn_summary, sums, footer, credit_note %}
+{{ style() }}
+{% if doc.is_return %}
+{{ credit_note(doc) }}
+{% else %}
+{%- set kind = doc.get("examleaf_doc_kind") or "tax_invoice" -%}
+{%- set titles = {"tax_invoice": "Tax invoice", "bill_of_supply": "Bill of supply", "invoice_cum_bill_of_supply": "Invoice-cum-bill of supply"} -%}
+{%- set notes = {
+  "tax_invoice": "Prices include tax.",
+  "bill_of_supply": "Supply exempt from GST: no tax is charged (Rule 49). Prices are final.",
+  "invoice_cum_bill_of_supply": "Lines marked Exempt are exempt from GST; tax is charged on the others and prices include it (Rule 46A).",
+} -%}
+{%- set data = invoice_lines(doc) -%}
+{%- set refs = [] -%}
+{%- if doc.get("examleaf_order_no") %}{% set _ = refs.append("Order " ~ doc.examleaf_order_no) %}{% endif -%}
+{%- if doc.po_no %}{% set _ = refs.append("Your order " ~ doc.po_no) %}{% endif -%}
+{%- if doc.due_date and doc.due_date != doc.posting_date %}{% set _ = refs.append("Due " ~ frappe.utils.formatdate(doc.due_date, "d MMMM yyyy")) %}{% endif -%}
+<div class="el-doc">
+{{ head(doc, titles[kind], refs) }}
+<table class="parties"><tr><td>{{ buyer(doc) }}</td><td>{{ supply(doc) }}</td></tr></table>
+{{ lines_table(data, taxed=(kind != "bill_of_supply")) }}
+{{ sums(doc, data) }}
+{{ hsn_summary(data, taxed=(kind != "bill_of_supply")) }}
+{%- set qr = einvoice_qr(doc) -%}
+{% if qr %}
+<table><tr><td class="qr">
+  <p class="label">e-Invoice</p>
+  <img src="data:image/png;base64,{{ qr }}" alt="The e-invoice's signed QR code">
+  <p class="code">IRN {{ doc.irn }}</p>
+</td></tr></table>
+{% endif %}
+{{ footer(notes[kind]) }}
+</div>
+{% endif %}

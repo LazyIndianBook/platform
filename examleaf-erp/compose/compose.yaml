@@ -1,0 +1,129 @@
+# ExamLeaf ERP for development: ERPNext v16.50.0 with India Compliance v16.10.0 (dev.Containerfile) and this
+# repository's examleaf_erp, mounted (bench commands and tests see an edit at once, gunicorn and the workers after
+# ./dev.sh restart). The layout is frappe_docker v4.0.0's compose.yaml with its MariaDB and Redis overrides, pinned, on
+# Valkey, sized for a laptop. Not for production: the Helm chart runs the image that ../image/build.sh builds. Use
+# ./dev.sh (up, new-site, test, restart, login, shell, down, destroy).
+name: examleaf-erp
+
+x-bench: &bench
+  image: examleaf/erp-dev:16.50.0-ic16.10.0
+  pull_policy: never
+  build:
+    context: .
+    dockerfile: dev.Containerfile
+  restart: unless-stopped
+  volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - logs:/home/frappe/frappe-bench/logs
+    - ../apps/examleaf_erp:/home/frappe/frappe-bench/apps/examleaf_erp
+    - ../apps/examleaf_erp:/workspace/examleaf_erp
+  depends_on:
+    configurator:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: mariadb:11.8.9
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --innodb-buffer-pool-size=256M  # a laptop; production sizes it at about 60 % of the database's RAM
+      - --innodb-log-file-size=64M
+      - --max-connections=60
+      - --performance-schema=OFF
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set it in compose/.env (dev.sh makes one)}
+      MARIADB_AUTO_UPGRADE: 1
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - db-data:/var/lib/mysql
+
+  cache:
+    image: valkey/valkey:8.1.10-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+
+  queue:
+    image: valkey/valkey:8.1.10-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - queue-data:/data
+
+  configurator:
+    <<: *bench
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+      queue:
+        condition: service_started
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        ls -1 apps > sites/apps.txt &&
+        bench set-config -g db_host db &&
+        bench set-config -gp db_port 3306 &&
+        bench set-config -g redis_cache redis://cache:6379 &&
+        bench set-config -g redis_queue redis://queue:6379 &&
+        bench set-config -g redis_socketio redis://queue:6379 &&
+        bench set-config -gp socketio_port 9000 &&
+        bench set-config -g chromium_path /usr/bin/chromium-headless-shell
+
+  backend:
+    <<: *bench
+    environment:
+      GUNICORN_WORKERS: 2
+      GUNICORN_THREADS: 4
+      GUNICORN_TIMEOUT: 120
+
+  websocket:
+    <<: *bench
+    command: ["node", "/home/frappe/frappe-bench/apps/frappe/socketio.js"]
+
+  scheduler:
+    <<: *bench
+    command: ["bench", "schedule"]
+
+  queue-short:
+    <<: *bench
+    command: ["bench", "worker", "--queue", "short"]
+
+  queue-default:
+    <<: *bench
+    command: ["bench", "worker", "--queue", "default"]
+
+  queue-long:
+    <<: *bench
+    command: ["bench", "worker", "--queue", "long"]
+
+  frontend:
+    <<: *bench
+    command: ["nginx-entrypoint.sh"]
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: erp.localhost  # one dev site: any Host reaches it
+      UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
+      PROXY_READ_TIMEOUT: 120
+      CLIENT_MAX_BODY_SIZE: 50m
+    ports:
+      - "127.0.0.1:8300:8080"
+    depends_on:  # nginx resolves both upstreams when it starts
+      - backend
+      - websocket
+
+volumes:
+  db-data:
+  queue-data:
+  sites:
+  logs:

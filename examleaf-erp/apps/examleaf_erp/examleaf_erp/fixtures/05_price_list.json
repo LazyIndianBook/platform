@@ -1,0 +1,54 @@
+[
+ {
+  "buying": 0,
+  "countries": [],
+  "currency": "INR",
+  "docstatus": 0,
+  "doctype": "Price List",
+  "enabled": 1,
+  "modified": "2026-10-09 10:39:50.435119",
+  "name": "MRP",
+  "price_list_name": "MRP",
+  "price_not_uom_dependent": 0,
+  "selling": 1
+ },
+ {
+  "buying": 0,
+  "countries": [],
+  "currency": "INR",
+  "docstatus": 0,
+  "doctype": "Price List",
+  "enabled": 1,
+  "modified": "2026-10-09 10:39:51.489191",
+  "name": "School",
+  "price_list_name": "School",
+  "price_not_uom_dependent": 0,
+  "selling": 1
+ },
+ {
+  "buying": 0,
+  "countries": [],
+  "currency": "INR",
+  "docstatus": 0,
+  "doctype": "Price List",
+  "enabled": 1,
+  "modified": "2026-10-09 10:39:51.499328",
+  "name": "Distributor Tier 1",
+  "price_list_name": "Distributor Tier 1",
+  "price_not_uom_dependent": 0,
+  "selling": 1
+ },
+ {
+  "buying": 0,
+  "countries": [],
+  "currency": "INR",
+  "docstatus": 0,
+  "doctype": "Price List",
+  "enabled": 1,
+  "modified": "2026-10-09 10:39:51.500751",
+  "name": "Distributor Tier 2",
+  "price_list_name": "Distributor Tier 2",
+  "price_not_uom_dependent": 0,
+  "selling": 1
+ }
+]

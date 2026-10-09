@@ -1,0 +1,36 @@
+[
+ {
+  "credit_days": 15,
+  "credit_months": 0,
+  "description": null,
+  "discount": 0.0,
+  "discount_type": "Percentage",
+  "discount_validity": 0,
+  "discount_validity_based_on": "Day(s) after invoice date",
+  "docstatus": 0,
+  "doctype": "Payment Term",
+  "due_date_based_on": "Day(s) after invoice date",
+  "invoice_portion": 100.0,
+  "mode_of_payment": null,
+  "modified": "2026-10-09 10:39:51.510779",
+  "name": "Net 15",
+  "payment_term_name": "Net 15"
+ },
+ {
+  "credit_days": 30,
+  "credit_months": 0,
+  "description": null,
+  "discount": 0.0,
+  "discount_type": "Percentage",
+  "discount_validity": 0,
+  "discount_validity_based_on": "Day(s) after invoice date",
+  "docstatus": 0,
+  "doctype": "Payment Term",
+  "due_date_based_on": "Day(s) after invoice date",
+  "invoice_portion": 100.0,
+  "mode_of_payment": null,
+  "modified": "2026-10-09 10:39:51.542023",
+  "name": "Net 30",
+  "payment_term_name": "Net 30"
+ }
+]

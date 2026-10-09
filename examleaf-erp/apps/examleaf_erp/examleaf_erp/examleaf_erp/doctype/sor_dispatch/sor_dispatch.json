@@ -1,0 +1,164 @@
+{
+ "actions": [],
+ "autoname": "SOR-.YYYY.-.#####",
+ "creation": "2026-10-09 12:00:00.000000",
+ "description": "Goods sent on sale or return: the six-month clock of CGST s.31(7) (research-b2b-predictive 0.2).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "delivery_note",
+  "removed_on",
+  "due_on",
+  "column_break_main",
+  "status",
+  "billed_on",
+  "sales_invoice",
+  "returned_on",
+  "flagged_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Distributor",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "delivery_note",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Delivery challan",
+   "options": "Delivery Note",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "The day the goods left (CGST s.31(7))",
+   "fieldname": "removed_on",
+   "fieldtype": "Date",
+   "label": "Removed on",
+   "reqd": 1
+  },
+  {
+   "description": "Removed on + 6 months: by then the goods are invoiced whether sold or not",
+   "fieldname": "due_on",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Invoice due by",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nDue Soon\nOverdue\nBilled\nReturned",
+   "read_only": 1
+  },
+  {
+   "fieldname": "billed_on",
+   "fieldtype": "Date",
+   "label": "Billed on"
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "description": "The goods came back unsold",
+   "fieldname": "returned_on",
+   "fieldtype": "Date",
+   "label": "Returned on"
+  },
+  {
+   "description": "When the five-month reminder was raised",
+   "fieldname": "flagged_on",
+   "fieldtype": "Date",
+   "label": "Flagged on",
+   "no_copy": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ExamLeaf ERP",
+ "name": "SOR Dispatch",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Sales",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Finance",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Auditor",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer",
+ "track_changes": 1
+}

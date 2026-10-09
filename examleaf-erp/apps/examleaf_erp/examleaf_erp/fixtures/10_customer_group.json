@@ -1,0 +1,72 @@
+[
+ {
+  "accounts": [],
+  "credit_limits": [],
+  "customer_group_name": "Online B2C",
+  "default_price_list": "MRP",
+  "docstatus": 0,
+  "doctype": "Customer Group",
+  "is_group": 0,
+  "modified": "2026-10-09 10:39:51.662804",
+  "name": "Online B2C",
+  "old_parent": "All Customer Groups",
+  "parent_customer_group": "All Customer Groups",
+  "payment_terms": null
+ },
+ {
+  "accounts": [],
+  "credit_limits": [],
+  "customer_group_name": "School",
+  "default_price_list": "School",
+  "docstatus": 0,
+  "doctype": "Customer Group",
+  "is_group": 0,
+  "modified": "2026-10-09 10:39:51.701358",
+  "name": "School",
+  "old_parent": "All Customer Groups",
+  "parent_customer_group": "All Customer Groups",
+  "payment_terms": "Net 30"
+ },
+ {
+  "accounts": [],
+  "credit_limits": [],
+  "customer_group_name": "Distributor",
+  "default_price_list": "Distributor Tier 1",
+  "docstatus": 0,
+  "doctype": "Customer Group",
+  "is_group": 0,
+  "modified": "2026-10-09 10:39:51.710608",
+  "name": "Distributor",
+  "old_parent": "All Customer Groups",
+  "parent_customer_group": "All Customer Groups",
+  "payment_terms": "Net 30"
+ },
+ {
+  "accounts": [],
+  "credit_limits": [],
+  "customer_group_name": "Bookseller",
+  "default_price_list": "Distributor Tier 2",
+  "docstatus": 0,
+  "doctype": "Customer Group",
+  "is_group": 0,
+  "modified": "2026-10-09 10:39:51.728990",
+  "name": "Bookseller",
+  "old_parent": "All Customer Groups",
+  "parent_customer_group": "All Customer Groups",
+  "payment_terms": "Net 15"
+ },
+ {
+  "accounts": [],
+  "credit_limits": [],
+  "customer_group_name": "Teacher",
+  "default_price_list": "MRP",
+  "docstatus": 0,
+  "doctype": "Customer Group",
+  "is_group": 0,
+  "modified": "2026-10-09 10:39:51.743120",
+  "name": "Teacher",
+  "old_parent": "All Customer Groups",
+  "parent_customer_group": "All Customer Groups",
+  "payment_terms": null
+ }
+]
