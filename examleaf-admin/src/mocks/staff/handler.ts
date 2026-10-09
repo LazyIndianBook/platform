@@ -17,6 +17,7 @@
 // break-glass account, which must give its reason first), staff_mock_policies=1 (a policy to acknowledge first).
 import type { Note } from "@/lib/api/staff";
 
+import { contentPermission, contentRoute, startContentImport, type Tools } from "./content";
 import { COLLEAGUES, createWorld, type MockJob, type MockSchemas, payloadHash, type World } from "./fixtures";
 
 type S = MockSchemas;
@@ -48,6 +49,7 @@ const SUPPORT = [
   ...PANEL,
   "accounts.view_user",
   ...["accounts.view_teacherprofile", "accounts.change_teacherprofile"], // roles.py SUPPORT: teachers are verified here
+  "content.view_errorreport", // the mistakes readers report: "did you get my report?"
   "shop.view_order",
   ...["staff.reveal_contact", "staff.unlock_user", "staff.resend_verification", "staff.end_user_sessions"],
   ...["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
@@ -61,6 +63,13 @@ const FINANCE = [
   ...["staff.refund_order", "staff.approve_refund", "staff.record_offline_payment", "staff.approve_payment"],
   ...["staff.approve_discount", "staff.add_changerequest"],
 ];
+// roles.py CONTENT (the records, every verb) and CONTENT_PANEL (the content module's queues)
+const CONTENT = ["book", "paper", "question", "solution"].flatMap((model) =>
+  ["view", "add", "change", "delete"].map((verb) => `content.${verb}_${model}`),
+);
+const CONTENT_PANEL = ["content.view_reviewtask", "content.view_errorreport", "staff.triage_report"].concat([
+  "content.view_legaldeposit",
+]);
 const OWNER_ONLY = ["staff.assign_role", "staff.manage_api_keys", "staff.break_glass"].concat([
   "staff.view_auditlog",
   "staff.export_auditlog",
@@ -76,7 +85,9 @@ const EVERYTHING = [
     ...["staff.view_sitesetting", "staff.manage_settings", "staff.view_featureflag", "staff.manage_flags"],
     ...["staff.toggle_maintenance", "staff.view_apikey", "staff.view_system", "staff.replay_webhook"],
     ...["staff.suspend_user", "shop.view_product", "shop.change_product", "shop.view_coupon", "shop.add_coupon"],
-    ...["content.view_book", "content.view_paper", "learn.view_chapter"],
+    ...CONTENT,
+    ...CONTENT_PANEL,
+    ...["content.add_legaldeposit", "staff.publish_paper", "staff.import_content", "learn.view_chapter"],
     ...["staff.view_parcels", "staff.book_parcel", "staff.view_insights", "erp.view_sync"],
   ]),
 ].sort();
@@ -86,7 +97,18 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   FINANCE,
   SUPPORT,
   AUDITOR: [...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")), "staff.export_auditlog"],
-  CONTENT_EDITOR: [...PANEL, "content.view_book", "content.view_paper", "learn.view_chapter", "shop.view_product"],
+  CONTENT_EDITOR: [
+    ...PANEL,
+    ...CONTENT,
+    ...CONTENT_PANEL,
+    ...["content.add_legaldeposit", "learn.view_chapter", "shop.view_product"],
+  ],
+  REVIEWER: [
+    ...PANEL,
+    ...CONTENT.filter((perm) => perm.includes(".view_")),
+    ...CONTENT_PANEL,
+    ...["staff.publish_paper", "staff.import_content"],
+  ],
   PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "staff.view_parcels"],
 };
 // accounts/roles.py ROLE_LIMITS (null: none)
@@ -103,7 +125,7 @@ const RISKY = new Set([
   ...["staff.reveal_contact", "staff.suspend_user", "staff.reset_user_mfa", "staff.impersonate_user"],
   ...["staff.export_personal_data", "staff.approve_erasure", "staff.manage_incident", "staff.assign_role"],
   ...["staff.approve_role_change", "staff.manage_api_keys", "staff.export_auditlog", "staff.approve_export"],
-  ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance"],
+  ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance", "staff.import_content"],
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -385,8 +407,12 @@ function permissionFor(context: Context): string | null {
       return a === "export" ? "staff.export_auditlog" : "staff.view_auditlog";
     case "change-requests":
       return !a && method === "POST" ? "staff.add_changerequest" : "staff.view_changerequest";
-    case "jobs":
-      return "staff.view_job";
+    case "jobs": // starting one: its kind's permission (staff/jobs.py `permission`)
+      return !a && method === "POST" && context.body.kind === "content_import"
+        ? "staff.import_content"
+        : "staff.view_job";
+    case "content":
+      return contentPermission(method, parts);
     case "saved-views":
       return get
         ? "staff.view_savedview"
@@ -489,6 +515,9 @@ async function route(context: Context): Promise<Response> {
   if (needsReauth(context, perm) && !(await recentlyAuthenticated(context.request))) return REAUTH();
 
   switch (area) {
+    case "content":
+      return contentRoute(toolsOf(context));
+
     case "inbox": {
       const visible = world.inbox.filter(
         (item) => item.assignee === me || (!item.assignee && (who.breakGlass || can(item.permission))),
@@ -751,6 +780,11 @@ async function route(context: Context): Promise<Response> {
     }
 
     case "jobs": {
+      if (method === "POST" && !a) {
+        if (body.kind !== "content_import") return invalid({ kind: ["The mock starts content_import jobs here."] });
+        const started = startContentImport(toolsOf(context));
+        return started instanceof Response ? started : json(202, visibleJob(context, started));
+      }
       const mine = world.jobs.filter((job) => job.started_by === me || can("staff.view_system"));
       if (method === "GET" && !a) {
         const rows = mine.filter(
@@ -1646,7 +1680,7 @@ function advance(job: MockJob): MockJob {
   job.done = Math.min(job.total, Math.ceil((job.total * job._ticks) / 3));
   if (job.done >= job.total) {
     job.state = "done";
-    job.result = { rows: job.total };
+    job.result = job._result ?? { rows: job.total };
     job.finished_at = now();
   }
   return job;
@@ -1654,12 +1688,35 @@ function advance(job: MockJob): MockJob {
 
 /** A job as the API answers it: result_url only for its starter, signed for 5 minutes. */
 function visibleJob(context: Context, job: MockJob): S["Job"] {
-  const { _ticks, _rows, ...visible } = job;
+  const { _ticks, _rows, _result, ...visible } = job;
   void _ticks;
   void _rows;
+  void _result;
   const file = job.state === "done" && job.kind === "audit_export" && job.started_by === context.who.id;
   const token = `t-${job.id}-${Date.now() + 5 * 60_000}`;
   return { ...visible, result_url: file ? `${context.url.origin}${ROOT}jobs/${job.id}/result/?token=${token}` : null };
+}
+
+/** What the content module's routes (content.ts) need of a request: its context and this file's helpers. */
+function toolsOf(context: Context): Tools {
+  return {
+    method: context.method,
+    parts: context.parts,
+    body: context.body,
+    url: context.url,
+    me: context.who.id,
+    can: (perm) => context.permissions.includes(perm),
+    world: context.world.content,
+    jobs: context.world.jobs,
+    nextId: () => nextId(context.world),
+    json: (status, body) => json(status, body),
+    invalid,
+    notFound,
+    refuse: (perm) => refuse(perm),
+    paginate: (rows) => paginate(context, rows),
+    record: (action, extra) => record(context, action, extra),
+    target,
+  };
 }
 
 /** The mock's one entry: refuses outside `next dev` with STAFF_API_MOCK=1. */
@@ -1681,7 +1738,11 @@ export async function handleMock(request: Request): Promise<Response> {
     roles: who.breakGlass ? [] : [who.role],
   }));
   let body: Body = {};
-  if (request.method !== "GET" && request.method !== "DELETE") {
+  if ((request.headers.get("Content-Type") ?? "").startsWith("multipart/form-data")) {
+    // a form with a file (a legal deposit's proof): its fields, and a file by its name
+    const form = await request.formData().catch(() => null);
+    form?.forEach((value, key) => (body[key] = typeof value === "string" ? value : value.name));
+  } else if (request.method !== "GET" && request.method !== "DELETE") {
     const parsed = (await request.json().catch(() => null)) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Body;
   }
