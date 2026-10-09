@@ -45,10 +45,12 @@ RIGHTS = (
     "email",
     "share",
 )
-# What EL Sync may do, and nothing else: the doctypes examleaf_erp.api writes (research 5.5 "SERVICE"). The read side
-# (get_stock, get_changes_since, daily_totals) reads through the endpoint, which only EL Sync may call, not through
-# DocPerms, so the key opens no /api/resource listing of stock, quotations or ledgers.
+# What EL Sync may do, and nothing else: the doctypes examleaf_erp.api writes (research 5.5 "SERVICE"), and Quotation
+# to read, which the platform re-reads (/api/resource) when its webhook rings. The rest of the read side (get_stock,
+# get_changes_since, daily_totals) reads through the endpoint, which only EL Sync may call, not through DocPerms, so
+# the key opens no /api/resource listing of stock or ledgers.
 SYNC_PERMISSIONS = {
+    "Quotation": ("read",),
     "Item": ("read", "write", "create"),
     "Item Price": ("read", "write", "create"),
     "Product Bundle": ("read", "write", "create"),

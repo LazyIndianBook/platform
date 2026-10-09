@@ -106,6 +106,8 @@ class TestSetup(IntegrationTestCase):
             self.assertFalse(frappe.has_permission("Sales Invoice", "cancel"))
             self.assertFalse(frappe.has_permission("Journal Entry", "delete"))
             self.assertFalse(frappe.has_permission("GL Entry", "read"))
+            self.assertTrue(frappe.has_permission("Quotation", "read"))  # re-read when the webhook rings
+            self.assertFalse(frappe.has_permission("Quotation", "write"))
 
     def test_the_webhooks_are_off_until_configured(self):
         from frappe.integrations.doctype.webhook.webhook import get_webhook_data
