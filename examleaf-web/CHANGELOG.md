@@ -5,6 +5,30 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
+
+No backend change. The console (`../examleaf-admin/`) and the website (`../examleaf-frontend/`) now speak the staff
+API and the impersonation endpoints as this backend has them. Console: Vitest 74, Playwright 6 in mock mode and 9
+against this backend (`E2E_STAFF_API=real`); website: Vitest 188.
+
+- **The console's types come from this schema** (`manage.py spectacular --format openapi-json` into the console's
+  `openapi.json`, then `npm run api:types`), and every call goes through `openapi-fetch` on those paths, so a renamed
+  path, parameter or field is a type error there. Its permissions are the catalogue's codenames (`staff/catalogue.py`,
+  the shipping desk's and the insights' included, and the ERPNext sync's `erp.*`), and it acts on the codes as sent: a
+  202 change request (its number, state and checker's permission), `session_idle` and `session_expired`,
+  `reauthentication_required`, `break_glass_reason_required`, `impersonating`, a 404 that is "not found, or not
+  yours", and a refused staff Google sign-in's `?error=staff_google_*`. Notes beside every record, a break-glass
+  session's reason and the policies due before anything else; jobs cancelled and their files fetched by a fresh signed
+  link; the audit export as a file or a job; maintenance through `PUT settings/MAINTENANCE_MODE/`. Its mock answers the
+  same contract with fixtures for every state; a production build compiles its switch off, as before. Its README's "The
+  contract this console speaks" lists every call.
+- **The website's side of an impersonation**: `/account/impersonate/?token=…` sends the console's token once
+  (`POST /api/v1/account/impersonate/`) and opens the account, or says the link is not valid, expired or used. While
+  allauth's session user carries `impersonation`, a band that cannot be dismissed names the colleague (masked) and the
+  time, with End (`DELETE /api/v1/account/impersonate/`), and the payment, address, password, email, mobile number,
+  two-step, consent and deletion actions are drawn disabled with the reason. Its README's "Impersonation"; its
+  Playwright spec (`e2e/impersonation.spec.ts`) skips on a backend without the endpoint.
+
 ## The Admin Control Panel's backend, the rest of Phase A (9 October 2026)
 
 The apps that came before the staff app now follow its rules, and the plan's last staff pieces are in
