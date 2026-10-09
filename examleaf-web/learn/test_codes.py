@@ -98,6 +98,26 @@ def test_a_batch_keeps_digests_only_and_its_file_is_its_makers_for_24_hours(
     assert Job.objects.get(pk=export.pk).result_file
 
 
+def test_a_batch_whose_codes_were_not_made_is_made_again_once(physics):
+    client = signed_in(make_staff(roles.SALES))
+    book = ProductFactory(subject=physics)
+    body = {"label": "PHY-2027-5", "subject": "PHY", "count": 3, "product": book.slug}
+    assert client.post(BATCHES, body, format="json").status_code == 202  # its job is queued (never run here)
+    batch = CodeBatch.objects.get(label="PHY-2027-5")
+    Job.objects.filter(pk=batch.job_id).update(state=Job.State.FAILED, finished_at=timezone.now())
+    assert client.get(f"{BATCHES}PHY-2027-5/").json()["state"] == "failed"
+    again = {"kind": "code_batch", "params": {"batch": batch.pk}}
+    started = client.post("/api/v1/staff/jobs/", again, format="json")
+    assert started.status_code == 202, started.content
+    assert client.get(f"{BATCHES}PHY-2027-5/").json()["state"] == "generating"  # it follows the new job
+    refused = client.post("/api/v1/staff/jobs/", again, format="json")
+    assert refused.json() == {"params": {"batch": ["It is generating: nothing to make again."]}}
+    assert client.post("/api/v1/staff/jobs/", {**again, "dry_run": True}, format="json").status_code == 400
+    jobs.run(started.json()["id"])
+    page = client.get(f"{BATCHES}PHY-2027-5/").json()
+    assert page["state"] == "ready" and page["codes"] == 3 and page["generation"]["id"] == started.json()["id"]
+
+
 def test_the_label_is_the_print_runs_own(physics, django_capture_on_commit_callbacks):
     client = signed_in(make_staff(roles.SALES))
     make_batch(client, physics, callbacks=django_capture_on_commit_callbacks)

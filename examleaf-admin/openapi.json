@@ -32147,21 +32147,26 @@
                         "readOnly": true
                     },
                     "difficulty": {
-                        "allOf": [
+                        "readOnly": true,
+                        "oneOf": [
                             {
                                 "$ref": "#/components/schemas/QuizItemDifficultyEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
                             }
-                        ],
-                        "readOnly": true
+                        ]
                     },
                     "bloom": {
-                        "allOf": [
+                        "readOnly": true,
+                        "oneOf": [
                             {
                                 "$ref": "#/components/schemas/QuizItemBloomEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
                             }
-                        ],
-                        "readOnly": true,
-                        "title": "Bloom level"
+                        ]
                     },
                     "tags": {
                         "type": "array",

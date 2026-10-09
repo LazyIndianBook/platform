@@ -128,6 +128,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
         total = len(params["targets"])
     with transaction.atomic():
         job = Job.objects.create(kind=kind, params=params, dry_run=dry_run, total=total, started_by=user)
+        if kind == Job.Kind.CODE_BATCH:  # the batch's state follows its newest job (a failed one made again)
+            from learn.models import CodeBatch
+
+            CodeBatch.objects.filter(pk=params["batch"]).update(job=job)
         _event(job, "requested", request)
         limit = approvals.limit_of(user, LIMITS[kind]) if kind in LIMITS else None
         if dry_run or not approvals.over(total, limit, "{amount} {limit}"):

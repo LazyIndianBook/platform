@@ -10829,9 +10829,8 @@ export interface components {
             /** @description Within the chapter: Coulomb's law. */
             readonly topic: string;
             readonly marks: number;
-            readonly difficulty: components["schemas"]["QuizItemDifficultyEnum"];
-            /** Bloom level */
-            readonly bloom: components["schemas"]["QuizItemBloomEnum"];
+            readonly difficulty: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            readonly bloom: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
             tags?: string[];
             /** @description the book question it came from; null: written for the app */
             readonly source: components["schemas"]["CourseItemSource"] | null;

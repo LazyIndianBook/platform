@@ -983,6 +983,9 @@ class CourseItemSerializer(serializers.ModelSerializer):
 class CourseItemRowSerializer(CourseItemSerializer):
     """A row of the bank: the item's first words, without its key and explanation."""
 
+    difficulty = serializers.ChoiceField(QuizItem.Difficulty.choices, allow_blank=True, read_only=True)
+    bloom = serializers.ChoiceField(QuizItem.Bloom.choices, allow_blank=True, read_only=True)
+
     class Meta(CourseItemSerializer.Meta):
         fields = ["id", "chapter", "order", "kind", "text", "topic", "marks", "difficulty", "bloom", "tags", "source"]
         fields += ["stats", "flagged"]
