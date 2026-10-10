@@ -112,16 +112,44 @@ test.beforeAll(() => {
   people = seedCustomersWorld(stamp, world.customer);
 });
 
+// every world is deleted even when one deletion fails (a protected row, a run cut off): the first failure is
+// thrown after the others ran, so a failure leaves no leftovers for the next run to trip on
 test.afterAll(() => {
-  if (world) deleteRealWorld(world);
-  if (shop) deleteOrdersWorld(shop);
-  if (content) deleteContent(content);
-  if (money) deleteFinanceWorld(money);
-  if (reports) deleteReportsWorld(reports);
-  if (catalogue) deleteCatalogue(catalogue);
-  if (course) deleteCourse(course);
-  if (people) deleteCustomersWorld(people);
-  deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
+  const failures: unknown[] = [];
+  for (const step of [
+    () => {
+      if (world) deleteRealWorld(world);
+    },
+    () => {
+      if (shop) deleteOrdersWorld(shop);
+    },
+    () => {
+      if (content) deleteContent(content);
+    },
+    () => {
+      if (money) deleteFinanceWorld(money);
+    },
+    () => {
+      if (reports) deleteReportsWorld(reports);
+    },
+    () => {
+      if (catalogue) deleteCatalogue(catalogue);
+    },
+    () => {
+      if (course) deleteCourse(course);
+    },
+    () => {
+      if (people) deleteCustomersWorld(people);
+    },
+    () => deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]),
+  ]) {
+    try {
+      step();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length) throw failures[0];
 });
 
 async function open(browser: Browser, width = 1280): Promise<Page> {
