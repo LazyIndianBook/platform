@@ -1,8 +1,39 @@
 # ExamLeaf Admin Control Panel: the plan
 
-Date: 9 October 2026. Status: Phase A in progress in parallel worktrees (section 9). The research behind the module
-inventories is in `docs/research/2026-10-09-admin-control-panel/`; the inventory of what the backend already does
-for staff is in section 2.
+![Status](assets/badges/status-plan.svg) ![Phase A](assets/badges/phase-a-merged.svg) ![Phase B](assets/badges/phase-b-merged.svg) ![Phases C to E](assets/badges/phase-c-pending.svg)
+
+The plan of the Admin Control Panel, the business's back office: the three systems and how they stay in step, the
+roles, every module, the security, the data model, the phases and the decisions only the founder can take. It is for
+whoever builds the next phase and for the owner; [the handover](HANDOVER.md) says where the work stands and [the
+decisions register](decisions.md) where each decision of section 10 stands.
+
+Date: 9 October 2026. Status: Phases A and B are built and merged on `main` (Phase A on 9 October 2026, Phase B on
+10 October, as the handover says); Phases C to E are planned (section 9). The research behind the module
+inventories is in `docs/research/2026-10-09-admin-control-panel/`; the inventory of what the backend already does for
+staff is in section 2.
+
+> [!NOTE]
+> **At a glance**
+> - The one rule: the backend decides everything, and the panel draws what the API answers (section 1).
+> - Three systems kept in step: the platform for the product, ERPNext for the business, the panel as the one front
+>   door; each fact has one owner and the sync carries it (sections 1 and 3).
+> - Phases A and B are merged; Phase C brings the partners and the ERPNext cut-over on 1 April 2027, and the DPDP
+>   Rules bind from 13 May 2027 (section 9).
+> - The founder's decisions and the advisers' questions are in section 10.
+
+**Contents**
+
+- [1. What it is, and the one rule](#1-what-it-is-and-the-one-rule)
+- [2. What exists today (the floor we build on)](#2-what-exists-today-the-floor-we-build-on)
+- [3. Architecture](#3-architecture)
+- [4. Roles, capabilities, scopes](#4-roles-capabilities-scopes)
+- [5. Modules (the inventory)](#5-modules-the-inventory)
+- [6. Security](#6-security)
+- [7. Data model additions (summary)](#7-data-model-additions-summary)
+- [8. The panel's information architecture](#8-the-panels-information-architecture)
+- [9. Phases](#9-phases)
+- [10. Risks and decisions for the founder](#10-risks-and-decisions-for-the-founder)
+- [Related documents](#related-documents)
 
 ## 1. What it is, and the one rule
 
@@ -103,6 +134,38 @@ approvals, audit, scopes, saved views, search, dashboards, support tickets, CRM,
 effective dates, settlements and accounting exports, DPDP requests, staff management, and the system views.
 
 ## 3. Architecture
+
+```mermaid
+flowchart LR
+    subgraph People
+        U[Students, parents, teachers]
+        T[Staff]
+    end
+    subgraph Platform[The platform]
+        W[The website]
+        D[Django<br/>examleaf-web]
+        S[The sync, the erp app<br/>outbox, relay, pull, reconciliation]
+    end
+    P[The panel<br/>admin.examleaf.in]
+    E[ERPNext v16<br/>examleaf_erp, India Compliance]
+    subgraph Stores[The stores]
+        PG[(PostgreSQL 17)]
+        M[(MariaDB 11.8)]
+        R2[(Cloudflare R2)]
+    end
+    U --> W --> D
+    T --> P -->|the staff API| D
+    T -->|deep links, the same Google identity| E
+    D --> S -->|idempotent methods, in order per entity| E
+    E -.->|webhooks, as doorbells only| S
+    S -->|every 15 minutes, a pull| E
+    D --- PG
+    E --- M
+    PG -.->|continuous backups| R2
+    M -.->|backups on a schedule| R2
+```
+
+*The three systems, the sync between them and the stores each keeps its data in (sections 3.1 to 3.4).*
 
 ### 3.1 The three systems and the boundaries
 
@@ -1302,6 +1365,35 @@ else extends an app that exists.
 
 ## 8. The panel's information architecture
 
+```mermaid
+mindmap
+  root((The panel's navigation))
+    Built in the panel
+      Home
+      Inbox
+      Orders
+      Customers
+      Catalogue
+      Shipping
+      Content
+      Course
+      Marketing
+      Support
+      Legal and privacy
+      Staff
+      Settings and integrations
+      System
+    Panel and ERPNext
+      Finance
+      Tax
+      Partners
+      Reports and analytics
+    In ERPNext
+      Inventory
+```
+
+*The navigation below by where each entry opens: in the panel, in both (each link says which), or in ERPNext's Desk.*
+
 One navigation for both systems. Entries marked **[ERPNext]** open in ERPNext's Desk (deep links, the same Google
 identity); entries marked **[both]** mix panel pages with ERPNext pages and say on each link which one opens; the
 rest are built in the panel. Section 5 lists what each module does and where.
@@ -1328,6 +1420,27 @@ connections, notifications, couriers, payment, messaging) · System (jobs, sync,
 backups, audit log, logs, dependencies, status).
 
 ## 9. Phases
+
+```mermaid
+gantt
+    title The phases and the dates that bind
+    dateFormat YYYY-MM-DD
+    axisFormat %b %Y
+    section Built
+    Phase A, foundations                        :milestone, done, a, 2026-10-09, 0d
+    Phase B, the panel's own modules            :milestone, done, b, 2026-10-10, 0d
+    section Planned
+    Phase C, partners, then the ERPNext cut-over :c, 2027-01-01, 2027-05-31
+    Phase D, growth and depth                   :d, 2027-05-01, 2027-12-31
+    section The dates that bind
+    The trade's peak                            :peak, 2027-01-01, 2027-03-31
+    The amended E-Commerce Rules                :milestone, m1, 2027-01-01, 0d
+    The ERPNext cut-over, FY 2027-28            :milestone, m2, 2027-04-01, 0d
+    The DPDP Rules                              :milestone, m3, 2027-05-13, 0d
+```
+
+*Phases A and B were built on 9 and 10 October 2026; C runs from January to May 2027 and D from May 2027, before the
+2027-28 peak; Phase E has no date (section 9.5).*
 
 The order of work follows the dates that bind, not the modules' order:
 - **Now:** CERT-In's directions (6-hour incident reports, 180 days of logs, NTP, a point of contact) are already in
@@ -1660,3 +1773,12 @@ recommendation until it gets it.
 | Authorization in the wrong layer | a check that lives only in Next.js middleware is bypassed (as CVE-2025-29927 showed) | Django authorizes every staff call; the manifest only draws the UI; the bypass header stripped at the proxy; the role table of tests (sections 4.2, 5.19) | none beyond the usual: every new endpoint needs its row in the test table |
 | Logs and records too short today | CERT-In's 180 days are not met now, and DPDP's year from 13 May 2027 is not met either | the retention fixes in Phase B; logs shipped off the node; minimal metadata kept for the full period (sections 5.15, 5.19) | until Phase B ships, an incident could not be fully reconstructed from logs |
 | Data location | R2 has no India jurisdiction; Sentry's service is US or EU only | GlitchTip on the cluster; processors recorded with their regions; an AWS Mumbai bucket if counsel asks (section 10.1) | a government restriction on transfers under s.16 would need a quick move, which the processor register makes visible |
+
+## Related documents
+
+- [Handover](HANDOVER.md): where the work stands and what to do next.
+- [Decisions register](decisions.md): each decision of section 10 with its status and the setting that carries it.
+- [Changelog](../examleaf-web/CHANGELOG.md): what each phase delivered, with the tests at each merge.
+- [Role guides](guides/roles/README.md): the roles of section 4 as the panel has them.
+- [Phase B integration](phase-b-integration/README.md): how Phase B was built and merged, the pattern for C to E.
+- [Research index](research/README.md): the reports this plan was written from.

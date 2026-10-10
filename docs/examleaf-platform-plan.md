@@ -1,5 +1,12 @@
 # ExamLeaf — product and platform plan
 
+![Component](assets/badges/component-platform.svg) ![Status](assets/badges/status-plan.svg) ![For the owner](assets/badges/audience-owner.svg)
+
+The product and platform plan of 8 October 2026: the evidence behind ExamLeaf's first products, the product line and the
+roadmap, the platform, the costs and risks, and what to do next, in order. It is for the founder and whoever plans the
+next product; it is kept as written, and the [Changelog](../examleaf-web/CHANGELOG.md) records what has been built
+since.
+
 *8 October 2026. Written from three verified research runs (archived in `docs/research/`), the printed books already produced, and the platform being built in `examleaf-web/`. Where the evidence stops and my own judgement begins, the text says so.*
 
 ## 1. Summary, and what I think

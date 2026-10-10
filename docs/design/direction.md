@@ -1,5 +1,11 @@
 # ExamLeaf redesign — direction and shared vocabulary (decided 2026-10-08)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The direction and shared vocabulary of the website's first redesign, decided on 8 October 2026 from [the resources
+brief](resources-brief.md). It is kept as a record: the website was restyled again by the Answer Script redesign
+([answer-script-implementation.md](answer-script-implementation.md)).
+
 Source: `resources-brief.md` (the digest of ui-ux-pro-max, shadcn/ui, ThreeUI, Aceternity, animmasterlib, designprompts, design.dev, superdesign). This file is the contract between the designer (Design canvas) and the builders (Django templates + one CSS file). Both sides use exactly these names.
 
 ## 1. Direction: "Midnight Stage" bands, paper body, subject tiles

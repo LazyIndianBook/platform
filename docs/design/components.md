@@ -1,6 +1,24 @@
 # ExamLeaf components, as drawn
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The component spec of the website's first redesign, drawn on the Design canvas on 8 October 2026 and built into the
+Django templates, with a section on what the Next.js frontend built from it. It is kept as a record: the Django pages
+were removed in Phase 8, and the website was restyled again by the Answer Script redesign
+([answer-script-implementation.md](answer-script-implementation.md)).
+
 The spec the Django builder implements. Drawn on the Design canvas (https://claude.ai/artifact/Qzy2yAjvNy3Fq12mYZv6Yu, 16 artboards); every artboard carries these class names on its markup. Tokens are in `tokens.css` (include it first in `site.css`); names follow `direction.md` section 3. Sizes are CSS px as drawn. "Phone" means under 900 px wide unless a width is given.
+
+**Contents**
+
+- [0. Page-level layout](#0-page-level-layout)
+- [1. Components (direction section 3, in its order)](#1-components-direction-section-3-in-its-order)
+- [2. Drawn patterns that sit beside the vocabulary](#2-drawn-patterns-that-sit-beside-the-vocabulary)
+- [3. Pages (artboard → template)](#3-pages-artboard--template)
+- [4. Motion: docs/design/motion.md](#4-motion-docsdesignmotionmd)
+- [4a. Craft pass (2026-10-08): what the built site does beyond the drawings](#4a-craft-pass-2026-10-08-what-the-built-site-does-beyond-the-drawings)
+- [5. Canvas-only levers](#5-canvas-only-levers)
+- [5. As built (2026-10-08, canvas pass against the Next.js frontend)](#5-as-built-2026-10-08-canvas-pass-against-the-nextjs-frontend)
 
 ## 0. Page-level layout
 

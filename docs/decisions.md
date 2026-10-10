@@ -1,9 +1,22 @@
 # Decisions register
 
-Every decision of the plan's section 10.1 ([examleaf-admin-control-panel-plan.md](examleaf-admin-control-panel-plan.md)),
-with where it stands, what the code does today, and what changes when the answer comes. Read at the merge of Phase B, 10
-October 2026. It also holds the adviser questions of section 10.2 that a setting carries, and the dates and periods the
-law sets that the code keeps as settings. Where this page and the code differ, the code is right: change the page.
+![Pending the owner](assets/badges/status-pending-owner.svg) ![Pending the advisers](assets/badges/status-pending-adviser.svg) ![DPDP Rules](assets/badges/law-dpdp.svg) ![E-Commerce Rules](assets/badges/law-ecommerce.svg) ![GST](assets/badges/law-gst.svg)
+
+This register holds every decision of the plan's section 10.1
+([examleaf-admin-control-panel-plan.md](examleaf-admin-control-panel-plan.md)), with where it stands, what the code
+does today and what changes when the answer comes, for the owner, the CA and the lawyer who answer and for whoever
+makes the change. It also holds the adviser questions of section 10.2 that a setting carries, and the dates and
+periods the law sets that the code keeps as settings; it was read at the merge of Phase B, 10 October 2026. Where this
+page and the code differ, the code is right: change the page.
+
+> [!NOTE]
+> **At a glance**
+> - Section A's 25 decisions: 2 settled, 16 built on the plan's recommendation and waiting for the owner's yes, 4
+>   waiting for the CA and 3 for the lawyer.
+> - Until an answer comes, the code does what the plan recommends, and takes the cautious reading where the lawyer
+>   decides.
+> - Three dates the law sets bind the answers: 1 January 2027, 1 April 2027 and 13 May 2027 (section D).
+> - An answer is recorded in the pull request, or in a panel setting's reason, and its status is changed here.
 
 ## Statuses
 
@@ -17,6 +30,17 @@ law sets that the code keeps as settings. Where this page and the code differ, t
 A third party can also hold the answer (the postal division, the courier); the row says so. When an answer comes, make
 the change the last column names, record it in the pull request or, for a panel setting, in the reason field of the
 change (it is kept in the audit log with who made it and when), and change the status here.
+
+```mermaid
+pie showData
+    title The decisions of section 10.1 by status
+    "Settled" : 2
+    "Built on the recommendation, pending the owner" : 16
+    "Pending the CA" : 4
+    "Pending the lawyer" : 3
+```
+
+*Section A's 25 rows; a row that names two parties counts under the first its status names.*
 
 ## A. The decisions of section 10.1
 
@@ -81,6 +105,16 @@ the answer replaces as section A and B say.
 
 ## D. Dates and periods the law sets, kept as settings
 
+```mermaid
+timeline
+    title The dates the law sets, as this register names them
+    1 January 2027 : The prior price beside a reduced price : A copy of the complaint in its acknowledgement : The National Consumer Helpline's programme
+    1 April 2027 : FY 2027-28, a series for each document type
+    13 May 2027 : The DPDP Rules, the 90-day answer : Verifiable parental consent
+```
+
+*Each date is a setting's default below or a deadline a row of sections A and B names.*
+
 Not decisions, but the places to move when the law moves.
 
 | Setting | Default | Carries |
@@ -93,3 +127,12 @@ Not decisions, but the places to move when the law moves.
 | `CONTENT_LEGAL_DEPOSIT_DAYS` | 30 | the legal deposit's period |
 | `SHOP_RETURN_DAYS` | 15 | the days after delivery in which a customer may ask for a return |
 | `SHOP_HSN_DIGITS` | 4 | 4 up to ₹5 crore of turnover, 6 above |
+
+## Related documents
+
+- [The panel's plan](examleaf-admin-control-panel-plan.md): section 10, the decisions and the advisers' questions with
+  their recommendations.
+- [Handover](HANDOVER.md): section 6, the decisions that matter first.
+- [Deployment](../examleaf-web/DEPLOYMENT.md): every setting this page names, by module.
+- [Role guides](guides/roles/README.md): the thresholds as each role sees them.
+- [The shop app](../examleaf-web/shop/README.md): the tax decisions taken until the CA answers.

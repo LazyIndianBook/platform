@@ -1,12 +1,24 @@
 # Role guides
 
-One page for each role of the Admin Control Panel: who it is for, what it can do and cannot do, its limits, the pages it
-uses, its first day and the parts of [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md) that concern it. They are written
-from the code, not from memory: `examleaf-web/accounts/roles.py` (the roles, `ROLE_CARDS`, `ROLE_LIMITS`,
-`ROLE_SCOPES`, `SOD_CONFLICTS`), `examleaf-web/staff/catalogue.py` (what each permission is, its risk) and the console's
-modules (`examleaf-admin/src/lib/modules.ts`). The panel's own page, People → Roles (`/people/roles/`), draws the same
-facts from the running system. If a page here and the panel differ, the panel is right: tell the person who keeps these
+![For staff](../../assets/badges/audience-staff.svg) ![Component](../../assets/badges/component-console.svg) ![Phase B](../../assets/badges/phase-b-merged.svg)
+
+One page for each role of the Admin Control Panel, for the member of staff who holds it: who it is for, what it can do
+and cannot do, its limits, the pages it uses, its first day and the parts of
+[RUNBOOK.md](../../../examleaf-web/RUNBOOK.md) that concern it. They are written from the code, not from memory:
+`examleaf-web/accounts/roles.py` (the roles, `ROLE_CARDS`, `ROLE_LIMITS`, `ROLE_SCOPES`, `SOD_CONFLICTS`),
+`examleaf-web/staff/catalogue.py` (what each permission is, its risk) and the console's modules
+(`examleaf-admin/src/lib/modules.ts`). The panel's own page, People → Roles (`/people/roles/`), draws the same facts
+from the running system; if a page here and the panel differ, the panel is right: tell the person who keeps these
 guides.
+
+> [!NOTE]
+> **At a glance**
+> - Eleven roles, one page each; a person may hold more than one and has the highest of their roles' limits.
+> - The backend decides: the console draws a module for whoever holds one of its permissions, and the API checks
+>   every call again.
+> - A session ends 8 hours after sign-in, and sooner when idle: 15 minutes for OWNER, ADMIN, FINANCE and PACKER, 30
+>   for the others.
+> - The limits are placeholders until the owner sets them ([the decisions register](../../decisions.md)).
 
 | Role | Page | For |
 |---|---|---|
@@ -27,35 +39,36 @@ permissions it names (People → API keys), not a person.
 
 ## Who can do what, by module
 
-The columns are the console's modules (`https://admin.<domain>`, the sidebar). "Acts" means the role can change things
-there, inside its limits; "Reads" means lists and records only; "Part" means a named part of the module, which the
-role's page spells out; a dash means the module is not drawn for the role.
+The rows are the console's modules (`https://admin.<domain>`, the sidebar) and the columns the roles. "yes" means the
+role can change things there, inside its limits; "read" means lists and records only; "part" means a named part of
+the module, which the role's page spells out; "link" means the sidebar's links into ERPNext; a blank means the module
+is not drawn for the role.
 
 | Module | OWNER | ADMIN | FINANCE | SALES | SALES_REP | PACKER | SUPPORT | CONTENT_EDITOR | REVIEWER | MARKETING | AUDITOR |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Home and Inbox | Acts | Acts | Acts | Acts | Acts | Acts | Acts | Acts | Acts | Acts | Reads |
-| Approvals | Acts | Acts | Acts | Acts | Acts | - | Acts | Acts | Acts | Acts | Reads |
-| Orders | Acts | Acts | Part | Acts | Part | Part | Part | - | - | - | Reads |
-| Finance | Acts | Acts | Acts | Part | - | - | Reads | - | - | - | Reads |
-| Catalogue | Acts | Acts | Part | Acts | Reads | Reads | Reads | Part | - | Part | Reads |
-| Tax | Acts | Acts | Acts | Part | - | - | - | Part | - | - | Reads |
-| Content | Acts | Acts | - | Part | Part | - | Part | Acts | Acts | - | Reads |
-| Course | Acts | Acts | - | Part | - | - | Acts | Acts | Part | - | Reads |
-| Customers | Acts | Acts | Reads | - | - | - | Acts | - | - | - | Reads |
-| Support | Acts | Acts | - | Part | - | - | Acts | Part | - | - | Reads |
-| Legal and privacy | Acts | Acts | Part | - | - | - | Part | Part | - | - | Reads |
-| Reports | Acts | Acts | Acts | Part | - | - | - | - | - | Part | Reads |
-| People, Roles, Access review | Acts | Part | - | - | - | - | - | - | - | - | Reads |
-| API keys | Acts | Reads | - | - | - | - | - | - | - | - | Reads |
-| Settings | Acts | Acts | - | - | - | - | - | - | - | - | Reads |
-| Connections | Acts | Acts | Reads | - | - | - | - | - | - | - | Reads |
-| Message templates | Acts | Acts | - | - | - | - | - | - | - | Reads | Reads |
-| System | Acts | Acts | - | - | - | - | - | - | - | - | Reads |
-| Audit trail | Reads | - | - | - | - | - | - | - | - | - | Reads |
-| In ERPNext (GST returns, Inventory, Purchases, CRM) | Links | Links | Links | - | - | - | - | - | - | - | Links |
+| Home and Inbox | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | read |
+| Approvals | yes | yes | yes | yes | yes | | yes | yes | yes | yes | read |
+| Orders | yes | yes | part | yes | part | part | part | | | | read |
+| Finance | yes | yes | yes | part | | | read | | | | read |
+| Catalogue | yes | yes | part | yes | read | read | read | part | | part | read |
+| Tax | yes | yes | yes | part | | | | part | | | read |
+| Content | yes | yes | | part | part | | part | yes | yes | | read |
+| Course | yes | yes | | part | | | yes | yes | part | | read |
+| Customers | yes | yes | read | | | | yes | | | | read |
+| Support | yes | yes | | part | | | yes | part | | | read |
+| Legal and privacy | yes | yes | part | | | | part | part | | | read |
+| Reports | yes | yes | yes | part | | | | | | part | read |
+| People, Roles, Access review | yes | part | | | | | | | | | read |
+| API keys | yes | read | | | | | | | | | read |
+| Settings | yes | yes | | | | | | | | | read |
+| Connections | yes | yes | read | | | | | | | | read |
+| Message templates | yes | yes | | | | | | | | read | read |
+| System | yes | yes | | | | | | | | | read |
+| Audit trail | read | | | | | | | | | | read |
+| In ERPNext (GST returns, Inventory, Purchases, CRM) | link | link | link | | | | | | | | link |
 
 Notes on the cells. The Audit trail is read and exported, never changed, and each read is itself logged; only OWNER and
-AUDITOR hold it. AUDITOR's "Reads" includes exporting a report, the audit log and the grievance register as files. SALES
+AUDITOR hold it. AUDITOR's "read" includes exporting a report, the audit log and the grievance register as files. SALES
 makes and cancels payment links in Finance, and SUPPORT only reads them. SALES and CONTENT_EDITOR see Tax only as the HSN
 and SAC master (to pick a product's code); SALES and SALES_REP see Content only as the books' list. MARKETING's reports
 are the forecasts and cohorts, because the others need data its role does not hold. The console's Shipping, Marketing
@@ -79,13 +92,30 @@ and Partners entries are drawn for the roles that will use them and say they com
 ## Before a person's first day
 
 An owner invites the person (People → "Invite a staff member": their work email address, the role and the reason; for
-OWNER, ADMIN, FINANCE or AUDITOR a second person approves first). **The invitation email's link does not work yet:** it
-points at a page, `/invite/<token>/` on the panel's host, that neither the console nor the website has, so a person
-cannot accept an invitation by themselves. Until it is built, the role is given another way
-([RUNBOOK.md](../../../examleaf-web/RUNBOOK.md) "Staff accounts", step 1): with Google for staff on and
-`STAFF_GOOGLE_AUTO_STAFF=1` the person signs in once with their work Google account and an owner then grants the role
-(People → the person → Access → "Grant a role"); otherwise a break-glass session makes the account in the Django admin
-and gives the role. Either way the person then starts at the guide's "Your first day".
+OWNER, ADMIN, FINANCE or AUDITOR a second person approves first). The invitation's email links `/invite/<token>/` on
+the panel's host, a link that works once, for 7 days: there the person chooses the name the console shows and a
+password (the link proves the address), or, if an account already has that address, signs in first and opens the link
+again. Two other ways give a role ([RUNBOOK.md](../../../examleaf-web/RUNBOOK.md) "Staff accounts", step 1): with
+Google for staff on and `STAFF_GOOGLE_AUTO_STAFF=1` the person signs in once with their work Google account and an
+owner then grants the role (People → the person → Access → "Grant a role"); and a break-glass session can make the
+account in the Django admin and give the role, as it does for the first owner, whom nobody can invite. Whichever way,
+the person then starts at the guide's "Your first day":
+
+```mermaid
+flowchart LR
+    I[The invitation's link<br/>a name and a password] --> S[Sign in to the console]
+    S --> T{Two-step sign-in set up?}
+    T -->|no| A[An authenticator app or a passkey<br/>on the website's page] --> S
+    T -->|yes| K{OWNER, ADMIN or FINANCE<br/>without a passkey?}
+    K -->|yes| P[Add a passkey<br/>or a security key]
+    K -->|no| L[Read and acknowledge<br/>each policy]
+    P --> L
+    L --> M[My account<br/>the role and Your limits]
+    M --> B[The inbox, then Home]
+```
+
+*Every role's first day, in the order the console asks for each step; each guide's "Your first day" adds the role's
+own.*
 
 Separation of duties decides which roles one person may hold: FINANCE never with PACKER, MARKETING never with FINANCE,
 and AUDITOR with no other role. The panel refuses a grant that breaks it.
@@ -112,3 +142,11 @@ the sentences and nothing else. The index would gain a row of links per language
 A guide is wrong the day a role's list in `accounts/roles.py`, a limit in `ROLE_LIMITS` or a module's permission in
 `modules.ts` changes. When one does, change the guide in the same pull request. The facts above each guide's table are
 quick to check against People → Roles.
+
+## Related documents
+
+- [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md): "Staff accounts", from the invitation to break-glass.
+- [The staff app](../../../examleaf-web/staff/README.md): the roles, the approvals and how a permission is added.
+- [The staff console](../../../examleaf-admin/README.md): the console's pages and routes.
+- [Decisions register](../../decisions.md): the thresholds behind each role's limits.
+- [The panel's plan](../../examleaf-admin-control-panel-plan.md): section 4, the roles as planned.

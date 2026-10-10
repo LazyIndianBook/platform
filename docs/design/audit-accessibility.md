@@ -1,5 +1,11 @@
 # ExamLeaf: accessibility audit (WCAG 2.2 AA)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The accessibility audit (WCAG 2.2 AA) of the Django site on 8 October 2026: the keyboard, zoom and screen-reader side
+that Lighthouse's rules cannot see. It is kept as a record: the Django pages were removed in Phase 8, and the Next.js
+frontend's audit is [audit-nextjs-accessibility.md](audit-nextjs-accessibility.md).
+
 Manual keyboard and zoom pass, plus axe-core on states Lighthouse does not reach. Measured on 8 October 2026 (IST) on a copy of the working tree at commit `ba0b9dd` (redesign stages 2a and 2b). Nothing under `examleaf-web/` was edited. The Lighthouse side (scores, performance) is in [audit-lighthouse.md](audit-lighthouse.md); Lighthouse's accessibility score is 100 on every page, and everything below is what its automated rules cannot see.
 
 ## 1. Result in brief

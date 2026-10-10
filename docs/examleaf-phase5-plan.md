@@ -1,5 +1,12 @@
 # ExamLeaf Phase 5 — real-world production features and the redesign (plan of 2026-10-08)
 
+![Component](assets/badges/component-platform.svg) ![Status](assets/badges/status-archive.svg) ![For developers](assets/badges/audience-developers.svg)
+
+The plan of Phase 5 (8 October 2026): sign-in and communications (work package A), storage, media, the shop and the web
+platform (B), and the redesign of the Django site (C). Its Status section, filled in by the builders, records A and B as
+built; the Django pages that C restyled were removed in Phase 8, when the Next.js frontend took over the website. It is
+kept as the record of what was decided and why (the [Changelog](../examleaf-web/CHANGELOG.md), "Phase 5 A" and "B").
+
 Inputs: `docs/research/2026-10-08-production-features/report.md` (library and provider verification), `docs/design/resources-brief.md`, `docs/design/direction.md` (the binding design direction and component vocabulary), the Design canvas (16 artboards), `docs/design/components.md` and `docs/design/tokens.css` written from it. Constraints that stay: strict CSP (no inline scripts, self-hosted fonts and scripts), no third-party trackers, minimal personal data (DPDP; many users are minors), mature libraries over hand-written code, every change tested, `check --deploy` clean apart from the two HSTS warnings, migrations in sync, ruff clean.
 
 ## Work package A — sign-in and communications (accounts, ops, api)

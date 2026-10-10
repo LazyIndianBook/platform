@@ -1,5 +1,11 @@
 # ExamLeaf Phase 8 — the Next.js frontend (plan of 2026-10-08)
 
+![Component](assets/badges/component-website.svg) ![Status](assets/badges/status-archive.svg) ![For developers](assets/badges/audience-developers.svg)
+
+The plan of Phase 8 (8 October 2026): the Next.js frontend, its boundaries with the Django backend and its work
+packages. Its Status section, filled in by the builders, records 8A to 8F as built and what stayed open after 8F; it is
+kept as the record of how the website came to be (the [Changelog](../examleaf-web/CHANGELOG.md), the Phase 8 entries).
+
 Founder's decision (2026-10-08): build the decoupled Next.js frontend now, in parallel; the Django-rendered pages will not be used and may be discarded once the new frontend covers them. The assessment that preceded this is in `docs/examleaf-frontend-architecture.md`.
 
 ## Boundaries

@@ -1,5 +1,10 @@
 # ExamLeaf motion language (decided 2026-10-08)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The motion language of the website's first redesign, decided on 8 October 2026. It is kept as a record: the Django
+stylesheet and script it names were removed with the Django pages in Phase 8.
+
 Motion on ExamLeaf confirms what the reader just did, or shows that something moved from one place to another. It never decorates. Students read solutions for an hour at a time on cheap phones, so the reading surfaces stay still and everything here is cheap to run: `transform` and `opacity` only, no JavaScript animation library, no layout properties, no blur, no shadows animated.
 
 The implementation is in `examleaf-web/static/css/site.css` (the motion block near the top, plus the per-component rules named below) and `examleaf-web/static/js/site.js`. The component spec is `components.md`.

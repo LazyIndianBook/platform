@@ -1,7 +1,15 @@
 # Owner (OWNER)
 
-Role guide. Written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the panel's People → Roles
-page (`/people/roles/`) is the running truth. The index is [README.md](README.md).
+![For staff](../../assets/badges/audience-staff.svg) ![Component](../../assets/badges/component-console.svg) ![Phase B](../../assets/badges/phase-b-merged.svg)
+
+The one-page guide for a member of staff who holds OWNER: what the role can and cannot do, its limits, the pages it
+uses and its first day. It is written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the
+panel's People → Roles page (`/people/roles/`) is the running truth, and the index of every role is
+[README.md](README.md).
+
+| Refund | Offline payment | Discount | Export | Bulk action | Signed out after | Second factor |
+|---|---|---|---|---|---|---|
+| no limit | no limit | no limit | no limit | no limit | 15 minutes idle, 8 hours in all | a passkey or a security key |
 
 ## Who this is for
 
@@ -89,3 +97,11 @@ stays closed until you add one.
 "Staff accounts" (invitations, a lost second factor, leaving, ending sessions, break-glass accounts), "Secrets and key
 rotation", "Connections", "The system pages", "The inbox", "Incidents", "Data requests and privacy", "ERPNext", and the
 shop sections for the money you approve.
+
+## Related documents
+
+- [Role guides](README.md): every role, who can do what by module, and the first day.
+- [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md): the procedures this page names.
+- [The staff app](../../../examleaf-web/staff/README.md): the approvals, who asks and who approves.
+- [Decisions register](../../decisions.md): the other roles' limits are placeholders until you set them.
+- [Handover](../../HANDOVER.md): where the work stands and the decisions only the owner can take.

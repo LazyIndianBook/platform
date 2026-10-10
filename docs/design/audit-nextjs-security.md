@@ -1,6 +1,20 @@
 # ExamLeaf Next.js frontend: security review (read-only)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The read-only security review of the Next.js frontend at Phase 8D's build half, 8 October 2026: the brief's checklist,
+the evidence by area and the findings in detail. It is kept as a record; Phase 8F worked through its findings (the
+[Changelog](../../examleaf-web/CHANGELOG.md), "Phase 8F review fixes").
+
 A review of `examleaf-frontend/` at commit `b10bde1` (Phase 8D build half), made on 8 October 2026 (IST) by reading the code and by testing the production build of 16:38 (the standalone output, `NODE_ENV=production`) on `http://localhost:3003` in front of the Django backend on 8103: the process of the first hour from the clean tree, later restarts of the same tree (after the Django pages were removed at 16:59, commit `b6b8d06`) and, from 17:46, a snapshot of `git HEAD` (`3c37394`) because another agent's unfinished edit stopped the working tree from starting. The API and allauth paths the frontend uses were the same throughout. The code read is the frontend's tree at the start of the review. Every claim below was verified in the code or by a request; nothing under `examleaf-frontend/` or `examleaf-web/` was edited, and no real payment, Turnstile, Google or email provider was contacted except where said (S3). The Lighthouse side is [audit-nextjs-lighthouse.md](audit-nextjs-lighthouse.md), the accessibility side [audit-nextjs-accessibility.md](audit-nextjs-accessibility.md).
+
+**Contents**
+
+- [1. Result in brief](#1-result-in-brief)
+- [2. The brief's checklist](#2-the-briefs-checklist)
+- [3. Evidence by area](#3-evidence-by-area)
+- [4. Findings in detail](#4-findings-in-detail)
+- [5. What this review did not cover](#5-what-this-review-did-not-cover)
 
 ## 1. Result in brief
 

@@ -1,6 +1,22 @@
 # ExamLeaf Next.js frontend: accessibility audit (WCAG 2.2 AA)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The accessibility audit (WCAG 2.2 AA) of the Next.js frontend at Phase 8D's build half, 8 October 2026: axe on 38 pages
+and states, and a manual keyboard, zoom and motion pass. It is kept as a record; Phase 8F worked through its findings
+(the [Changelog](../../examleaf-web/CHANGELOG.md), "Phase 8F review fixes").
+
 Automated checks (axe-core) on 38 pages and states, and a manual keyboard, zoom and motion pass with real key presses. Measured on 8 October 2026 (IST) on the production build of `examleaf-frontend/` at commit `b10bde1` (Phase 8D build half). Nothing under `examleaf-frontend/` or `examleaf-web/` was edited. The scores and bytes are in [audit-nextjs-lighthouse.md](audit-nextjs-lighthouse.md) (Lighthouse's accessibility score is 100 on every page and in every run; everything below is what its rules cannot see), the security review in [audit-nextjs-security.md](audit-nextjs-security.md). The Django site's pass is [audit-accessibility.md](audit-accessibility.md); its findings F1 to F14 are cited where the same fault came across to the new frontend.
+
+**Contents**
+
+- [1. Result in brief](#1-result-in-brief)
+- [2. How it was tested](#2-how-it-was-tested)
+- [3. Findings](#3-findings)
+- [4. Checked and fine](#4-checked-and-fine)
+- [5. Record per page](#5-record-per-page)
+- [6. Not testable here](#6-not-testable-here)
+- [7. How to re-run](#7-how-to-re-run)
 
 ## 1. Result in brief
 

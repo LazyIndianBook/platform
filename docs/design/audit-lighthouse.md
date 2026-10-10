@@ -1,6 +1,22 @@
 # ExamLeaf: Lighthouse audit (performance, accessibility, best practices, SEO)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The Lighthouse audit of the Django site on 8 October 2026: the scores, the metrics, the findings and the experiments. It
+is kept as a record: the Django pages were removed in Phase 8, and the Next.js frontend's audit is
+[audit-nextjs-lighthouse.md](audit-nextjs-lighthouse.md). Of the HTML reports section 6 links, three are kept in
+`lighthouse/`, as its closing note says.
+
 Measured on 8 October 2026 (IST) on a copy of the working tree at commit `ba0b9dd` (redesign stages 2a and 2b; the only uncommitted file was `SECURITY_REVIEW_PHASE5_6.md`). Nothing under `examleaf-web/` was edited. The keyboard, zoom and screen-reader side is in [audit-accessibility.md](audit-accessibility.md).
+
+**Contents**
+
+- [1. In one minute](#1-in-one-minute)
+- [2. How it was measured](#2-how-it-was-measured)
+- [3. Scores and metrics](#3-scores-and-metrics)
+- [4. Findings, in priority order](#4-findings-in-priority-order)
+- [5. Experiments (production-like server, mobile, Lighthouse performance only)](#5-experiments-production-like-server-mobile-lighthouse-performance-only)
+- [6. Files](#6-files)
 
 ## 1. In one minute
 

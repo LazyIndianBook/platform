@@ -1,10 +1,33 @@
 # The Answer Script redesign: implementation report
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The report of the Answer Script redesign of the website, merged on 9 October 2026: what changed, the before and after
+screenshots, the tests, and what was verified, not verified or blocked. It is kept as the record of the redesign. The
+other design records are the [direction](direction.md), [components](components.md), [motion](motion.md) and [resources
+brief](resources-brief.md) of the website's first redesign, the [baseline](baseline.md) and the [coverage
+matrix](coverage-matrix.md), the Django site's audits ([accessibility](audit-accessibility.md),
+[Lighthouse](audit-lighthouse.md)), the Next.js frontend's ([parity](parity-nextjs.md), [parity
+check](audit-nextjs-parity.md), [accessibility](audit-nextjs-accessibility.md),
+[Lighthouse](audit-nextjs-lighthouse.md), [security](audit-nextjs-security.md), [the review's
+scripts](audit-scripts/nextjs/README.md)) and [the screenshots](screenshots/README.md).
+
 Branch `design/answer-script`, built on 9 October 2026 from `main` at b3cd16b. The design is "Direction A, Answer
 Script" (`implementation/design/*.dc.html`, one `[data-screen-label]` per screen; `implementation/README_IMPLEMENTATION.md`
 is the plan). The frontend (`examleaf-frontend/`) was restyled page by page; the backend changed in one additive way
 (`config/ web_course`) and in the presentation of its emails and invoice. No API contract, business rule, permission
 or entitlement changed.
+
+**Contents**
+
+- [1. What changed](#1-what-changed)
+- [2. Before and after](#2-before-and-after)
+- [3. Test results](#3-test-results)
+- [4. Implemented and verified](#4-implemented-and-verified)
+- [5. Implemented but not verified](#5-implemented-but-not-verified)
+- [6. Blocked](#6-blocked)
+- [7. Deviations from the design, and why](#7-deviations-from-the-design-and-why)
+- [8. Follow-ups](#8-follow-ups)
 
 ## 1. What changed
 

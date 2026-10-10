@@ -1,5 +1,11 @@
 # ExamLeaf Admin Control Panel: security review of Phase B's authorization
 
+![Phase B](../assets/badges/phase-b-merged.svg) ![Status](../assets/badges/status-verified.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The review of Phase B's authorization against OWASP API1, API3 and API5 and the plan's security exit criteria: how each
+criterion became a test, what the tests found, how each finding was fixed and what was judged acceptable. It is for
+the developer who adds a staff endpoint, whose rules these tests now enforce, and for whoever reviews the next phase.
+
 **Date:** 10 October 2026. **Scope:** the staff API and the public endpoints of Phase B as merged on `phase-b` at
 5b30b78 (Orders, Finance, Tax, Catalogue, Content, Course, Support, Customers, Legal and privacy, Staff, Settings and
 connections, System, Home and Reports, the ERPNext sync), against the plan's section 9.2 security exit criteria: an
@@ -11,13 +17,35 @@ rule fails the suite; every failure was read, fixed in the shared place where on
 test that fails without the fix (checked by running the test on the code before it). The console and the website were
 read, not changed.
 
+> [!NOTE]
+> **At a glance**
+> - 14 findings, each fixed with a test that fails on the old code: 1 High, 6 Medium and 7 Low.
+> - The High: cancelling an order paid online refunded it without a re-authentication; every refund now steps up in
+>   `approvals.ask()`.
+> - The tests derive their cases from the code, so an endpoint added later without its rule fails the suite.
+> - 617 new tests; at the end of the review 2,504 backend tests pass on SQLite.
+
+**Contents**
+
+- [Summary](#summary)
+- [Findings](#findings)
+- [The criteria, one by one](#the-criteria-one-by-one)
+- [Judged acceptable](#judged-acceptable)
+- [For the console and the tech lead](#for-the-console-and-the-tech-lead)
+- [Tests added](#tests-added)
+- [Related documents](#related-documents)
+
 ## Summary
 
-| Severity | Count |
-|---|---|
-| High | 1 |
-| Medium | 6 |
-| Low | 7 |
+```mermaid
+pie showData
+    title The 14 findings by severity
+    "High" : 1
+    "Medium" : 6
+    "Low" : 7
+```
+
+*One High, six Medium and seven Low, two of the Low in the tests themselves (L6 and L7).*
 
 1. **H1.** Cancelling an order paid online is its refund, but the cancellation endpoints name `shop.change_order`
    (medium), so a session authenticated hours ago refunded at once within the maker's limit: through the order's page,
@@ -52,6 +80,23 @@ read, not changed.
 | L7 | Low (tests) | `support/tests/test_api.py`, `learn/test_codes.py` | the queue's order test failed by day (an SMS acknowledgement goes from 08:00); the Course module's lookup test rebound the rates' dict and left `staff_code_lookup` at 2 an hour for every later test, which failed the ticket's lookup test in the whole suite once L2 put it on that rate | SMS off in that test; the rate lowered with `monkeypatch.setitem` | themselves, in the whole suite |
 
 ## The criteria, one by one
+
+```mermaid
+flowchart TB
+    C[A call to the staff API] --> H[On an admin host, or 404 before anything runs]
+    H --> K[An API key only reads: a change by a key is 403]
+    K --> P[The permission the view names, or 403 and an authz_fail event<br/>API5, criterion 3]
+    P --> U[A recent sign-in for a high or critical action, or 403 reauthentication_required<br/>criterion 4]
+    U --> T[Within its throttle, or 429 with Retry-After<br/>criterion 5]
+    T --> O[The object within the person's scopes, or 404<br/>API1, criterion 1]
+    O --> A{Above the maker's limit?<br/>criterion 8}
+    A -->|yes| CR[202: a change request for a second person]
+    A -->|no| D[The change and its audit event<br/>criteria 6 and 7]
+    D --> Z[The answer: its fields listed, contacts masked, no-store, frame-ancestors none<br/>criteria 2 and 10]
+```
+
+*What a call to the staff API passes through, in order, with the criterion below that checked each step; the inbound
+hooks (criterion 9) are a path of their own.*
 
 **1. API1, object-level authorization** (`staff/tests/test_objects.py`). Every row of the tables whose route takes an
 object (its first placeholder names it; a row that writes its object, a setting's key, by `LITERALS`) is asked by an
@@ -164,11 +209,33 @@ unindexed, none of it changed in Phase B.
 
 ## Tests added
 
-617 new tests, 582 of them cases of parametrised tables. `staff/tests/`: `test_objects.py` (184),
-`test_step_up.py` (92), `test_audit_trail.py` (225), `test_throttles.py` (28), `test_access_log.py` (17),
-`test_approval_paths.py` (15), `test_hooks.py` (13), `test_public.py` (13), `test_exposure.py` (8, two of them walks
-of every GET), and 21 in `test_matrix.py` (the every-staff table's 9, nine new rows, the tables' coverage, the
-admin-host walk, the API-key walk); one in `shop/test_staff_orders_api.py`. Updated: the ticket lookup and queue tests
-in `support/tests/test_api.py`, the admin's refund and cancel tests in `shop/test_admin.py` (they re-authenticate), the
-Course lookup test's rate in `learn/test_codes.py`. At the end of the review 2,504 backend tests pass on SQLite (13
-skipped, 6,961 subtests).
+617 new tests, 582 of them cases of parametrised tables:
+
+| File | New tests |
+|---|---|
+| `staff/tests/test_objects.py` | 184 |
+| `staff/tests/test_step_up.py` | 92 |
+| `staff/tests/test_audit_trail.py` | 225 |
+| `staff/tests/test_throttles.py` | 28 |
+| `staff/tests/test_access_log.py` | 17 |
+| `staff/tests/test_approval_paths.py` | 15 |
+| `staff/tests/test_hooks.py` | 13 |
+| `staff/tests/test_public.py` | 13 |
+| `staff/tests/test_exposure.py` | 8, two of them walks of every GET |
+| `staff/tests/test_matrix.py` | 21: the every-staff table's 9, nine new rows, the tables' coverage, the admin-host walk, the API-key walk |
+| `shop/test_staff_orders_api.py` | 1 |
+
+Updated: the ticket lookup and queue tests in `support/tests/test_api.py`, the admin's refund and cancel tests in
+`shop/test_admin.py` (they re-authenticate), the Course lookup test's rate in `learn/test_codes.py`. At the end of the
+review 2,504 backend tests pass on SQLite (13 skipped, 6,961 subtests).
+
+## Related documents
+
+- [The staff app](../../examleaf-web/staff/README.md): the authorization model these tests enforce, and how an
+  endpoint is added.
+- [API](../../examleaf-web/API.md): every staff endpoint, its permission and the rate table.
+- [Security review, phases 1 to 4](../../examleaf-web/SECURITY_REVIEW.md) and [phases 5 and
+  6](../../examleaf-web/SECURITY_REVIEW_PHASE5_6.md): the reviews before this one.
+- [The panel's plan](../examleaf-admin-control-panel-plan.md): section 6, the security the panel was planned with.
+- [Changelog](../../examleaf-web/CHANGELOG.md): "Phase B, security review", the fixes as merged.
+- [Phase B integration](../phase-b-integration/README.md): how the review was built and merged.
