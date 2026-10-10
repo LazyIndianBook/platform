@@ -389,8 +389,9 @@ are set and `examleaf-env` holds `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
 `examleaf-backup`: the two are then rotated and revoked apart, and the plugin's keys stay in no pod of the site. R2's
 tokens are scoped to a bucket, not to a prefix (an S3 IAM policy can be), so a pod that is taken over could delete what
 the token reaches there: the object lock on `audit/` (DEPLOYMENT.md section 23) and the age-encrypted dumps are what
-such a day relies on, and the owner decides whether to take that risk. Without the wiring the erasure ledger is only in the database, which a restore rolls back,
-and RUNBOOK.md's step 2 (export the ledger to a file before restoring) is the only record.
+such a day relies on, and the owner decides whether to take that risk. Without the wiring the erasure ledger is only
+in the database, which a restore rolls back, and RUNBOOK.md's step 2 (export the ledger to a file before restoring) is
+the only record.
 
 **What differs from backup.sh: encryption.** The plugin has no counterpart to `BACKUP_AGE_RECIPIENT`, so whoever
 holds the bucket's keys can read the backups; keep those keys to the plugin (they are in a Secret of their own, which

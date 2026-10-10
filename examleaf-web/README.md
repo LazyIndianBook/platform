@@ -213,6 +213,10 @@ can be edited in the admin:
 | 08:00 | email the SALES role the books running out |
 | 18:00 | send the revision course's reminders (only with `FCM_SERVICE_ACCOUNT_JSON`) |
 
+The table is not the whole schedule: the Admin Control Panel's modules added 27 entries (support, content, finance,
+privacy, the system's checks …); DEPLOYMENT.md section 26 lists every one with its time and time limit, and each app's
+README says what it does. None has a queue of its own.
+
 Without `CELERY_BROKER_URL`, and always in tests, tasks run inline in the web process (`CELERY_TASK_ALWAYS_EAGER`), so
 development needs no broker and no worker. To try the real thing locally:
 
