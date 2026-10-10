@@ -80,7 +80,10 @@ def main():
     for path in documents():
         target = OUT / path.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(code_links(admonitions(path.read_text()), path))
+        text = code_links(admonitions(path.read_text()), path)
+        # Markdown inside a folded block renders in the portal only with markdown="1" (GitHub ignores the attribute)
+        text = re.sub(r"<details(?![^>]*markdown)", '<details markdown="1"', text)
+        target.write_text(text)
         copied.append(path.relative_to(ROOT).as_posix())
     # the assets (badges, the stylesheet, the hero), the design records' reports and screenshots, and the hub as the
     # home page

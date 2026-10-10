@@ -20,7 +20,10 @@ Every document opens the same way, in this order:
 7. **Related documents** at the end: the four to eight documents a reader goes to next, with one phrase each.
 
 Long reference tables (more than about 25 rows) go inside a `<details>` block with a `<summary>` naming what it holds
-and how many rows, so the page stays navigable; the first rows a reader needs most come first.
+and how many rows, so the page stays navigable; the first rows a reader needs most come first. Write a plain
+`<details>` with a blank line after the `<summary>`: the portal's build adds the `markdown="1"` attribute its
+renderer needs, and GitHub needs nothing. A list nested inside a list item renders in the portal only when it is
+indented four spaces; where Prettier keeps two (the console's and the website's READMEs), do not nest.
 
 ## 2. Prose
 
