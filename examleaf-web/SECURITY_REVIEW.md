@@ -1,20 +1,62 @@
 # ExamLeaf web: security review
 
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Status: archive](../docs/assets/badges/status-archive.svg)
+![For developers](../docs/assets/badges/audience-developers.svg)
+
+The record of the first security review of the Django backend, phases 1 to 4, made on 8 October 2026: every finding
+as it was written, with the status its fix was given that day. It is an archive, kept for why the code is as it is;
+developers read it before changing what a finding touched, and `SECURITY_REVIEW_PHASE5_6.md` carries on from it.
+
+> [!NOTE]
+> **At a glance**
+> - 31 findings, none of them Critical: 2 High, 10 Medium, 12 Low and 7 Informational.
+> - Both High findings were fixed that day: the public health endpoints (H1) and password-only staff accounts (H2).
+> - 26 findings record a fix and L10 a fix in part, as decided; M1, L2, L9 and I2 record none.
+> - The payment core held up: signatures, amounts, webhooks, row locks and state machines ("Checked and sound").
+> - A read-only review of the code against OWASP ASVS 4.0 level 2; nothing was run against a server.
+
+## Contents
+
+- [Summary](#summary): scope and method, the findings by severity, the top three
+- [High](#high): H1 and H2
+- [Medium](#medium): M1 to M10
+- [Low](#low): L1 to L12
+- [Informational](#informational): I1 to I7
+- [Checked and sound](#checked-and-sound): what the review found right
+- [Suggested order](#suggested-order): the order the fixes were proposed in
+- [Related documents](#related-documents)
+
+## Summary
+
 **Date:** 8 October 2026. **Scope:** `examleaf-web/` at commit 9b4c3f2, plus `.github/workflows/ci.yml`.
 **Method:** read-only code review against OWASP ASVS 4.0 level 2. Where a finding depends on a library, its behaviour
 was checked in the installed source (`.venv`): allauth 65.19.7, dj-rest-auth 7.2.0, simplejwt 5.5.1, sentry-sdk 2.71.0,
 django-health-check 4.8.0, django-import-export 4.4.1, django-axes 8.3.1, razorpay 2.0.1. Nothing was run against a
 server. Findings that depend on how Razorpay or a provider behaves say so.
 
-## Summary
+| Severity | Count | Findings | Status recorded in this review |
+|---|---|---|---|
+| Critical | 0 | none | |
+| High | 2 | H1, H2 | both fixed |
+| Medium | 10 | M1 to M10 | M2 to M10 fixed (M9 behind a switch, `PARENTAL_CONSENT_MODE`); M1 none |
+| Low | 12 | L1 to L12 | nine fixed; L10 fixed in part, as decided; L2 and L9 none |
+| Informational | 7 | I1 to I7 | six fixed (I5 and I6 each leave a part, as their statuses say); I2 none: it is fine for a public API |
 
-| Severity      | Count |
-|---------------|-------|
-| Critical      | 0     |
-| High          | 2     |
-| Medium        | 10    |
-| Low           | 12    |
-| Informational | 7     |
+```mermaid
+pie showData
+    title Findings by severity
+    "High" : 2
+    "Medium" : 10
+    "Low" : 12
+    "Informational" : 7
+```
+
+*The review's 31 findings by severity; it found no Critical one.*
+
+> [!NOTE]
+> M1, L2 and L9 record no status here. The code has since done what M1 and L2 ask (`shop.services.claim_coupon`; the
+> locked re-check in `expire_unpaid_orders`) and most of L9 (payments and the timeline in Download my data).
 
 Top three:
 
@@ -923,3 +965,13 @@ API (400 with the reason). Test: `api/test_security.py` (l12).
 6. M8 before enabling cash on delivery.
 7. M9 before the DPDP parental-consent rule applies.
 8. M10, then the Low items.
+
+## Related documents
+
+- [SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md): the review of phases 5 and 6, which carries on from this one
+- [Phase B's authorization review](../docs/security/phase-b-authorization-review.md): the panel's staff API and public endpoints
+- [RESILIENCE.md](RESILIENCE.md): the timeouts, locks and limits of the backend
+- [DEPLOYMENT.md](DEPLOYMENT.md): section 14, the security settings of a deployment
+- [RUNBOOK.md](RUNBOOK.md): secrets and key rotation, staff accounts and incidents
+- [CHANGELOG.md](CHANGELOG.md): what changed, by phase
+- [README.md](README.md): the backend as it is now
