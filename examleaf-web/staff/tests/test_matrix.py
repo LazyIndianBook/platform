@@ -453,6 +453,11 @@ ENDPOINTS = [
     ("get", "course/codes/report/", "learn.view_codebatch"),
     ("get", "course/learners/{learner}/", "learn.view_entitlement"),
     ("post", "course/learners/{learner}/devices/{device}/sign-out/", "staff.end_user_sessions"),
+    # customers (staff/customers_api.py): the figures are the orders' (shop.view_order, and the account in reach)
+    ("get", "users/consent-pending/", "accounts.view_user"),
+    ("get", "users/{customer}/timeline/", "accounts.view_user"),
+    ("get", "users/{customer}/commerce/", "shop.view_order"),
+    ("post", "users/{customer}/consent/verify/", "staff.verify_consent"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 

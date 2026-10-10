@@ -11,16 +11,21 @@ import { ANSWER_TIMEOUT_MS } from "./client";
 import { ApiError } from "./errors";
 import {
   askChange,
+  bulkResult,
   cursorOf,
   exportAudit,
   getSession,
+  getTimeline,
   jobFileHref,
+  listGuests,
   listInbox,
   listUsers,
   resetUserMfa,
   revealUser,
+  startCustomersJob,
   updateDataRequest,
   userAction,
+  verifyConsent,
 } from "./staff";
 
 const client = vi.hoisted(() => ({ sessionEnded: vi.fn(), manifestStale: vi.fn(), reauthRequest: vi.fn() }));
@@ -286,5 +291,63 @@ describe("on the server", () => {
     expect(request.headers.get("Cookie")).toBe("sessionid=abc");
     expect(client.sessionEnded).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("customers", () => {
+  it("asks for a tab by its kind, the guest buyers as rows of their own", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, PAGE)).mockResolvedValueOnce(json(200, PAGE));
+    await listUsers({ kind: "parents", q: "", cursor: "" });
+    expect(new URL(sent(0).url).search).toBe("?kind=parents");
+    await listGuests({ q: "anita" });
+    expect(Object.fromEntries(new URL(sent(1).url).searchParams)).toEqual({ kind: "guests", q: "anita" });
+  });
+
+  it("opens a timeline by its kind and where the older rows begin", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { child: false, rows: [], next_before: null, withheld: [] }));
+    await getTimeline(7102, { kind: "order,ticket", before: "2026-10-01T10:00:00.000Z|order|9" });
+    const request = sent();
+    expect(new URL(request.url).pathname).toBe("/api/v1/staff/users/7102/timeline/");
+    expect(new URL(request.url).searchParams.get("kind")).toBe("order,ticket");
+    expect(new URL(request.url).searchParams.get("before")).toBe("2026-10-01T10:00:00.000Z|order|9");
+    expect(request.method).toBe("GET");
+  });
+
+  it("records a parent's consent by hand with its method, evidence and reason", async () => {
+    fetchMock.mockResolvedValueOnce(json(201, { id: 5, event: "given", method: "staff_manual" }));
+    await verifyConsent(7104, { method: "staff_manual", evidence_ref: "Ticket 4416", reason: "Called her back." });
+    const request = sent();
+    expect(request.method).toBe("POST");
+    expect(new URL(request.url).pathname).toBe("/api/v1/staff/users/7104/consent/verify/");
+    expect(request.headers.get("X-CSRFToken")).toBe("token-123");
+    expect(await request.json()).toEqual({
+      method: "staff_manual",
+      evidence_ref: "Ticket 4416",
+      reason: "Called her back.",
+    });
+  });
+
+  it("starts a bulk action as a job: ids as text, no payload, a dry run when asked", async () => {
+    fetchMock.mockResolvedValueOnce(json(202, { id: 31, kind: "bulk_action", state: "queued", errors: [] }));
+    await startCustomersJob("user.suspend", [7101, 7102], "Spam sign-ups.", true);
+    expect(new URL(sent().url).pathname).toBe("/api/v1/staff/jobs/");
+    expect(await sent().json()).toEqual({
+      kind: "bulk_action",
+      dry_run: true,
+      params: { action: "user.suspend", targets: ["7101", "7102"], payload: {}, reason: "Spam sign-ups." },
+    });
+  });
+
+  it("reads what a finished job says of itself, and nothing it does not say", () => {
+    expect(
+      bulkResult({ result: { outcomes: { valid: "3", refused: 1 }, minors: 2, approval: "Children are among them." } }),
+    ).toEqual({ outcomes: { valid: 3, refused: 1 }, minors: 2, approval: "Children are among them." });
+    expect(bulkResult({ result: {} })).toEqual({ outcomes: {}, minors: 0, approval: null });
+    expect(bulkResult({ result: null as never })).toEqual({ outcomes: {}, minors: 0, approval: null });
+    expect(bulkResult({ result: { outcomes: "no", approval: 5 } })).toEqual({
+      outcomes: {},
+      minors: 0,
+      approval: null,
+    });
   });
 });

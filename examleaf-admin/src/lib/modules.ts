@@ -204,6 +204,8 @@ export const P = {
   batchesChange: "learn.change_codebatch",
   codesMake: "staff.make_book_codes",
   codesVoid: "staff.void_book_codes",
+  // customers (staff/customers_api.py): a parent's consent recorded by hand; the rest are usersView and the actions above
+  usersVerifyConsent: "staff.verify_consent",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -254,6 +256,7 @@ export const MODULES: readonly Module[] = [
     any: [P.chaptersView, P.accessView, P.bookCodesView, P.batchesView],
   },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
+  { key: "consentPending", href: "/users/consent-pending/", group: "customers", any: [P.usersView] },
   { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
   { key: "cockpit", href: "/privacy/", group: "privacy", any: [P.requestsView] },
   { key: "support", href: "/support/", group: "customers", any: [P.ticketsView, P.repliesView, P.grievancesExport] },

@@ -447,9 +447,10 @@ export type Customer = Schemas["Customer"];
 export type CustomerDetail = Schemas["CustomerDetail"];
 export type Revealable = Schemas["ShowEnum"];
 
+/** The accounts of the list (every tab but the guest buyers', which listGuests asks for: another shape of row). */
 export const listUsers = (filters: Filters<"/api/v1/staff/users/">, transport?: Transport, signal?: AbortSignal) =>
   send(transport, (o) => api.GET("/api/v1/staff/users/", { ...o, params: { query: query(filters) } }), signal).then(
-    paged,
+    (page) => paged(page) as Page<Customer>,
   );
 /** The full record; the server records the read (a child's as such). */
 export const getUser = (id: number, transport?: Transport) =>
@@ -2297,3 +2298,81 @@ export const signOutDevice = (user: number, device: number) =>
       params: { path: { user, device } },
     }),
   );
+// ---- Customers (the tabs, the timeline, the commerce summary, consent, bulk actions) ----
+
+/** The list's tabs: `kind` of GET users/. Guest buyers are not accounts: another shape of row. */
+export type CustomerKind = "students" | "parents" | "guests";
+export type CustomerGuest = Schemas["CustomerGuest"];
+export type CustomerParentLink = Schemas["CustomerParentLink"];
+export type CustomerLinked = Schemas["CustomerLinked"];
+export type CustomerTimeline = Schemas["CustomerTimeline"];
+export type TimelineRow = Schemas["CustomerTimelineRow"];
+export type CustomerCommerce = Schemas["CustomerCommerce"];
+export type ConsentPending = Schemas["CustomerConsentPending"];
+export type ConsentRecord = Schemas["CustomerConsentRecord"];
+export type ConsentMethod = Schemas["ConsentVerifyMethodEnum"];
+
+/** The guest buyers: people who bought without an account, one row for each email address on their orders. */
+export const listGuests = (
+  filters: Pick<Filters<"/api/v1/staff/users/">, "q" | "cursor">,
+  transport?: Transport,
+  signal?: AbortSignal,
+) =>
+  send(
+    transport,
+    (o) => api.GET("/api/v1/staff/users/", { ...o, params: { query: query({ ...filters, kind: "guests" }) } }),
+    signal,
+  ).then((page) => paged(page) as Page<CustomerGuest>);
+
+/** One person's merged timeline, newest first, at most 200 rows (`before`: the older ones, the last answer's
+ *  `next_before`); opening it is a read the server records, a child's as such. `kind`: only these kinds. */
+export const getTimeline = (id: number, filters: { before?: string; kind?: string }, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/users/{id}/timeline/", { ...o, params: { path: { id }, query: query(filters) } }),
+  );
+/** What they bought: a child's counts only. */
+export const getCommerce = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/users/{id}/commerce/", { ...o, params: { path: { id } } }));
+/** The students under 18 waiting for a parent, the first registered first. */
+export const listConsentPending = (filters: { cursor?: string }, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/users/consent-pending/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** A parent's consent recorded by hand: a method, where the evidence is, and why (high risk: confirm it's you). */
+export const verifyConsent = (id: number, body: { method: ConsentMethod; evidence_ref: string; reason: string }) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/users/{id}/consent/verify/", { ...o, params: { path: { id } }, body }),
+  );
+
+/** The account actions a bulk job runs, named as the API names them (user.suspend …). */
+export type CustomersBulkAction = "user.suspend" | "user.unsuspend" | "user.end_sessions" | "user.resend_consent";
+/** A bulk action on accounts as a background job (202): `dryRun` checks every row and changes nothing. Above your
+ *  row limit, or with a child's account among the targets, the job waits for an approver (`change_request_id`). */
+export const startCustomersJob = (action: CustomersBulkAction, ids: number[], reason: string, dryRun: boolean) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", {
+      ...o,
+      body: {
+        kind: "bulk_action",
+        dry_run: dryRun,
+        params: { action, targets: ids.map(String), payload: {}, reason },
+      },
+    }),
+  ) as Promise<Job>;
+
+/** What a finished bulk job says of itself (its `result`, free JSON in the schema): the counts by outcome, the
+ *  children among the targets, and for a dry run whether the real one would wait for an approver. */
+export type BulkResult = {
+  outcomes: Record<string, number>;
+  minors: number;
+  approval: string | null;
+};
+export function bulkResult(job: Pick<Job, "result">): BulkResult {
+  const result = (job.result && typeof job.result === "object" ? job.result : {}) as Record<string, unknown>;
+  const outcomes = result.outcomes && typeof result.outcomes === "object" ? result.outcomes : {};
+  return {
+    outcomes: Object.fromEntries(Object.entries(outcomes).map(([name, count]) => [name, Number(count) || 0])),
+    minors: Number(result.minors) || 0,
+    approval: typeof result.approval === "string" ? result.approval : null,
+  };
+}

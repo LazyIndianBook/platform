@@ -240,6 +240,16 @@ def record(
     return event
 
 
+def lookup(request, query, found, *, kind, source, **more):
+    """A member of staff looked a person up by what they typed (an email address, a mobile number or its last digits,
+    a name): one `customer.lookup` event, the access log's. `query` is kept as its keyed hash (comparable, never
+    readable), `found` is how many people it found, `kind` what it was taken for (email, phone, name, book_code) and
+    `source` the list it was typed in (users, orders, guests …); `more`: other numbers worth keeping. Every list that
+    takes a person's details in its search box writes this and nothing else."""
+    details = {"kind": kind, "query": mask(query, "contact"), "found": found, "list": source, **more}
+    return record("customer.lookup", request=request, details=details)
+
+
 def owners_emails():
     """Who gets the alerts: STAFF_ALERT_EMAILS, else the active members of OWNER (not the break-glass accounts: sealed,
     and not read day to day)."""

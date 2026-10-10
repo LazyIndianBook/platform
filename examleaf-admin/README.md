@@ -61,7 +61,9 @@ test one, and Home's cards by role and the reports (`reports.ts`, with the backe
 `reports-specs.ts` and `reports-words.ts`): five titles' sales over 400 days, places and districts with small ones the
 minimum hides, book codes by print run, the course's use with a day too small to show, cash on delivery's ageing,
 Razorpay's settlements, the newsvendor's sum worked out with the backend's arithmetic, the insights' own numbered
-lists, and a report as an export job with a file that ends with who made it. Signing in stays real: each mock request asks the Django
+lists, and a report as an export job with a file that ends with who made it; and customers (`src/mocks/staff/customers.ts`: students whose parent's link ended, was never
+sent, or went three times today; a parent with an account of her own; guest buyers; a long timeline for the paging;
+the bulk actions' dry runs, a child among the targets and the job that waits for an approver). Signing in stays real: each mock request asks the Django
 backend whose session cookie it carries who is signed in (`GET /api/v1/me/`: 401 signed out, 403 `mfa_setup_required`
 for staff without two-step sign-in, the role groups otherwise), "confirm it's you" reads allauth's own record of the
 last authentication, the CSRF token is checked as Django checks it, actions write audit events, and the backend's
@@ -159,8 +161,13 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 - Sign-in: `/sign-in/` (email and password, then the authenticator's code, a recovery code or a passkey; Google when
   on), `/set-up-two-step/` (staff without it: set it up on the website), `/no-access/`, `/inactive/`.
 - The panel (`src/app/(panel)/`): `/` Home, `/inbox/`, `/audit/`, `/approvals/` and `/approvals/<id>/`, `/people/`,
-  `/people/<id>/` (tabs `?tab=access`, `offboarding`, `erp`), `/people/roles/`, `/people/access-review/`, `/users/` and
-  `/users/<id>/` (with the customer's nominee),
+  `/people/<id>/` (tabs `?tab=access`, `offboarding`, `erp`), `/people/roles/`, `/people/access-review/`, `/users/` (the
+  tabs everyone, students, parents and guest buyers as `?kind=`, the badges, search, the filters in the address, saved
+  views, the bulk bar: suspend, lift, sign out everywhere, send the parents' links again, each checked first), `/users/<id>/`
+  (the badges, a student under 18's banner "Under 18: every view is logged", the details, the parent consent with the
+  link's life, send it again and record it by hand, the linked accounts, what they bought, the latest orders, the
+  consent records, the customer's nominee, devices, actions and Danger), `/users/<id>/timeline/` (the merged timeline,
+  `?kind=` and `?before=`) and `/users/consent-pending/` (the students waiting for a parent, the oldest first),
   `/privacy/` (Legal and privacy's compliance cockpit), `/privacy/requests/` and `<id>/` (the erasure's dry run with
   what the law keeps, each a sentence), `/privacy/policies/` and `<slug>/` (versions, diffs, publishing),
   `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/privacy/retention/`, `/privacy/holds/` and `<id>/`,
@@ -287,7 +294,11 @@ authenticator code, check every page with axe-core (WCAG 2.0 to 2.2 A and AA and
 audit did: its `axe.min.js` evaluated in the page) and for sideways scrolling at 1280, 390 and 320 px, and check that
 nothing animates with reduced motion.
 
-- **Mock mode** walks every state at 1280 and 390: Home, the inbox (done, snooze, take one), approvals (approve with
+- **Mock mode** walks every state at 1280 and 390: customers (the tabs and the guest buyers, a child's record with its
+  banner, badges and consent, a child's timeline narrowed to texts and an adult's paged at 200 rows, a consent recorded
+  by hand after the API refused a contact as evidence and found in the audit trail and the timeline, the children
+  waiting and the link again up to the day's limit, a bulk action checked first with a child among the targets and
+  then an adult's run at once, SUPPORT's smaller view); Home, the inbox (done, snooze, take one), approvals (approve with
   the payload's hash, reject, withdraw one's own, carry one out), invitations, a revealed email address, "confirm it's
   you", a note, impersonation and End, a setting with a reason found in the audit trail, jobs (cancel one, download a
   file), ⌘K; legal and privacy (the cockpit, a child's deletion confirmed for the parent with the evidence, a legal
@@ -324,7 +335,9 @@ nothing animates with reduced motion.
   is ₹1,234.00 and the whole period too, and the report's file holds the live order and who made it, no ₹999 and no
   email address. Then the Course module, on a learner who redeemed a book code of a print run made for the run: SUPPORT
   looks the code up (its plain text known to the seed alone), opens the learner's page from the answer, which says the
-  view is logged, and the OWNER finds the `sensitive_read` in the learner's audit trail.
+  view is logged, and the OWNER finds the `sensitive_read` in the learner's audit trail. Customers: the OWNER opens the
+  customer's timeline (their order, its payment) and, opening it again, finds the logged view in the timeline's own rows
+  and in the audit trail, then lists the children waiting.
 
 ## Deploy
 
@@ -385,11 +398,21 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 - **Templates**: `GET templates/` (`channel`, `language`, `approval_state`, `event`, `category`; not paged),
   `POST templates/`, `PATCH templates/{id}/` (always with its `event`, `channel` and `language`),
   `POST templates/{id}/test/` (`{variables}`: to one's own number or address).
-- **Customers**: `GET users/` (`q`, filters), `GET users/{id}/` (opening it is audited), `POST users/{id}/reveal/`
-  with `{show: ["email"], reason}` (answered `{email: …}`, audited and throttled), `suspend/`, `unsuspend/`,
-  `unlock/`, `end-sessions/`, `reset-mfa/`, `password-reset/`, `resend-verification/`; `POST users/{id}/impersonate/`
-  with `{reason, ticket}` (answered `{token, expires_at}`: the console builds the website's link,
-  `NEXT_PUBLIC_WEBSITE_URL/account/impersonate/?token=…`) and `POST users/{id}/impersonate/end/` with the token.
+- **Customers**: `GET users/` (`kind` students, parents or guests, `q`, filters: every row has its badges
+  `age_band`, `consent_method`, `teacher`, `mfa_on` and `locked`; `kind=guests` answers another shape of row, orders
+  by email address, which the console casts: `CustomerRow` is either), `GET users/{id}/` (opening it is audited; adds
+  `parent_link` and `linked`), `GET users/{id}/timeline/` (`kind`, `before`: `{child, rows, next_before, withheld}`;
+  a read of its own), `GET users/{id}/commerce/` (`shop.view_order`; a child's: counts only; a read of its own),
+  `GET users/consent-pending/` (cursor), `POST users/{id}/consent/verify/` with `{method, evidence_ref, reason}`
+  (`staff.verify_consent`, high), `POST users/{id}/reveal/` with `{show: ["email"], reason}` (answered `{email: …}`,
+  audited and throttled), `suspend/`, `unsuspend/`, `unlock/`, `end-sessions/`, `reset-mfa/`, `password-reset/`,
+  `resend-verification/` (429 beyond three links a day to one parent contact, 400 for a text out of hours);
+  `POST users/{id}/impersonate/` with `{reason, ticket}` (answered `{token, expires_at}`: the console builds the
+  website's link, `NEXT_PUBLIC_WEBSITE_URL/account/impersonate/?token=…`) and `POST users/{id}/impersonate/end/` with
+  the token. The bulk actions are `POST jobs/` `{kind: "bulk_action", params: {action: "user.suspend" |
+"user.unsuspend" | "user.end_sessions" | "user.resend_consent", targets: ["7101", …], payload: {}, reason},
+dry_run}`: a dry run's `result` is `{outcomes: {valid, refused}, minors, approval}` (`approval`: the rule's words
+  when the real run will wait for a second person, null otherwise).
 - **Data protection**: `GET`/`POST data-requests/`, `GET`/`PATCH data-requests/{id}/`, `POST …/acknowledge/`,
   `verify-identity/`, `close/`, `GET …/response/`, `GET …/erasure-report/`, `POST …/erase/`, `POST …/export/`;
   `GET`/`POST incidents/`, `GET`/`PATCH incidents/{id}/`, `POST …/close/`; `GET`/`POST processors/`.

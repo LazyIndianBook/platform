@@ -168,6 +168,13 @@ STAFF_ACTIONS = [
         True,
     ),
     ("void_book_codes", "Void a book code, or every unused code of a batch", COURSE, CRITICAL),
+    # Customers (Phase B, staff/customers_api.py): a parent's consent recorded by hand, with the evidence
+    (
+        "verify_consent",
+        "Record a student's parental consent by hand, with a method and where the evidence is (the parent is told)",
+        CUSTOMERS,
+        HIGH,
+    ),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

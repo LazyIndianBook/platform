@@ -9250,11 +9250,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
-         */
+        /** @description The list: accounts (every row with its badges), or with `kind=guests` the buyers without an account. */
         get: operations["staff_users_list"];
         put?: never;
         post?: never;
@@ -9272,13 +9268,56 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         get: operations["staff_users_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/commerce/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What they bought: orders, lifetime value so far, the average order, refunds, parcels that came back,
+         *     saved addresses (masked) and the tags of their orders. A student under 18: the counts only. A
+         *     `sensitive_read`.
+         */
+        get: operations["staff_users_commerce_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/consent/verify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A parent's consent recorded by hand (a student under 18 whose parent has not confirmed): a verified consent
+         *     with its method, where the evidence is and who recorded it; the account's flag clears at once and the parent is
+         *     told by email. 400 for an adult, an erased account, one asking to be deleted, or one whose consent a parent
+         *     confirmed already.
+         */
+        post: operations["staff_users_consent_verify_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9295,9 +9334,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_end_sessions_create"];
         delete?: never;
@@ -9316,9 +9355,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_impersonate_create"];
         delete?: never;
@@ -9337,9 +9376,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_impersonate_end_create"];
         delete?: never;
@@ -9358,9 +9397,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_password_reset_create"];
         delete?: never;
@@ -9379,9 +9418,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_resend_verification_create"];
         delete?: never;
@@ -9400,9 +9439,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_reset_mfa_create"];
         delete?: never;
@@ -9421,9 +9460,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_reveal_create"];
         delete?: never;
@@ -9442,11 +9481,34 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_suspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/timeline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One person's story, newest first, in one list: orders, payments and refunds, book codes redeemed, course
+         *     access, a course-use summary (a child's: counts and the last active week; an adult's adds clips completed by
+         *     week), tickets, SMS and emails sent, consent events, staff notes, and for whoever reads the audit log the staff
+         *     actions on the account. Opening it is a `sensitive_read` (a child's marked `child`); the newest 200 rows, no
+         *     query per row; `withheld` names the parts the reader may not see.
+         */
+        get: operations["staff_users_timeline_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9463,9 +9525,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_unlock_create"];
         delete?: never;
@@ -9484,11 +9546,32 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_unsuspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/consent-pending/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The students under 18 waiting for a parent, the first registered first: the parent's contact (masked), how
+         *     many links went, the last one's time and expiry, and how many today. The link is sent again with
+         *     `resend-verification/`, or the consent recorded by hand with `consent/verify/`.
+         */
+        get: operations["staff_users_consent_pending_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11793,6 +11876,13 @@ export interface components {
             /** Format: date-time */
             created: string;
         };
+        /**
+         * @description * `staff_manual` - recorded by staff, with evidence
+         *     * `adult_account` - confirmed by the parent's own verified adult account
+         *     * `digilocker` - confirmed with a DigiLocker token
+         * @enum {string}
+         */
+        ConsentVerifyMethodEnum: "staff_manual" | "adult_account" | "digilocker";
         ConsentWithdrawn: {
             purpose: string;
             channel: string;
@@ -13270,7 +13360,12 @@ export interface components {
              */
             readonly amount: string;
         };
-        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        /**
+         * @description A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan
+         *     asks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,
+         *     two-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query
+         *     per row (the view prefetches; the page's lock-outs come with the context).
+         */
         Customer: {
             readonly id: number;
             readonly email: string;
@@ -13290,8 +13385,135 @@ export interface components {
             readonly created: string;
             /** Format: date-time */
             last_login?: string | null;
+            /** @description under_13, 13_17, adult, unknown */
+            readonly age_band: string;
+            /** @description how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult */
+            readonly consent_method: string;
+            /** @description none, requested, verified */
+            readonly teacher: string;
+            /** @description an authenticator app or a passkey is set up */
+            readonly mfa_on: boolean;
+            /** @description locked out by failed log-ins (axes) */
+            readonly locked: boolean;
         };
-        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        CustomerCommerce: {
+            /** @description a student under 18: the counts only, the rest is null */
+            child: boolean;
+            /** @description their live orders, any state */
+            orders: number;
+            /** @description placed (paid online, or placed to pay on delivery) and not cancelled */
+            kept: number;
+            cancelled: number;
+            /** @description returns asked for */
+            returns: number;
+            /** @description parcels that came back undelivered (the shipping outcome) */
+            rtos: number;
+            /**
+             * Format: decimal
+             * @description rupees, kept orders
+             */
+            spent: string | null;
+            /**
+             * Format: decimal
+             * @description rupees, processed
+             */
+            refunded: string | null;
+            /**
+             * Format: decimal
+             * @description spent less refunded, so far (a record, no forecast)
+             */
+            lifetime_value: string | null;
+            /**
+             * Format: decimal
+             * @description spent over the kept orders; null without one
+             */
+            average_order: string | null;
+            /** Format: date-time */
+            first_order_at: string | null;
+            /** Format: date-time */
+            last_order_at: string | null;
+            /** @description saved, masked */
+            addresses: components["schemas"]["CustomerCommerceAddress"][] | null;
+            /** @description staff's words on their orders */
+            tags: components["schemas"]["CustomerCommerceTag"][] | null;
+        };
+        CustomerCommerceAddress: {
+            city: string;
+            district: string;
+            state: string;
+            pin: string;
+            /** @description masked */
+            phone: string;
+            is_default: boolean;
+        };
+        CustomerCommerceTag: {
+            name: string;
+            /** @description how many of their orders carry it */
+            orders: number;
+        };
+        /** @description A student under 18 whose parent has not confirmed: the parent's contact masked, the link's life. */
+        CustomerConsentPending: {
+            readonly id: number;
+            full_name: string;
+            class_level?: (components["schemas"]["ClassLevelEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly board: string;
+            /** Format: date-time */
+            readonly created: string;
+            readonly age_band: string;
+            /** @description the link goes only once the student's own is */
+            readonly email_verified: boolean;
+            /** @description masked */
+            readonly parent_contact: string;
+            /** @description email or sms: where a link goes */
+            readonly parent_channel: string;
+            /** @description the account reads only until the parent confirms */
+            readonly blocking: boolean;
+            readonly links_sent: number;
+            /** Format: date-time */
+            readonly last_link_at: string | null;
+            /** @description the last link works for 7 days; null: none sent */
+            readonly link_expires_at: string | null;
+            readonly link_expired: boolean;
+            /** @description sent today for this account */
+            readonly links_today: number;
+            /** @description links a day to one parent's address or number */
+            readonly daily_limit: number;
+        };
+        /** @description The consent just recorded: the ledger's row. */
+        CustomerConsentRecord: {
+            id: number;
+            event: string;
+            method: string;
+            by_parent: boolean;
+            /** Format: date-time */
+            verified_at: string;
+            /** @description the member of staff who recorded it */
+            verified_by: number | null;
+            evidence_ref: string;
+            notice_version: string;
+            /** Format: date-time */
+            created: string;
+        };
+        CustomerConsentVerifyRequest: {
+            /**
+             * @description staff_manual: staff checked it by hand; adult_account: the parent's own verified ExamLeaf account; digilocker: a DigiLocker token
+             *
+             *     * `staff_manual` - recorded by staff, with evidence
+             *     * `adult_account` - confirmed by the parent's own verified adult account
+             *     * `digilocker` - confirmed with a DigiLocker token
+             */
+            method: components["schemas"]["ConsentVerifyMethodEnum"];
+            /** @description where the evidence is: a ticket's number, a letter's date. Never the document, never a contact */
+            evidence_ref: string;
+            /** @description why: kept in the audit trail */
+            reason: string;
+        };
+        /**
+         * @description A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan
+         *     asks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,
+         *     two-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query
+         *     per row (the view prefetches; the page's lock-outs come with the context).
+         */
         CustomerDetail: {
             readonly id: number;
             readonly email: string;
@@ -13311,12 +13533,18 @@ export interface components {
             readonly created: string;
             /** Format: date-time */
             last_login?: string | null;
-            readonly roles: string[];
-            /** @description locked out by failed log-ins (axes) */
-            readonly locked: boolean;
-            readonly mfa: string[];
+            /** @description under_13, 13_17, adult, unknown */
+            readonly age_band: string;
+            /** @description how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult */
+            readonly consent_method: string;
             /** @description none, requested, verified */
             readonly teacher: string;
+            /** @description an authenticator app or a passkey is set up */
+            readonly mfa_on: boolean;
+            /** @description locked out by failed log-ins (axes) */
+            readonly locked: boolean;
+            readonly roles: string[];
+            readonly mfa: string[];
             readonly parent_contact: string;
             readonly orders: {
                 [key: string]: unknown;
@@ -13328,6 +13556,50 @@ export interface components {
                 [key: string]: unknown;
             }[];
             readonly deletion_due_at: string | null;
+            /** @description a student under 18's consent link; null for anyone else */
+            readonly parent_link: components["schemas"]["CustomerParentLink"] | null;
+            /** @description a student's parent's own account, or an adult's students */
+            readonly linked: components["schemas"]["CustomerLinked"][];
+        };
+        /** @description A buyer without an account: the orders placed with one email address, shown by their newest. */
+        CustomerGuest: {
+            /** @description their newest order's id */
+            id: number;
+            /** @description as on the delivery address */
+            readonly name: string;
+            /** @description masked */
+            readonly email: string;
+            /** @description masked */
+            readonly phone: string;
+            /** @description how many orders carry this address */
+            readonly orders: number;
+            /** @description the newest order's number */
+            last_order: string;
+            readonly last_order_at: string | null;
+        };
+        /** @description An account a student's parent contact points to, or a student who named this account. */
+        CustomerLinked: {
+            id: number;
+            full_name: string;
+            /** @description parent or child */
+            relation: string;
+        };
+        /** @description A student under 18's consent link: what went, and when it stops working. */
+        CustomerParentLink: {
+            /** @description links sent so far */
+            sent: number;
+            /** Format: date-time */
+            last_at: string | null;
+            /**
+             * Format: date-time
+             * @description the last one works for 7 days
+             */
+            expires_at: string | null;
+            expired: boolean;
+            /** @description sent today for this account */
+            today: number;
+            /** @description links a day to one parent's address or number */
+            daily_limit: number;
         };
         CustomerReturnLineRequest: {
             /** @description a book of the order: its items' `product` */
@@ -13340,6 +13612,27 @@ export interface components {
             reason: components["schemas"]["ReturnReasonEnum"];
             /** @description what happened */
             note?: string;
+        };
+        CustomerRow: components["schemas"]["Customer"] | components["schemas"]["CustomerGuest"];
+        CustomerTimeline: {
+            /** @description a student under 18: the course shows in counts, never a trail */
+            child: boolean;
+            /** @description newest first, at most 200 */
+            rows: components["schemas"]["CustomerTimelineRow"][];
+            /** @description `?before=` for the older rows; null: that is all */
+            next_before: string | null;
+            /** @description the parts the reader's permissions leave out (their kinds) */
+            withheld: string[];
+        };
+        CustomerTimelineRow: {
+            /** Format: date-time */
+            at: string;
+            /** @description order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff */
+            kind: string;
+            /** @description in words: numbers and codes, never an address or a number */
+            label: string;
+            /** @description the console's page for it (/orders/EL-…/), or null */
+            href: string | null;
         };
         DarkPatternAudit: {
             readonly id: number;
@@ -15402,7 +15695,7 @@ export interface components {
         JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "settlement_fetch" | "report_export" | "coupon_codes" | "product_import" | "product_export" | "code_batch";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/); coupon_codes: {"coupon": a single-use coupon's code, "count", "prefix", "note": the school's name}; product_import: {"file": catalogue/import/'s, "dry_run_job": the dry run's id (to apply)}; product_export: {"filters": {…}} (the product list's); code_batch: {"batch": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; the customers' bulk actions (user.suspend, user.unsuspend, user.end_sessions, user.resend_consent) name accounts by id and take no payload; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/); coupon_codes: {"coupon": a single-use coupon's code, "count", "prefix", "note": the school's name}; product_import: {"file": catalogue/import/'s, "dry_run_job": the dry run's id (to apply)}; product_export: {"filters": {…}} (the product list's); code_batch: {"batch": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one) */
             params?: {
                 [key: string]: unknown;
             };
@@ -17303,7 +17596,7 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["CourseItemRow"][];
         };
-        PaginatedCustomerList: {
+        PaginatedCustomerConsentPendingList: {
             /**
              * Format: uri
              * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
@@ -17314,7 +17607,20 @@ export interface components {
              * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
              */
             previous?: string | null;
-            results: components["schemas"]["Customer"][];
+            results: components["schemas"]["CustomerConsentPending"][];
+        };
+        PaginatedCustomerRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CustomerRow"][];
         };
         PaginatedDarkPatternAuditList: {
             /**
@@ -36739,9 +37045,17 @@ export interface operations {
                 /** @description The pagination cursor value. */
                 cursor?: string;
                 is_active?: boolean;
+                /**
+                 * @description the tab: students (a class level, or under 18), parents (adult accounts a student named as their parent's contact), guests (buyers without an account: another shape of row, by their orders)
+                 *
+                 *     * `students` - accounts with a class level, or a student under 18
+                 *     * `parents` - adult accounts a student named as their parent's contact
+                 *     * `guests` - buyers without an account, by the email address of their orders
+                 */
+                kind?: "guests" | "parents" | "students";
                 /** @description Number of results to return per page. */
                 page_size?: number;
-                /** @description an email address, a mobile number, or 3+ letters of a name */
+                /** @description an email address (exactly), a mobile number in any Indian format or its last digits (4 or more), or 3 letters or more of a name: a lookup of a person, written to the access log */
                 q?: string;
             };
             header?: never;
@@ -36755,7 +37069,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedCustomerList"];
+                    "application/json": components["schemas"]["PaginatedCustomerRowList"];
                 };
             };
         };
@@ -36778,6 +37092,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+        };
+    };
+    staff_users_commerce_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerCommerce"];
+                };
+            };
+        };
+    };
+    staff_users_consent_verify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerConsentVerifyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerConsentRecord"];
                 };
             };
         };
@@ -36980,6 +37342,33 @@ export interface operations {
             };
         };
     };
+    staff_users_timeline_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the older rows: the `next_before` of the last answer (or a time) */
+                before?: string;
+                /** @description only these kinds, comma-separated: order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff */
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerTimeline"];
+                };
+            };
+        };
+    };
     staff_users_unlock_create: {
         parameters: {
             query?: never;
@@ -37024,6 +37413,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    staff_users_consent_pending_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCustomerConsentPendingList"];
                 };
             };
         };

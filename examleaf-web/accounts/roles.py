@@ -155,6 +155,7 @@ ROLES = {
         # asked for (within ROLE_LIMITS; above them FINANCE approves), a second factor reset (a second person approves)
         *["staff.reveal_contact", "staff.unlock_user", "staff.resend_verification", "staff.end_user_sessions"],
         *["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
+        "staff.verify_consent",  # a parent's consent recorded by hand, with its evidence (customers' module)
         *["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
         *["staff.refund_order", "staff.add_changerequest"],
         *crud("accounts", ["legalhold", "nominee"], ["view"]),  # legal and privacy: what holds an erasure

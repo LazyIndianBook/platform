@@ -27929,7 +27929,7 @@
         "/api/v1/staff/users/": {
             "get": {
                 "operationId": "staff_users_list",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "The list: accounts (every row with its badges), or with `kind=guests` the buyers without an account.",
                 "parameters": [
                     {
                         "in": "query",
@@ -27968,6 +27968,19 @@
                         }
                     },
                     {
+                        "in": "query",
+                        "name": "kind",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "guests",
+                                "parents",
+                                "students"
+                            ]
+                        },
+                        "description": "the tab: students (a class level, or under 18), parents (adult accounts a student named as their parent's contact), guests (buyers without an account: another shape of row, by their orders)\n\n* `students` - accounts with a class level, or a student under 18\n* `parents` - adult accounts a student named as their parent's contact\n* `guests` - buyers without an account, by the email address of their orders"
+                    },
+                    {
                         "name": "page_size",
                         "required": false,
                         "in": "query",
@@ -27982,11 +27995,11 @@
                         "schema": {
                             "type": "string"
                         },
-                        "description": "an email address, a mobile number, or 3+ letters of a name"
+                        "description": "an email address (exactly), a mobile number in any Indian format or its last digits (4 or more), or 3 letters or more of a name: a lookup of a person, written to the access log"
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28001,7 +28014,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaginatedCustomerList"
+                                    "$ref": "#/components/schemas/PaginatedCustomerRowList"
                                 }
                             }
                         },
@@ -28013,7 +28026,7 @@
         "/api/v1/staff/users/{id}/": {
             "get": {
                 "operationId": "staff_users_retrieve",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28026,7 +28039,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28050,10 +28063,10 @@
                 }
             }
         },
-        "/api/v1/staff/users/{id}/end-sessions/": {
-            "post": {
-                "operationId": "staff_users_end_sessions_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+        "/api/v1/staff/users/{id}/commerce/": {
+            "get": {
+                "operationId": "staff_users_commerce_retrieve",
+                "description": "What they bought: orders, lifetime value so far, the average order, refunds, parcels that came back,\nsaved addresses (masked) and the tags of their orders. A student under 18: the counts only. A\n`sensitive_read`.",
                 "parameters": [
                     {
                         "in": "path",
@@ -28066,7 +28079,97 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomerCommerce"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/users/{id}/consent/verify/": {
+            "post": {
+                "operationId": "staff_users_consent_verify_create",
+                "description": "A parent's consent recorded by hand (a student under 18 whose parent has not confirmed): a verified consent\nwith its method, where the evidence is and who recorded it; the account's flag clears at once and the parent is\ntold by email. 400 for an adult, an erased account, one asking to be deleted, or one whose consent a parent\nconfirmed already.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "customers (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CustomerConsentVerifyRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomerConsentRecord"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/users/{id}/end-sessions/": {
+            "post": {
+                "operationId": "staff_users_end_sessions_create",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28093,7 +28196,7 @@
         "/api/v1/staff/users/{id}/impersonate/": {
             "post": {
                 "operationId": "staff_users_impersonate_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28106,7 +28209,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28143,7 +28246,7 @@
         "/api/v1/staff/users/{id}/impersonate/end/": {
             "post": {
                 "operationId": "staff_users_impersonate_end_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28156,7 +28259,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28186,7 +28289,7 @@
         "/api/v1/staff/users/{id}/password-reset/": {
             "post": {
                 "operationId": "staff_users_password_reset_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28199,7 +28302,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28226,7 +28329,7 @@
         "/api/v1/staff/users/{id}/resend-verification/": {
             "post": {
                 "operationId": "staff_users_resend_verification_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28239,7 +28342,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28266,7 +28369,7 @@
         "/api/v1/staff/users/{id}/reset-mfa/": {
             "post": {
                 "operationId": "staff_users_reset_mfa_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "header",
@@ -28287,7 +28390,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28324,7 +28427,7 @@
         "/api/v1/staff/users/{id}/reveal/": {
             "post": {
                 "operationId": "staff_users_reveal_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28337,7 +28440,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28374,7 +28477,7 @@
         "/api/v1/staff/users/{id}/suspend/": {
             "post": {
                 "operationId": "staff_users_suspend_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28387,7 +28490,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28421,10 +28524,66 @@
                 }
             }
         },
+        "/api/v1/staff/users/{id}/timeline/": {
+            "get": {
+                "operationId": "staff_users_timeline_retrieve",
+                "description": "One person's story, newest first, in one list: orders, payments and refunds, book codes redeemed, course\naccess, a course-use summary (a child's: counts and the last active week; an adult's adds clips completed by\nweek), tickets, SMS and emails sent, consent events, staff notes, and for whoever reads the audit log the staff\nactions on the account. Opening it is a `sensitive_read` (a child's marked `child`); the newest 200 rows, no\nquery per row; `withheld` names the parts the reader may not see.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "before",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the older rows: the `next_before` of the last answer (or a time)"
+                    },
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this user.",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "kind",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "only these kinds, comma-separated: order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff"
+                    }
+                ],
+                "tags": [
+                    "customers (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CustomerTimeline"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/users/{id}/unlock/": {
             "post": {
                 "operationId": "staff_users_unlock_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28437,7 +28596,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "security": [
                     {
@@ -28464,7 +28623,7 @@
         "/api/v1/staff/users/{id}/unsuspend/": {
             "post": {
                 "operationId": "staff_users_unsuspend_create",
-                "description": "Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and\nso is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name\ntheir permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.",
+                "description": "Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the\nchildren waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was\n(the reveal with a reason, the account actions, the impersonation).",
                 "parameters": [
                     {
                         "in": "path",
@@ -28477,7 +28636,7 @@
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "customers (staff)"
                 ],
                 "requestBody": {
                     "content": {
@@ -28503,6 +28662,55 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Customer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/users/consent-pending/": {
+            "get": {
+                "operationId": "staff_users_consent_pending_list",
+                "description": "The students under 18 waiting for a parent, the first registered first: the parent's contact (masked), how\nmany links went, the last one's time and expiry, and how many today. The link is sent again with\n`resend-verification/`, or the consent recorded by hand with `consent/verify/`.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "customers (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedCustomerConsentPendingList"
                                 }
                             }
                         },
@@ -35074,6 +35282,15 @@
                     "verified_at"
                 ]
             },
+            "ConsentVerifyMethodEnum": {
+                "enum": [
+                    "staff_manual",
+                    "adult_account",
+                    "digilocker"
+                ],
+                "type": "string",
+                "description": "* `staff_manual` - recorded by staff, with evidence\n* `adult_account` - confirmed by the parent's own verified adult account\n* `digilocker` - confirmed with a DigiLocker token"
+            },
             "ConsentWithdrawn": {
                 "type": "object",
                 "properties": {
@@ -39955,7 +40172,7 @@
             },
             "Customer": {
                 "type": "object",
-                "description": "A customer as support sees one: contact details masked (reveal/ shows them, logged).",
+                "description": "A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan\nasks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,\ntwo-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query\nper row (the view prefetches; the page's lock-outs come with the context).",
                 "properties": {
                     "id": {
                         "type": "integer",
@@ -40024,24 +40241,385 @@
                         "type": "string",
                         "format": "date-time",
                         "nullable": true
+                    },
+                    "age_band": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "under_13, 13_17, adult, unknown"
+                    },
+                    "consent_method": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult"
+                    },
+                    "teacher": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "none, requested, verified"
+                    },
+                    "mfa_on": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "an authenticator app or a passkey is set up"
+                    },
+                    "locked": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "locked out by failed log-ins (axes)"
                     }
                 },
                 "required": [
+                    "age_band",
                     "board",
                     "consent",
+                    "consent_method",
                     "created",
                     "email",
                     "email_verified",
                     "full_name",
                     "id",
+                    "locked",
+                    "mfa_on",
                     "phone",
                     "status",
+                    "teacher",
                     "under_18"
+                ]
+            },
+            "CustomerCommerce": {
+                "type": "object",
+                "properties": {
+                    "child": {
+                        "type": "boolean",
+                        "description": "a student under 18: the counts only, the rest is null"
+                    },
+                    "orders": {
+                        "type": "integer",
+                        "description": "their live orders, any state"
+                    },
+                    "kept": {
+                        "type": "integer",
+                        "description": "placed (paid online, or placed to pay on delivery) and not cancelled"
+                    },
+                    "cancelled": {
+                        "type": "integer"
+                    },
+                    "returns": {
+                        "type": "integer",
+                        "description": "returns asked for"
+                    },
+                    "rtos": {
+                        "type": "integer",
+                        "description": "parcels that came back undelivered (the shipping outcome)"
+                    },
+                    "spent": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "rupees, kept orders"
+                    },
+                    "refunded": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "rupees, processed"
+                    },
+                    "lifetime_value": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "spent less refunded, so far (a record, no forecast)"
+                    },
+                    "average_order": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "spent over the kept orders; null without one"
+                    },
+                    "first_order_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "last_order_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "addresses": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerCommerceAddress"
+                        },
+                        "nullable": true,
+                        "description": "saved, masked"
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerCommerceTag"
+                        },
+                        "nullable": true,
+                        "description": "staff's words on their orders"
+                    }
+                },
+                "required": [
+                    "addresses",
+                    "average_order",
+                    "cancelled",
+                    "child",
+                    "first_order_at",
+                    "kept",
+                    "last_order_at",
+                    "lifetime_value",
+                    "orders",
+                    "refunded",
+                    "returns",
+                    "rtos",
+                    "spent",
+                    "tags"
+                ]
+            },
+            "CustomerCommerceAddress": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string"
+                    },
+                    "district": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "pin": {
+                        "type": "string"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "description": "masked"
+                    },
+                    "is_default": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "city",
+                    "district",
+                    "is_default",
+                    "phone",
+                    "pin",
+                    "state"
+                ]
+            },
+            "CustomerCommerceTag": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "orders": {
+                        "type": "integer",
+                        "description": "how many of their orders carry it"
+                    }
+                },
+                "required": [
+                    "name",
+                    "orders"
+                ]
+            },
+            "CustomerConsentPending": {
+                "type": "object",
+                "description": "A student under 18 whose parent has not confirmed: the parent's contact masked, the link's life.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "class_level": {
+                        "nullable": true,
+                        "minimum": 0,
+                        "maximum": 9223372036854775807,
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ClassLevelEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/NullEnum"
+                            }
+                        ]
+                    },
+                    "board": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "age_band": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "email_verified": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "the link goes only once the student's own is"
+                    },
+                    "parent_contact": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "masked"
+                    },
+                    "parent_channel": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "email or sms: where a link goes"
+                    },
+                    "blocking": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "the account reads only until the parent confirms"
+                    },
+                    "links_sent": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "last_link_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "link_expires_at": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the last link works for 7 days; null: none sent"
+                    },
+                    "link_expired": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "links_today": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "sent today for this account"
+                    },
+                    "daily_limit": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "links a day to one parent's address or number"
+                    }
+                },
+                "required": [
+                    "age_band",
+                    "blocking",
+                    "board",
+                    "created",
+                    "daily_limit",
+                    "email_verified",
+                    "full_name",
+                    "id",
+                    "last_link_at",
+                    "link_expired",
+                    "link_expires_at",
+                    "links_sent",
+                    "links_today",
+                    "parent_channel",
+                    "parent_contact"
+                ]
+            },
+            "CustomerConsentRecord": {
+                "type": "object",
+                "description": "The consent just recorded: the ledger's row.",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "event": {
+                        "type": "string"
+                    },
+                    "method": {
+                        "type": "string"
+                    },
+                    "by_parent": {
+                        "type": "boolean"
+                    },
+                    "verified_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "verified_by": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the member of staff who recorded it"
+                    },
+                    "evidence_ref": {
+                        "type": "string"
+                    },
+                    "notice_version": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "by_parent",
+                    "created",
+                    "event",
+                    "evidence_ref",
+                    "id",
+                    "method",
+                    "notice_version",
+                    "verified_at",
+                    "verified_by"
+                ]
+            },
+            "CustomerConsentVerifyRequest": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConsentVerifyMethodEnum"
+                            }
+                        ],
+                        "description": "staff_manual: staff checked it by hand; adult_account: the parent's own verified ExamLeaf account; digilocker: a DigiLocker token\n\n* `staff_manual` - recorded by staff, with evidence\n* `adult_account` - confirmed by the parent's own verified adult account\n* `digilocker` - confirmed with a DigiLocker token"
+                    },
+                    "evidence_ref": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "where the evidence is: a ticket's number, a letter's date. Never the document, never a contact",
+                        "maxLength": 200
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "why: kept in the audit trail",
+                        "maxLength": 500
+                    }
+                },
+                "required": [
+                    "evidence_ref",
+                    "method",
+                    "reason"
                 ]
             },
             "CustomerDetail": {
                 "type": "object",
-                "description": "A customer as support sees one: contact details masked (reveal/ shows them, logged).",
+                "description": "A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan\nasks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,\ntwo-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query\nper row (the view prefetches; the page's lock-outs come with the context).",
                 "properties": {
                     "id": {
                         "type": "integer",
@@ -40110,6 +40688,31 @@
                         "type": "string",
                         "format": "date-time",
                         "nullable": true
+                    },
+                    "age_band": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "under_13, 13_17, adult, unknown"
+                    },
+                    "consent_method": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult"
+                    },
+                    "teacher": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "none, requested, verified"
+                    },
+                    "mfa_on": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "an authenticator app or a passkey is set up"
+                    },
+                    "locked": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "locked out by failed log-ins (axes)"
                     },
                     "roles": {
                         "type": "array",
@@ -40118,22 +40721,12 @@
                         },
                         "readOnly": true
                     },
-                    "locked": {
-                        "type": "boolean",
-                        "readOnly": true,
-                        "description": "locked out by failed log-ins (axes)"
-                    },
                     "mfa": {
                         "type": "array",
                         "items": {
                             "type": "string"
                         },
                         "readOnly": true
-                    },
-                    "teacher": {
-                        "type": "string",
-                        "readOnly": true,
-                        "description": "none, requested, verified"
                     },
                     "parent_contact": {
                         "type": "string",
@@ -40167,11 +40760,31 @@
                         "type": "string",
                         "nullable": true,
                         "readOnly": true
+                    },
+                    "parent_link": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/CustomerParentLink"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "a student under 18's consent link; null for anyone else"
+                    },
+                    "linked": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerLinked"
+                        },
+                        "readOnly": true,
+                        "description": "a student's parent's own account, or an adult's students"
                     }
                 },
                 "required": [
+                    "age_band",
                     "board",
                     "consent",
+                    "consent_method",
                     "consents",
                     "created",
                     "deletion_due_at",
@@ -40179,16 +40792,128 @@
                     "email_verified",
                     "full_name",
                     "id",
+                    "linked",
                     "locked",
                     "mfa",
+                    "mfa_on",
                     "orders",
                     "parent_contact",
+                    "parent_link",
                     "phone",
                     "roles",
                     "sessions",
                     "status",
                     "teacher",
                     "under_18"
+                ]
+            },
+            "CustomerGuest": {
+                "type": "object",
+                "description": "A buyer without an account: the orders placed with one email address, shown by their newest.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "their newest order's id"
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "as on the delivery address"
+                    },
+                    "email": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "masked"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "masked"
+                    },
+                    "orders": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "how many orders carry this address"
+                    },
+                    "last_order": {
+                        "type": "string",
+                        "description": "the newest order's number"
+                    },
+                    "last_order_at": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "id",
+                    "last_order",
+                    "last_order_at",
+                    "name",
+                    "orders",
+                    "phone"
+                ]
+            },
+            "CustomerLinked": {
+                "type": "object",
+                "description": "An account a student's parent contact points to, or a student who named this account.",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "full_name": {
+                        "type": "string"
+                    },
+                    "relation": {
+                        "type": "string",
+                        "description": "parent or child"
+                    }
+                },
+                "required": [
+                    "full_name",
+                    "id",
+                    "relation"
+                ]
+            },
+            "CustomerParentLink": {
+                "type": "object",
+                "description": "A student under 18's consent link: what went, and when it stops working.",
+                "properties": {
+                    "sent": {
+                        "type": "integer",
+                        "description": "links sent so far"
+                    },
+                    "last_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "the last one works for 7 days"
+                    },
+                    "expired": {
+                        "type": "boolean"
+                    },
+                    "today": {
+                        "type": "integer",
+                        "description": "sent today for this account"
+                    },
+                    "daily_limit": {
+                        "type": "integer",
+                        "description": "links a day to one parent's address or number"
+                    }
+                },
+                "required": [
+                    "daily_limit",
+                    "expired",
+                    "expires_at",
+                    "last_at",
+                    "sent",
+                    "today"
                 ]
             },
             "CustomerReturnLineRequest": {
@@ -40233,6 +40958,78 @@
                 "required": [
                     "lines",
                     "reason"
+                ]
+            },
+            "CustomerRow": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/Customer"
+                    },
+                    {
+                        "$ref": "#/components/schemas/CustomerGuest"
+                    }
+                ]
+            },
+            "CustomerTimeline": {
+                "type": "object",
+                "properties": {
+                    "child": {
+                        "type": "boolean",
+                        "description": "a student under 18: the course shows in counts, never a trail"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerTimelineRow"
+                        },
+                        "description": "newest first, at most 200"
+                    },
+                    "next_before": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "`?before=` for the older rows; null: that is all"
+                    },
+                    "withheld": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "the parts the reader's permissions leave out (their kinds)"
+                    }
+                },
+                "required": [
+                    "child",
+                    "next_before",
+                    "rows",
+                    "withheld"
+                ]
+            },
+            "CustomerTimelineRow": {
+                "type": "object",
+                "properties": {
+                    "at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff"
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "in words: numbers and codes, never an address or a number"
+                    },
+                    "href": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the console's page for it (/orders/EL-…/), or null"
+                    }
+                },
+                "required": [
+                    "at",
+                    "href",
+                    "kind",
+                    "label"
                 ]
             },
             "DarkPatternAudit": {
@@ -45982,7 +46779,7 @@
                     "params": {
                         "type": "object",
                         "additionalProperties": {},
-                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional); settlement_fetch: {\"day\": \"YYYY-MM-DD\"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {\"report\": \"sales\", \"filters\": {...}} (the report's own filters: reports/); coupon_codes: {\"coupon\": a single-use coupon's code, \"count\", \"prefix\", \"note\": the school's name}; product_import: {\"file\": catalogue/import/'s, \"dry_run_job\": the dry run's id (to apply)}; product_export: {\"filters\": {…}} (the product list's); code_batch: {\"batch\": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one)"
+                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; the customers' bulk actions (user.suspend, user.unsuspend, user.end_sessions, user.resend_consent) name accounts by id and take no payload; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional); settlement_fetch: {\"day\": \"YYYY-MM-DD\"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {\"report\": \"sales\", \"filters\": {...}} (the report's own filters: reports/); coupon_codes: {\"coupon\": a single-use coupon's code, \"count\", \"prefix\", \"note\": the school's name}; product_import: {\"file\": catalogue/import/'s, \"dry_run_job\": the dry run's id (to apply)}; product_export: {\"filters\": {…}} (the product list's); code_batch: {\"batch\": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one)"
                     },
                     "dry_run": {
                         "type": "boolean",
@@ -51221,7 +52018,7 @@
                     }
                 }
             },
-            "PaginatedCustomerList": {
+            "PaginatedCustomerConsentPendingList": {
                 "type": "object",
                 "required": [
                     "results"
@@ -51242,7 +52039,33 @@
                     "results": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/Customer"
+                            "$ref": "#/components/schemas/CustomerConsentPending"
+                        }
+                    }
+                }
+            },
+            "PaginatedCustomerRowList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerRow"
                         }
                     }
                 }
@@ -65500,6 +66323,10 @@
         {
             "name": "course (staff)",
             "description": "Outline, review, bin, quiz bank, entitlements, codes (API.md)."
+        },
+        {
+            "name": "customers (staff)",
+            "description": "Customers: tabs, badges, timeline, consent (API.md)."
         }
     ]
 }

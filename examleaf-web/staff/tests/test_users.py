@@ -53,7 +53,9 @@ def test_a_page_of_customers_costs_the_same_few_queries_however_long(django_asse
 
 
 def test_opening_a_record_is_logged_and_a_childs_says_so():
-    child = student(date_of_birth=birthday(15), parent_name="Anita Das", parent_contact="anita@example.com")
+    child = student(
+        date_of_birth=birthday(15), full_name="Rahul Das", parent_name="Anita Das", parent_contact="anita@example.com"
+    )  # (a name of the factory's own could be Anita too)
     support_user = make_staff(roles.SUPPORT)
     data = signed_in(support_user).get(f"{USERS}{child.pk}/").json()
     assert data["under_18"] and data["consent"] == "declared" and data["parent_contact"] == "an•••@example.com"

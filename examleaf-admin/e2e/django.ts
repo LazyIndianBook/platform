@@ -342,6 +342,45 @@ print(json.dumps({"learner": learner.pk, "code": plain[0], "batch": label}))
   );
 }
 
+export type CustomersWorld = {
+  child: number;
+  childName: string;
+  guest: string;
+  guestName: string;
+  order: string;
+};
+
+/** For the customers journey: a student of 14 whose parent has not confirmed (one link sent, by email; their own
+ *  address confirmed), a guest buyer's live order (no account, an email address of its own), and a live order of ₹1,500 paid
+ *  online for `customer` (seedRealWorld's order is a test-mode one: the customers' pages leave those out on a live
+ *  site, which this backend counts itself as without Razorpay keys). */
+export function seedCustomersWorld(stamp: number, customer: number): CustomersWorld {
+  return lastJson<CustomersWorld>(
+    shell(`
+import json
+from datetime import timedelta
+from django.utils import timezone
+from allauth.account.models import EmailAddress
+from accounts.models import ParentLinkSend, User
+from shop.models import Order, Payment
+email = ${py(`admin-ui-child-${stamp}@example.com`)}
+born = timezone.localdate() - timedelta(days=365 * 14 + 4)
+child = User.objects.create_user(email, "Child-e2e-2026!", full_name="Real E2E Child", class_level=10, date_of_birth=born, consent_at=timezone.now(), parent_name="Real E2E Parent", parent_contact=${py(`admin-ui-parent-${stamp}@example.com`)})
+EmailAddress.objects.create(user=child, email=email, primary=True, verified=True)
+ParentLinkSend.objects.create(user=child, channel="email")
+address = {"name": "Real E2E Guest", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
+Order.objects.create(email=${py(`admin-ui-guest-${stamp}@example.com`)}, shipping_address=address, subtotal=299, total=299, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
+buyer = User.objects.get(pk=${customer})
+order = Order.objects.create(user=buyer, email=buyer.email, shipping_address=address, subtotal=1500, total=1500, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
+Order.objects.filter(pk=order.pk).update(status="paid")
+payment = Payment.objects.create(order=order, method="razorpay", amount=1500, razorpay_order_id=${py(`order_e2ec${stamp}`)}, razorpay_payment_id=${py(`pay_e2ec${stamp}`)}, livemode=True)
+Payment.objects.filter(pk=payment.pk).update(status="captured")
+order.refresh_from_db()
+print(json.dumps({"child": child.pk, "childName": "Real E2E Child", "guest": ${py(`admin-ui-guest-${stamp}@example.com`)}, "guestName": "Real E2E Guest", "order": order.number}))
+`),
+  );
+}
+
 /** Deletes what seedCatalogue made (its versions stay: the history keeps them). */
 export function deleteCatalogue(world: CatalogueWorld) {
   shell(`
@@ -358,6 +397,18 @@ from learn.models import BookCode, CodeBatch
 BookCode.objects.filter(batch=${py(world.batch)}).delete()
 CodeBatch.objects.filter(label=${py(world.batch)}).delete()
 print(User.objects.filter(pk=${world.learner}, email__startswith="admin-ui-").delete())
+`);
+}
+
+/** Deletes what seedCustomersWorld made (the student's links and consents with them; audit events stay). */
+export function deleteCustomersWorld(world: CustomersWorld) {
+  shell(`
+from accounts.models import User
+from shop.models import Order, Payment
+orders = Order.objects.filter(email=${py(world.guest)}) | Order.objects.filter(number=${py(world.order)})
+Payment.objects.filter(order__in=orders).delete()
+orders.delete()
+print(User.objects.filter(pk=${world.child}).delete())
 `);
 }
 

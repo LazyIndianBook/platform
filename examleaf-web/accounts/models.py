@@ -529,3 +529,38 @@ class Nominee(models.Model):
 
     def __str__(self):
         return f"Nominee #{self.pk}"
+
+
+# Phase B: customers
+
+
+class ParentLinkSend(models.Model):
+    """One consent link sent to a student's parent (accounts.views.send_parent_link): when, by email or SMS, and who
+    sent it again when a member of staff did (empty: the site, or the student's own "send it again"). It is what tells
+    the panel when a link stops working (PARENT_LINK_DAYS after it) and how many went: the consent-pending list
+    (staff/customers.py). No contact is kept here (the account has it). A processing record: examleaf.retention
+    "parent_links" deletes the rows after a year."""
+
+    class Channel(models.TextChoices):
+        EMAIL = "email", "email"
+        SMS = "sms", "SMS"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="parent_links")
+    channel = models.CharField(max_length=5, choices=Channel.choices)
+    sent_at = models.DateTimeField(default=timezone.now, db_index=True)
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="The member of staff who sent it again; empty: the site or the student.",
+    )
+
+    class Meta:
+        default_permissions = ()  # read through the customer (accounts.view_user), written by the send
+        ordering = ["-sent_at", "-pk"]
+        indexes = [models.Index(fields=["user", "-sent_at"], name="accounts_parentlink_user")]
+
+    def __str__(self):
+        return f"Parent link #{self.pk}"

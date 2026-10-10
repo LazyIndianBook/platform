@@ -63,6 +63,7 @@ describe("visibleModules", () => {
       "approvals",
       "orders",
       "users",
+      "consentPending",
       "partners",
       "cockpit",
       "requests",
@@ -144,6 +145,8 @@ describe("currentModule", () => {
     expect(currentModule("/people/roles/")).toBe("roles");
     expect(currentModule("/settings/connections/razorpay/")).toBe("connections");
     expect(currentModule("/settings/templates/")).toBe("templates");
+    expect(currentModule("/users/7101/timeline/")).toBe("users");
+    expect(currentModule("/users/consent-pending/")).toBe("consentPending");
     expect(currentModule("/sign-in/")).toBeNull();
   });
 });

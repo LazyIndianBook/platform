@@ -4518,6 +4518,772 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/course/bin/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What is in the bin, newest first, by kind: each restorable until `bin_until`, then purged with a clip's files. */
+        get: operations["staff_course_bin_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        get: operations["staff_course_cards_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        delete: operations["staff_course_cards_destroy"];
+        options?: never;
+        head?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        patch: operations["staff_course_cards_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        post: operations["staff_course_cards_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        post: operations["staff_course_cards_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/chapters/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description A chapter's must-do note (its number, title and the Board's figures come from the syllabus' import). */
+        patch: operations["staff_course_chapters_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        get: operations["staff_course_clips_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        delete: operations["staff_course_clips_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        patch: operations["staff_course_clips_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        post: operations["staff_course_clips_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        post: operations["staff_course_clips_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Its video processed again (reprocess_clips' function): a failed clip, or one stuck in processing. */
+        post: operations["staff_course_clips_retry_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        get: operations["staff_course_codes_batches_list"];
+        put?: never;
+        /**
+         * @description A new print run's codes, made by a job (202): its file is yours to download once it is done, for 24 hours
+         *     (then deleted); the owners are told.
+         */
+        post: operations["staff_course_codes_batches_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        get: operations["staff_course_codes_batches_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/dispatched/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        post: operations["staff_course_codes_batches_dispatched_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        post: operations["staff_course_codes_batches_void_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/lookup/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A typed or scanned code, answered in one line: unused, redeemed (when, by which account: masked, linked),
+         *     void, or unknown. The code is hashed, never kept; each lookup is audited and throttled.
+         */
+        post: operations["staff_course_codes_lookup_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/report/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by
+         *     district with the cells under 10 hidden ("fewer than 10"). Computed when asked; the newest 200 print runs.
+         */
+        get: operations["staff_course_codes_report_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description One code voided by its digest (a leaked one): its redemption refused from now; one redeemed already is
+         *     refused here (revoke the access it opened instead).
+         */
+        post: operations["staff_course_codes_void_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        get: operations["staff_course_entitlements_list"];
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        get: operations["staff_course_entitlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/extend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_extend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        get: operations["staff_course_items_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        get: operations["staff_course_items_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        delete: operations["staff_course_items_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        patch: operations["staff_course_items_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/flag/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_flag_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Its versions, newest first (50), each with what it changed. */
+        get: operations["staff_course_items_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/learners/{user}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A learner's course for support, opened from a ticket's sidebar: entitlements, codes redeemed, devices (each
+         *     signed out here), chapter progress, quiz accuracy and card reviews per chapter, the account's tickets. Every view
+         *     is a `sensitive_read` (a child's marked so) and says so (`logged`); a child's is a usage summary, no times.
+         */
+        get: operations["staff_course_learners_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/learners/{user}/devices/{device}/sign-out/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description One of the learner's phones taken off the account: no more reminders to it until the app registers it again
+         *     (at its next log-in). Ending the app's sign-in everywhere is the customer's page's (users/{id}/end-sessions/).
+         */
+        post: operations["staff_course_learners_devices_sign_out_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        get: operations["staff_course_revisions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        patch: operations["staff_course_revisions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/needs-changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_needs_changes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/unpublish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_unpublish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/subjects/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The subjects whose chapters the person reaches, each with its course's counts (the module's first page). */
+        get: operations["staff_course_subjects_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/subjects/{subject}/outline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A subject's outline: its chapters by number, each with its revision (status, schedule) and clips, its flash
+         *     cards and quiz items in their order, with the clips' processing and free previews. Bounded by the subject's
+         *     content; a few queries whatever its size.
+         */
+        get: operations["staff_course_subjects_outline_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/data-requests/": {
         parameters: {
             query?: never;
@@ -4953,6 +5719,318 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/finance/documents/{number}/erp/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description An invoice's or credit note's ERPNext mirror (its number, dashes for its slashes): the document ERPNext made
+         *     (ErpLink) and its outbox rows, in one word: mirrored, waiting, failed, dead, discarded, not sent, off (its flow
+         *     switched off) or test (never synced).
+         */
+        get: operations["staff_finance_documents_erp_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/offline-payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payments received offline (bank transfer, UPI): waiting for FINANCE's approval (`?state=waiting`: the change
+         *     requests of order.offline_payment, approved at /change-requests/{id}/approve/) or recorded (the default).
+         */
+        get: operations["staff_finance_offline_payments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payment links: a staff order's (`?kind=order`, the default) or a B2B invoice's (`?kind=invoice`), by state
+         *     (sent, paid, cancelled, expired). POST makes or sends again an order's link (emailed to the customer) or a B2B
+         *     invoice's (its address answered: staff send it), or cancels one (shop.change_order); links live LINK_DAYS.
+         */
+        get: operations["staff_finance_payment_links_list"];
+        put?: never;
+        /**
+         * @description An order's link (a staff order still waiting for its online payment): `send` makes it once and emails it,
+         *     later the same link again; `cancel` cancels it (the next one is new). A B2B invoice's (its read-only copy
+         *     in the platform, something outstanding): `send` makes it (201) or answers the open one (200); `cancel`
+         *     cancels the open one. 503 while Razorpay cannot be reached.
+         */
+        post: operations["staff_finance_payment_links_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/invoices/{id}/posted/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded
+         *     as posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).
+         */
+        post: operations["staff_finance_payment_links_invoices_posted_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/invoices/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded
+         *     as posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).
+         */
+        post: operations["staff_finance_payment_links_invoices_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payments, newest first, with their Razorpay ids and, once settled, Razorpay's fee and its GST; the stuck ones
+         *     (`?stuck=true`); one with its refunds, webhooks and timeline; asked of Razorpay again (POST …/reconcile/,
+         *     staff.replay_webhook): a payment it captured is recorded, an authorised one captured first (the late-authorised
+         *     case), answered with what changed.
+         */
+        get: operations["staff_finance_payments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record; a child's order's payment opened is a logged read, as the child's order is. */
+        get: operations["staff_finance_payments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask Razorpay what became of the payment's order (shop.payments.reconcile): a captured payment recorded, an
+         *     authorised one captured first, a second payment refunded; 503 while Razorpay cannot be asked.
+         */
+        post: operations["staff_finance_payments_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Refunds, newest first, by state (`?state=pending|processed|failed`) and method (`?method=source|bank|none`),
+         *     with their ARN, the bank transfer's UTR and the credit note; `?state=waiting`: the change requests of order.refund
+         *     waiting for FINANCE (approved at /change-requests/{id}/approve/). Bank refunds are marked paid by Orders'
+         *     POST orders/refunds/{id}/mark-paid/.
+         */
+        get: operations["staff_finance_refunds_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        get: operations["staff_finance_settlements_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        get: operations["staff_finance_settlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{id}/match/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        post: operations["staff_finance_settlements_match_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{settlement}/lines/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A settlement's lines in Razorpay's order (`?matched=false`: those not ours yet; `?type=`). */
+        get: operations["staff_finance_settlements_lines_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/fetch/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A day of Razorpay's settlements fetched, matched and posted, as a background job (settlement_fetch): 202
+         *     with the job (jobs/{id}/), its result the counts. The same job is POST jobs/ {"kind": "settlement_fetch"}.
+         */
+        post: operations["staff_finance_settlements_fetch_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/today/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What FINANCE has to do today, each row a duty (its count, the day of the oldest, the amount): refunds to
+         *     approve, bank refunds to transfer, offline payments to approve, stuck payments, B2B payments to post in ERPNext,
+         *     settlement lines not ours and settlements that do not match, cash on delivery receivable, overdue and mismatched,
+         *     credit notes the cut-off refused, the sync's differences, and disputes (not configured). Each row only for whoever
+         *     may see its records; test mode left out.
+         */
+        get: operations["staff_finance_today_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/flags/": {
         parameters: {
             query?: never;
@@ -5000,6 +6078,26 @@ export interface paths {
         };
         /** @description A flag's history, newest first (as GET flags/<KEY>/). */
         get: operations["staff_flags_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/home/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Home's cards for the person who asks: the totals over `?period=` (today, week or month; week by default), the
+         *     queues as they stand now.
+         */
+        get: operations["staff_home_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6903,6 +8001,142 @@ export interface paths {
         patch: operations["staff_processors_partial_update"];
         trace?: never;
     };
+    "/api/v1/staff/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reports the person may open, each with the permissions it needs, and whether its source is set up. */
+        get: operations["staff_reports_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/cod/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_cod_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/codes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_codes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/course-health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_course_health_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/print-run/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The newsvendor's sum for a title with the inputs typed: nothing is stored and nothing is changed. */
+        post: operations["staff_reports_print_run_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/sales/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_sales_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/sales-by-place/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_sales_by_place_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/settlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_settlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/saved-views/": {
         parameters: {
             query?: never;
@@ -8016,11 +9250,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
-         */
+        /** @description The list: accounts (every row with its badges), or with `kind=guests` the buyers without an account. */
         get: operations["staff_users_list"];
         put?: never;
         post?: never;
@@ -8038,13 +9268,56 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         get: operations["staff_users_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/commerce/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What they bought: orders, lifetime value so far, the average order, refunds, parcels that came back,
+         *     saved addresses (masked) and the tags of their orders. A student under 18: the counts only. A
+         *     `sensitive_read`.
+         */
+        get: operations["staff_users_commerce_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/consent/verify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A parent's consent recorded by hand (a student under 18 whose parent has not confirmed): a verified consent
+         *     with its method, where the evidence is and who recorded it; the account's flag clears at once and the parent is
+         *     told by email. 400 for an adult, an erased account, one asking to be deleted, or one whose consent a parent
+         *     confirmed already.
+         */
+        post: operations["staff_users_consent_verify_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8061,9 +9334,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_end_sessions_create"];
         delete?: never;
@@ -8082,9 +9355,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_impersonate_create"];
         delete?: never;
@@ -8103,9 +9376,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_impersonate_end_create"];
         delete?: never;
@@ -8124,9 +9397,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_password_reset_create"];
         delete?: never;
@@ -8145,9 +9418,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_resend_verification_create"];
         delete?: never;
@@ -8166,9 +9439,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_reset_mfa_create"];
         delete?: never;
@@ -8187,9 +9460,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_reveal_create"];
         delete?: never;
@@ -8208,11 +9481,34 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_suspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/timeline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One person's story, newest first, in one list: orders, payments and refunds, book codes redeemed, course
+         *     access, a course-use summary (a child's: counts and the last active week; an adult's adds clips completed by
+         *     week), tickets, SMS and emails sent, consent events, staff notes, and for whoever reads the audit log the staff
+         *     actions on the account. Opening it is a `sensitive_read` (a child's marked `child`); the newest 200 rows, no
+         *     query per row; `withheld` names the parts the reader may not see.
+         */
+        get: operations["staff_users_timeline_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8229,9 +9525,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_unlock_create"];
         delete?: never;
@@ -8250,11 +9546,32 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
-         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
-         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         * @description Customers (staff are in people/): the list with its tabs and badges, a record, its timeline and commerce, the
+         *     children waiting for a parent and a parent's consent by hand; and everything staff.api.UserViewSet has, as it was
+         *     (the reveal with a reason, the account actions, the impersonation).
          */
         post: operations["staff_users_unsuspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/consent-pending/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The students under 18 waiting for a parent, the first registered first: the parent's contact (masked), how
+         *     many links went, the last one's time and expiry, and how many today. The link is sent again with
+         *     `resend-verification/`, or the consent recorded by hand with `consent/verify/`.
+         */
+        get: operations["staff_users_consent_pending_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8621,9 +9938,13 @@ export interface components {
          *     * `coupon.change` - coupon.change
          *     * `offer.create` - offer.create
          *     * `offer.change` - offer.change
+         *     * `entitlement.grant` - entitlement.grant
+         *     * `entitlement.extend` - entitlement.extend
+         *     * `entitlement.revoke` - entitlement.revoke
+         *     * `item_metadata` - item_metadata
          * @enum {string}
          */
-        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create" | "coupon.change" | "offer.create" | "offer.change";
+        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create" | "coupon.change" | "offer.create" | "offer.change" | "entitlement.grant" | "entitlement.extend" | "entitlement.revoke" | "item_metadata";
         AskRequest: {
             /**
              * @description order.refund, order.offline_payment, product.price, coupon.create, coupon.change, offer.create, offer.change
@@ -8635,6 +9956,10 @@ export interface components {
              *     * `coupon.change` - coupon.change
              *     * `offer.create` - offer.create
              *     * `offer.change` - offer.change
+             *     * `entitlement.grant` - entitlement.grant
+             *     * `entitlement.extend` - entitlement.extend
+             *     * `entitlement.revoke` - entitlement.revoke
+             *     * `item_metadata` - item_metadata
              */
             action: components["schemas"]["AskActionEnum"];
             /** @description an order's number, a product's slug, a coupon's code, an offer's id ("new" for a new one) */
@@ -10196,6 +11521,14 @@ export interface components {
          * @enum {string}
          */
         ClipKindEnum: "concept" | "trick" | "shortcut" | "formula" | "pattern" | "mistake" | "pyq";
+        /**
+         * @description * `uploaded` - uploaded
+         *     * `processing` - processing
+         *     * `ready` - ready
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        ClipProcessingEnum: "uploaded" | "processing" | "ready" | "failed";
         ClipRow: {
             readonly id: number;
             /** Format: int64 */
@@ -10314,6 +11647,10 @@ export interface components {
          * @enum {string}
          */
         CodRemittanceStateEnum: "expected" | "overdue" | "remitted" | "mismatch" | "not_expected";
+        /**
+         * @description A batch's redemptions, in all (`district` null) and by district. A district under INSIGHTS_MIN_CELL redemptions
+         *     is `hidden`: no counts.
+         */
         CodeActivation: {
             batch: string;
             district?: string | null;
@@ -10330,6 +11667,10 @@ export interface components {
              */
             redeemed_7d: number;
             readonly n: number;
+            /** @description true: too few redemptions to show the counts (see `under`) */
+            readonly hidden: boolean;
+            /** @description the minimum cell a hidden row is under; null when shown */
+            readonly under: number | null;
         };
         CodeAnswer: {
             found: boolean;
@@ -10342,6 +11683,8 @@ export interface components {
         CodeRequest: {
             /** @description as printed: 7KQM-3XPA-9TRW (any case, spaces or dashes) */
             code: string;
+            /** @description optional: the app's Firebase installation ID (as sent to devices/): the fraud rules count the tries of a phone by its keyed hash, never the ID itself */
+            device?: string;
         };
         CodeRow: {
             batch: string;
@@ -10349,6 +11692,7 @@ export interface components {
             /** Format: date-time */
             redeemed_at: string;
         };
+        /** @description A cohort's week. A week of fewer than INSIGHTS_MIN_CELL learners shows its size and no shares (`hidden`). */
         CohortStat: {
             /**
              * Format: date
@@ -10376,6 +11720,10 @@ export interface components {
              * @description Learners counted that week (their exam still ahead).
              */
             n: number;
+            /** @description true: too few learners to show the shares (see `under`) */
+            readonly hidden: boolean;
+            /** @description the minimum cell a hidden row is under; null when shown */
+            readonly under: number | null;
         };
         Collection: {
             slug: string;
@@ -10528,6 +11876,13 @@ export interface components {
             /** Format: date-time */
             created: string;
         };
+        /**
+         * @description * `staff_manual` - recorded by staff, with evidence
+         *     * `adult_account` - confirmed by the parent's own verified adult account
+         *     * `digilocker` - confirmed with a DigiLocker token
+         * @enum {string}
+         */
+        ConsentVerifyMethodEnum: "staff_manual" | "adult_account" | "digilocker";
         ConsentWithdrawn: {
             purpose: string;
             channel: string;
@@ -11109,6 +12464,878 @@ export interface components {
          * @enum {string}
          */
         CourierEnum: "India Post" | "Delhivery" | "Blue Dart" | "Ekart" | "DTDC" | "Xpressbees" | "Other";
+        CourseBatch: {
+            readonly id: number;
+            /** @description its page's address: course/codes/batches/{key}/ */
+            readonly key: string;
+            /** @description PHY-2027-1. */
+            readonly label: string;
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly product: components["schemas"]["CourseBatchProduct"] | null;
+            /** @description Codes made for the print run. */
+            readonly printed: number;
+            /** @description made */
+            readonly codes: number;
+            readonly redeemed: number;
+            /** @description codes voided */
+            readonly void: number;
+            readonly state: components["schemas"]["CourseBatchStateEnum"];
+            /**
+             * The print run's note
+             * @description The printer, the run, the delivery.
+             */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Empty while its job makes the codes.
+             */
+            readonly generated_at: string | null;
+            readonly generated_by: components["schemas"]["CoursePerson"] | null;
+            /**
+             * Format: date-time
+             * @description The books left: redemptions start here.
+             */
+            readonly dispatched_at: string | null;
+            /** Format: date-time */
+            readonly voided_at: string | null;
+            readonly void_reason: string;
+            readonly job: components["schemas"]["CourseBatchJob"] | null;
+        };
+        CourseBatchCreateRequest: {
+            /** @description the print run's: PHY-2027-1 */
+            label: string;
+            /** @description a subject's code (PHY), or ALL: a set of the four books */
+            subject: string;
+            count: number;
+            /** @description the book the codes are printed in: its slug */
+            product: string;
+            /**
+             * @description the printer, the run, the delivery
+             * @default
+             */
+            note: string;
+        };
+        CourseBatchDetail: {
+            readonly id: number;
+            /** @description its page's address: course/codes/batches/{key}/ */
+            readonly key: string;
+            /** @description PHY-2027-1. */
+            readonly label: string;
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly product: components["schemas"]["CourseBatchProduct"] | null;
+            /** @description Codes made for the print run. */
+            readonly printed: number;
+            /** @description made */
+            readonly codes: number;
+            readonly redeemed: number;
+            /** @description codes voided */
+            readonly void: number;
+            readonly state: components["schemas"]["CourseBatchStateEnum"];
+            /**
+             * The print run's note
+             * @description The printer, the run, the delivery.
+             */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Empty while its job makes the codes.
+             */
+            readonly generated_at: string | null;
+            readonly generated_by: components["schemas"]["CoursePerson"] | null;
+            /**
+             * Format: date-time
+             * @description The books left: redemptions start here.
+             */
+            readonly dispatched_at: string | null;
+            /** Format: date-time */
+            readonly voided_at: string | null;
+            readonly void_reason: string;
+            readonly job: components["schemas"]["CourseBatchJob"] | null;
+            readonly redeemed_by_week: components["schemas"]["CourseWeek"][];
+            /** @description the fraud signals that name it, newest first */
+            readonly signals: components["schemas"]["CourseBatchSignal"][];
+            /**
+             * Format: double
+             * @description redeemed ÷ codes made
+             */
+            readonly activation_rate: number | null;
+            /** @description the printer's file, downloadable by its maker until */
+            readonly file_until: string | null;
+            /** @description the job that made the codes (its file: result_url) */
+            readonly generation: components["schemas"]["Job"] | null;
+        };
+        CourseBatchJob: {
+            id: number;
+            state: string;
+            done: number;
+            total: number;
+        };
+        CourseBatchProduct: {
+            id: number;
+            slug: string;
+            title: string;
+        };
+        CourseBatchSignal: {
+            readonly id: number;
+            readonly kind: components["schemas"]["FraudSignalKindEnum"];
+            readonly label: string;
+            readonly count: number;
+            /** Format: date-time */
+            readonly window_start: string;
+            /** Format: date-time */
+            readonly window_end: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+        };
+        CourseBatchStarted: {
+            batch: components["schemas"]["CourseBatch"];
+            job: components["schemas"]["Job"];
+        };
+        /**
+         * @description * `generating` - generating
+         *     * `failed` - failed
+         *     * `ready` - ready
+         *     * `dispatched` - dispatched
+         *     * `void` - void
+         * @enum {string}
+         */
+        CourseBatchStateEnum: "generating" | "failed" | "ready" | "dispatched" | "void";
+        CourseBatchVoided: {
+            batch: components["schemas"]["CourseBatch"];
+            voided: number;
+        };
+        CourseBinChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: string;
+        };
+        CourseBinRow: {
+            id: number;
+            kind: components["schemas"]["CourseRowKindEnum"];
+            /** @description a clip's title, a card's front, an item's text: its first words */
+            title: string;
+            chapter: components["schemas"]["CourseBinChapter"];
+            /** @description a clip's revision */
+            revision: number | null;
+            /** Format: date-time */
+            deleted_at: string;
+            /**
+             * Format: date-time
+             * @description restored until then; purged the night after
+             */
+            bin_until: string;
+        };
+        CourseCard: {
+            readonly id: number;
+            readonly chapter: number;
+            readonly order: number;
+            /** @description Markdown. */
+            front: string;
+            /** @description Markdown. */
+            back: string;
+            tags?: string[];
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+        };
+        CourseChapter: {
+            readonly id: number;
+            readonly subject: number;
+            readonly number: number;
+            readonly title: string;
+            /**
+             * Board marks
+             * Format: decimal
+             * @description From format.json: import_chapter_insights.
+             */
+            readonly weight: string;
+            /**
+             * Previous-year questions
+             * @description Questions the Board asked on it (production/<subject>/pyq/).
+             */
+            readonly frequency: number;
+            /**
+             * Must-do note
+             * @description Markdown.
+             */
+            must_do?: string;
+        };
+        CourseClip: {
+            readonly id: number;
+            readonly revision: components["schemas"]["CourseClipRevision"];
+            readonly order: number;
+            title: string;
+            kind?: components["schemas"]["ClipKindEnum"];
+            /**
+             * Transcript or notes
+             * @description Markdown.
+             */
+            notes?: string;
+            /**
+             * Free preview
+             * @description The first clip of a revision is free anyway (LEARN_FREE_PREVIEW).
+             */
+            is_free_preview?: boolean;
+            /** @description free to anyone signed in (the first clip, or marked) */
+            readonly free: boolean;
+            tags?: string[];
+            readonly processing: components["schemas"]["ClipProcessingEnum"];
+            readonly processing_label: string;
+            /** @description why it is not ready, in words */
+            readonly reason: string;
+            /** @description ffmpeg's last words */
+            readonly error_detail: string;
+            /** Format: date-time */
+            readonly processing_since: string;
+            /** @description processing for over an hour: its task was lost */
+            readonly stuck: boolean;
+            readonly can_retry: boolean;
+            readonly has_video: boolean;
+            /** Seconds */
+            readonly duration: number;
+            /** @description its poster once ready, a link signed for 10 minutes */
+            readonly poster_url: string | null;
+            /** @description the staff player (opened on this host) once ready */
+            readonly player_url: string | null;
+            /** @description the Board questions it prepares for */
+            readonly questions: components["schemas"]["CourseClipQuestion"][];
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+            readonly completion_rule: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CourseClipQuestion: {
+            id: number;
+            paper: string;
+            label: string;
+        };
+        CourseClipRevision: {
+            id: number;
+            title: string;
+            status: components["schemas"]["CourseRevisionStatusEnum"];
+            chapter: number;
+            chapter_number: number;
+            chapter_title: string;
+            subject: number;
+            subject_code: string;
+        };
+        CourseCodeLookup: {
+            state: components["schemas"]["CourseCodeStateEnum"];
+            /** @description the answer in one line */
+            line: string;
+            batch: string | null;
+            batch_state: (components["schemas"]["CourseBatchStateEnum"] | components["schemas"]["NullEnum"]) | null;
+            subject: string | null;
+            /** Format: date-time */
+            redeemed_at: string | null;
+            /** Format: date-time */
+            voided_at: string | null;
+            redeemed_by: components["schemas"]["CourseCodeRedeemer"] | null;
+        };
+        CourseCodeRedeemer: {
+            /** @description the account: its learner page and customer record */
+            id: number;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+        };
+        CourseCodeRequest: {
+            /** @description typed or scanned: 7KQM-3XPA-9TRW (any case, spaces, dashes) */
+            code: string;
+        };
+        /**
+         * @description * `unknown` - unknown
+         *     * `unused` - unused
+         *     * `redeemed` - redeemed
+         *     * `void` - void
+         * @enum {string}
+         */
+        CourseCodeStateEnum: "unknown" | "unused" | "redeemed" | "void";
+        CourseCodeVoidRequest: {
+            /** @description typed or scanned: 7KQM-3XPA-9TRW (any case, spaces, dashes) */
+            code: string;
+            reason: string;
+        };
+        CourseCodeVoided: {
+            id: number;
+            batch: string;
+            /** Format: date-time */
+            voided_at: string;
+        };
+        CourseCommentRequest: {
+            /** @default  */
+            comment: string;
+        };
+        CourseDispatchedRequest: {
+            /**
+             * Format: date-time
+             * @description when the books left; empty: now
+             */
+            at?: string | null;
+        };
+        CourseEntitlement: {
+            readonly id: number;
+            readonly user: components["schemas"]["CourseLearnerRef"];
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly subject_name: string;
+            readonly source: components["schemas"]["EntitlementSourceEnum"];
+            /** @description The order or the book code. */
+            readonly reference: string;
+            /**
+             * Format: date
+             * @description The last day; empty: no end.
+             */
+            readonly valid_until: string | null;
+            /** @description Why it was granted (staff). */
+            readonly note: string;
+            readonly state: components["schemas"]["CourseEntitlementStateEnum"];
+            /**
+             * Format: date-time
+             * @description Revoked by staff, with why.
+             */
+            readonly revoked_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly can_extend: boolean;
+            readonly can_revoke: boolean;
+        };
+        CourseEntitlementDetail: {
+            readonly id: number;
+            readonly user: components["schemas"]["CourseLearnerRef"];
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly subject_name: string;
+            readonly source: components["schemas"]["EntitlementSourceEnum"];
+            /** @description The order or the book code. */
+            readonly reference: string;
+            /**
+             * Format: date
+             * @description The last day; empty: no end.
+             */
+            readonly valid_until: string | null;
+            /** @description Why it was granted (staff). */
+            readonly note: string;
+            readonly state: components["schemas"]["CourseEntitlementStateEnum"];
+            /**
+             * Format: date-time
+             * @description Revoked by staff, with why.
+             */
+            readonly revoked_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly can_extend: boolean;
+            readonly can_revoke: boolean;
+            readonly history: components["schemas"]["CourseVersion"][];
+        };
+        /**
+         * @description * `active` - open today
+         *     * `ended` - ended
+         *     * `revoked` - revoked by staff
+         * @enum {string}
+         */
+        CourseEntitlementStateEnum: "active" | "ended" | "revoked";
+        CourseExtendRequest: {
+            days: number;
+            reason: string;
+        };
+        CourseFlagAnswer: {
+            /** @description the report in the content triage */
+            report: number;
+            /** @description false: one was open already */
+            created: boolean;
+        };
+        CourseFlagRequest: {
+            /**
+             * @description what looks wrong (optional)
+             * @default
+             */
+            note: string;
+        };
+        CourseGrantRequest: {
+            /** @description the account's id */
+            user: number;
+            /** @description a subject's code (PHY), or ALL */
+            subject: string;
+            /**
+             * Format: date
+             * @description null: no end
+             */
+            valid_until?: string | null;
+            reason: string;
+            /**
+             * @description a ticket's number, a school order's (optional)
+             * @default
+             */
+            reference: string;
+        };
+        CourseItem: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseItemChapter"];
+            /** @description Its place in the chapter's quiz. */
+            readonly order: number;
+            kind: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            text: string;
+            /** @description Multiple choice: the options, ["(i) …", …]. */
+            options?: unknown;
+            /** @description Multiple choice: the right option's number (1 for the first); true or false: true or false; fill in the blank: the accepted answers, separated by |. */
+            answer: string;
+            /** @description Markdown. */
+            explanation?: string;
+            /** @description Within the chapter: Coulomb's law. */
+            topic?: string;
+            marks?: number;
+            difficulty?: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            /** Bloom level */
+            bloom?: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
+            tags?: string[];
+            /** @description the book question it came from; null: written for the app */
+            readonly source: components["schemas"]["CourseItemSource"] | null;
+            readonly stats: components["schemas"]["CourseItemStats"];
+            /** @description its open report in the content triage */
+            readonly flagged: number | null;
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+        };
+        CourseItemChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: string;
+        };
+        /** @description A row of the bank: the item's first words, without its key and explanation. */
+        CourseItemRow: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseItemChapter"];
+            /** @description Its place in the chapter's quiz. */
+            readonly order: number;
+            readonly kind: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            readonly text: string;
+            /** @description Within the chapter: Coulomb's law. */
+            readonly topic: string;
+            readonly marks: number;
+            readonly difficulty: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            readonly bloom: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
+            tags?: string[];
+            /** @description the book question it came from; null: written for the app */
+            readonly source: components["schemas"]["CourseItemSource"] | null;
+            readonly stats: components["schemas"]["CourseItemStats"];
+            /** @description its open report in the content triage */
+            readonly flagged: number | null;
+        };
+        CourseItemSource: {
+            question: number;
+            paper: string;
+            label: string;
+        };
+        CourseItemStats: {
+            /** @description learners who answered it (first attempts) */
+            n: number | null;
+            /**
+             * Format: double
+             * @description share right; null (N/A) under 30 learners
+             */
+            p: number | null;
+            /**
+             * Format: double
+             * @description corrected item-total point-biserial
+             */
+            discrimination: number | null;
+            flags: string[];
+            /**
+             * Format: date-time
+             * @description last calculated (nightly)
+             */
+            computed_at: string | null;
+            /** @description fewer than 30 learners: p and discrimination are N/A */
+            n_too_small: boolean;
+        };
+        CourseLearner: {
+            /** @description true: this view is in the access log */
+            logged: boolean;
+            user: components["schemas"]["CourseLearnerUser"];
+            /** @description under 18 or of unknown age: a usage summary (counts and the week last active), no times */
+            summary_only: boolean;
+            summary: components["schemas"]["CourseLearnerSummary"];
+            entitlements: components["schemas"]["CourseEntitlement"][];
+            codes: components["schemas"]["CourseLearnerCode"][] | null;
+            devices: components["schemas"]["CourseLearnerDevice"][];
+            chapters: components["schemas"]["CourseLearnerChapter"][];
+            tickets: components["schemas"]["CourseLearnerTicket"][] | null;
+        };
+        CourseLearnerChapter: {
+            id: number;
+            subject: string;
+            number: number;
+            title: string;
+            clips_watched: number;
+            clips_total: number;
+            minutes_watched: number;
+            quiz_answers: number;
+            quiz_accuracy: number | null;
+            card_reviews: number;
+            cards_known: number;
+        };
+        CourseLearnerCode: {
+            id: number;
+            batch: string;
+            subject: string;
+            /** Format: date-time */
+            redeemed_at: string;
+        };
+        CourseLearnerDevice: {
+            id: number;
+            platform: string;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            added: string | null;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            last_seen: string | null;
+            /** Format: date */
+            last_seen_week: string | null;
+        };
+        CourseLearnerRef: {
+            id: number;
+            name: string;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+        };
+        CourseLearnerSummary: {
+            clips_watched: number;
+            minutes_watched: number;
+            quiz_answers: number;
+            quiz_accuracy: number | null;
+            card_reviews: number;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            last_active: string | null;
+            /**
+             * Format: date
+             * @description its Monday
+             */
+            last_active_week: string | null;
+        };
+        CourseLearnerTicket: {
+            number: string;
+            subject: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            received_at: string;
+        };
+        CourseLearnerUser: {
+            id: number;
+            name: string;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+            is_active: boolean;
+        };
+        /**
+         * @description * `first` - first
+         *     * `last` - last
+         *     * `before` - before
+         *     * `after` - after
+         * @enum {string}
+         */
+        CourseMoveEnum: "first" | "last" | "before" | "after";
+        CourseMoveRequest: {
+            /**
+             * @description first, last, or before or after `target`
+             *
+             *     * `first` - first
+             *     * `last` - last
+             *     * `before` - before
+             *     * `after` - after
+             */
+            to: components["schemas"]["CourseMoveEnum"];
+            /** @description a sibling's id (before, after) */
+            target?: number | null;
+        };
+        CourseOutline: {
+            subject: components["schemas"]["CourseOutlineSubject"];
+            chapters: components["schemas"]["CourseOutlineChapter"][];
+            /** @description what counts as a clip completed */
+            completion_rule: string;
+            /** @description LEARN_FREE_PREVIEW: the first clip of each revision is free */
+            free_preview: boolean;
+        };
+        CourseOutlineCard: {
+            id: number;
+            order: number;
+            /** @description its first words */
+            front: string;
+        };
+        CourseOutlineChapter: {
+            id: number;
+            number: number;
+            title: string;
+            /**
+             * Format: decimal
+             * @description the Board's marks
+             */
+            weight: string;
+            /** @description previous-year questions */
+            frequency: number;
+            must_do: string;
+            revision: components["schemas"]["CourseOutlineRevision"] | null;
+            cards: components["schemas"]["CourseOutlineCard"][];
+            items: components["schemas"]["CourseOutlineItem"][];
+        };
+        CourseOutlineClip: {
+            id: number;
+            order: number;
+            title: string;
+            kind: components["schemas"]["ClipKindEnum"];
+            /** @description seconds (once ready) */
+            duration: number;
+            processing: components["schemas"]["ClipProcessingEnum"];
+            /** @description why it is not ready, in words; empty when ready */
+            reason: string;
+            /** @description marked a free preview by an editor */
+            is_free_preview: boolean;
+            /** @description free to anyone signed in: the revision's first clip, or marked */
+            free: boolean;
+        };
+        CourseOutlineItem: {
+            id: number;
+            order: number;
+            kind: components["schemas"]["QuizItemKindEnum"];
+            /** @description its first words */
+            text: string;
+            difficulty: string;
+            /** @description its open report in the content triage, if any */
+            flagged: number | null;
+        };
+        CourseOutlineRevision: {
+            id: number;
+            title: string;
+            status: components["schemas"]["CourseRevisionStatusEnum"];
+            target_minutes: number;
+            /** @description of its ready clips */
+            minutes: number;
+            /** Format: date-time */
+            publish_at: string | null;
+            clips: components["schemas"]["CourseOutlineClip"][];
+        };
+        CourseOutlineSubject: {
+            id: number;
+            code: string;
+            name: string;
+        };
+        CoursePerson: {
+            id: number;
+            name: string;
+        };
+        CoursePublishRequest: {
+            /**
+             * Format: date-time
+             * @description a time to come; empty or null: now
+             */
+            publish_at?: string | null;
+        };
+        CourseReasonRequest: {
+            reason: string;
+        };
+        CourseReport: {
+            /** Format: date-time */
+            computed_at: string;
+            /** @description a district's cell under it is hidden */
+            min_cell: number;
+            /** @description how each number is made */
+            definitions: {
+                [key: string]: string;
+            };
+            totals: components["schemas"]["CourseReportTotals"];
+            rows: components["schemas"]["CourseReportRow"][];
+        };
+        CourseReportCell: {
+            district: string;
+            /** @description null: fewer than 10 (hidden) */
+            activated: number | null;
+            hidden: boolean;
+        };
+        CourseReportRow: {
+            batch: components["schemas"]["CourseBatch"];
+            printed: number;
+            /** @description copies of its book sold online; null: no book named */
+            sold: number | null;
+            /** @description codes redeemed */
+            activated: number;
+            /** @description access its codes opened, revoked by staff */
+            revoked: number;
+            void: number;
+            /**
+             * Format: double
+             * @description activated ÷ printed
+             */
+            activation_rate: number | null;
+            districts: components["schemas"]["CourseReportCell"][];
+        };
+        CourseReportTotals: {
+            printed: number;
+            sold: number;
+            activated: number;
+            revoked: number;
+            void: number;
+            /** Format: double */
+            activation_rate: number | null;
+        };
+        CourseRevision: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseRevisionChapter"];
+            title: string;
+            /** @description 10 to 15. */
+            target_minutes?: number;
+            readonly status: components["schemas"]["CourseRevisionStatusEnum"];
+            readonly status_label: string;
+            readonly submitted_by: components["schemas"]["CoursePerson"] | null;
+            /** Format: date-time */
+            readonly submitted_at: string | null;
+            readonly reviewer: components["schemas"]["CoursePerson"] | null;
+            /**
+             * Format: date-time
+             * @description Approved: published by the task at this time.
+             */
+            readonly publish_at: string | null;
+            /** @description of its ready clips */
+            readonly minutes: number;
+            readonly clips: components["schemas"]["CourseOutlineClip"][];
+            /** @description its chapter's flash cards (live with it) */
+            readonly cards: number;
+            /** @description its chapter's quiz items (live with it) */
+            readonly items: number;
+            /** @description the moves the reader may make now */
+            readonly transitions: components["schemas"]["CourseTransitionEnum"][];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CourseRevisionChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: number;
+            subject_code: string;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `published` - published
+         *     * `review` - in review
+         *     * `approved` - approved
+         * @enum {string}
+         */
+        CourseRevisionStatusEnum: "draft" | "published" | "review" | "approved";
+        /**
+         * @description * `clips` - clips
+         *     * `cards` - cards
+         *     * `items` - items
+         * @enum {string}
+         */
+        CourseRowKindEnum: "clips" | "cards" | "items";
+        CourseSubject: {
+            id: number;
+            code: string;
+            name: string;
+            chapters: number;
+            /** @description revisions published */
+            published: number;
+            /** @description revisions waiting for a reviewer */
+            in_review: number;
+            /** @description revisions approved, to be published at their time */
+            scheduled: number;
+            /** @description outside the bin */
+            clips: number;
+            /** @description clips whose video failed */
+            failed: number;
+            cards: number;
+            items: number;
+            /** @description clips, cards and quiz items in the bin */
+            bin: number;
+        };
+        /**
+         * @description * `submit` - submit
+         *     * `approve` - approve
+         *     * `needs_changes` - needs_changes
+         *     * `publish` - publish
+         *     * `unpublish` - unpublish
+         * @enum {string}
+         */
+        CourseTransitionEnum: "submit" | "approve" | "needs_changes" | "publish" | "unpublish";
+        CourseVersion: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            by: number | null;
+            type: components["schemas"]["CourseVersionTypeEnum"];
+            reason: string | null;
+            /** @description field, before, after */
+            changes: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `+` - +
+         *     * `~` - ~
+         *     * `-` - -
+         * @enum {string}
+         */
+        CourseVersionTypeEnum: "+" | "~" | "-";
+        CourseVoidRequest: {
+            reason: string;
+        };
+        CourseWeek: {
+            /**
+             * Format: date
+             * @description its Monday
+             */
+            week: string;
+            redeemed: number;
+        };
         CredentialsRequest: {
             /** @description why (kept in the audit log; the owners read it) */
             reason: string;
@@ -11133,7 +13360,12 @@ export interface components {
              */
             readonly amount: string;
         };
-        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        /**
+         * @description A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan
+         *     asks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,
+         *     two-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query
+         *     per row (the view prefetches; the page's lock-outs come with the context).
+         */
         Customer: {
             readonly id: number;
             readonly email: string;
@@ -11153,8 +13385,135 @@ export interface components {
             readonly created: string;
             /** Format: date-time */
             last_login?: string | null;
+            /** @description under_13, 13_17, adult, unknown */
+            readonly age_band: string;
+            /** @description how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult */
+            readonly consent_method: string;
+            /** @description none, requested, verified */
+            readonly teacher: string;
+            /** @description an authenticator app or a passkey is set up */
+            readonly mfa_on: boolean;
+            /** @description locked out by failed log-ins (axes) */
+            readonly locked: boolean;
         };
-        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        CustomerCommerce: {
+            /** @description a student under 18: the counts only, the rest is null */
+            child: boolean;
+            /** @description their live orders, any state */
+            orders: number;
+            /** @description placed (paid online, or placed to pay on delivery) and not cancelled */
+            kept: number;
+            cancelled: number;
+            /** @description returns asked for */
+            returns: number;
+            /** @description parcels that came back undelivered (the shipping outcome) */
+            rtos: number;
+            /**
+             * Format: decimal
+             * @description rupees, kept orders
+             */
+            spent: string | null;
+            /**
+             * Format: decimal
+             * @description rupees, processed
+             */
+            refunded: string | null;
+            /**
+             * Format: decimal
+             * @description spent less refunded, so far (a record, no forecast)
+             */
+            lifetime_value: string | null;
+            /**
+             * Format: decimal
+             * @description spent over the kept orders; null without one
+             */
+            average_order: string | null;
+            /** Format: date-time */
+            first_order_at: string | null;
+            /** Format: date-time */
+            last_order_at: string | null;
+            /** @description saved, masked */
+            addresses: components["schemas"]["CustomerCommerceAddress"][] | null;
+            /** @description staff's words on their orders */
+            tags: components["schemas"]["CustomerCommerceTag"][] | null;
+        };
+        CustomerCommerceAddress: {
+            city: string;
+            district: string;
+            state: string;
+            pin: string;
+            /** @description masked */
+            phone: string;
+            is_default: boolean;
+        };
+        CustomerCommerceTag: {
+            name: string;
+            /** @description how many of their orders carry it */
+            orders: number;
+        };
+        /** @description A student under 18 whose parent has not confirmed: the parent's contact masked, the link's life. */
+        CustomerConsentPending: {
+            readonly id: number;
+            full_name: string;
+            class_level?: (components["schemas"]["ClassLevelEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly board: string;
+            /** Format: date-time */
+            readonly created: string;
+            readonly age_band: string;
+            /** @description the link goes only once the student's own is */
+            readonly email_verified: boolean;
+            /** @description masked */
+            readonly parent_contact: string;
+            /** @description email or sms: where a link goes */
+            readonly parent_channel: string;
+            /** @description the account reads only until the parent confirms */
+            readonly blocking: boolean;
+            readonly links_sent: number;
+            /** Format: date-time */
+            readonly last_link_at: string | null;
+            /** @description the last link works for 7 days; null: none sent */
+            readonly link_expires_at: string | null;
+            readonly link_expired: boolean;
+            /** @description sent today for this account */
+            readonly links_today: number;
+            /** @description links a day to one parent's address or number */
+            readonly daily_limit: number;
+        };
+        /** @description The consent just recorded: the ledger's row. */
+        CustomerConsentRecord: {
+            id: number;
+            event: string;
+            method: string;
+            by_parent: boolean;
+            /** Format: date-time */
+            verified_at: string;
+            /** @description the member of staff who recorded it */
+            verified_by: number | null;
+            evidence_ref: string;
+            notice_version: string;
+            /** Format: date-time */
+            created: string;
+        };
+        CustomerConsentVerifyRequest: {
+            /**
+             * @description staff_manual: staff checked it by hand; adult_account: the parent's own verified ExamLeaf account; digilocker: a DigiLocker token
+             *
+             *     * `staff_manual` - recorded by staff, with evidence
+             *     * `adult_account` - confirmed by the parent's own verified adult account
+             *     * `digilocker` - confirmed with a DigiLocker token
+             */
+            method: components["schemas"]["ConsentVerifyMethodEnum"];
+            /** @description where the evidence is: a ticket's number, a letter's date. Never the document, never a contact */
+            evidence_ref: string;
+            /** @description why: kept in the audit trail */
+            reason: string;
+        };
+        /**
+         * @description A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan
+         *     asks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,
+         *     two-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query
+         *     per row (the view prefetches; the page's lock-outs come with the context).
+         */
         CustomerDetail: {
             readonly id: number;
             readonly email: string;
@@ -11174,12 +13533,18 @@ export interface components {
             readonly created: string;
             /** Format: date-time */
             last_login?: string | null;
-            readonly roles: string[];
-            /** @description locked out by failed log-ins (axes) */
-            readonly locked: boolean;
-            readonly mfa: string[];
+            /** @description under_13, 13_17, adult, unknown */
+            readonly age_band: string;
+            /** @description how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, staff_manual; empty for an adult */
+            readonly consent_method: string;
             /** @description none, requested, verified */
             readonly teacher: string;
+            /** @description an authenticator app or a passkey is set up */
+            readonly mfa_on: boolean;
+            /** @description locked out by failed log-ins (axes) */
+            readonly locked: boolean;
+            readonly roles: string[];
+            readonly mfa: string[];
             readonly parent_contact: string;
             readonly orders: {
                 [key: string]: unknown;
@@ -11191,6 +13556,50 @@ export interface components {
                 [key: string]: unknown;
             }[];
             readonly deletion_due_at: string | null;
+            /** @description a student under 18's consent link; null for anyone else */
+            readonly parent_link: components["schemas"]["CustomerParentLink"] | null;
+            /** @description a student's parent's own account, or an adult's students */
+            readonly linked: components["schemas"]["CustomerLinked"][];
+        };
+        /** @description A buyer without an account: the orders placed with one email address, shown by their newest. */
+        CustomerGuest: {
+            /** @description their newest order's id */
+            id: number;
+            /** @description as on the delivery address */
+            readonly name: string;
+            /** @description masked */
+            readonly email: string;
+            /** @description masked */
+            readonly phone: string;
+            /** @description how many orders carry this address */
+            readonly orders: number;
+            /** @description the newest order's number */
+            last_order: string;
+            readonly last_order_at: string | null;
+        };
+        /** @description An account a student's parent contact points to, or a student who named this account. */
+        CustomerLinked: {
+            id: number;
+            full_name: string;
+            /** @description parent or child */
+            relation: string;
+        };
+        /** @description A student under 18's consent link: what went, and when it stops working. */
+        CustomerParentLink: {
+            /** @description links sent so far */
+            sent: number;
+            /** Format: date-time */
+            last_at: string | null;
+            /**
+             * Format: date-time
+             * @description the last one works for 7 days
+             */
+            expires_at: string | null;
+            expired: boolean;
+            /** @description sent today for this account */
+            today: number;
+            /** @description links a day to one parent's address or number */
+            daily_limit: number;
         };
         CustomerReturnLineRequest: {
             /** @description a book of the order: its items' `product` */
@@ -11203,6 +13612,27 @@ export interface components {
             reason: components["schemas"]["ReturnReasonEnum"];
             /** @description what happened */
             note?: string;
+        };
+        CustomerRow: components["schemas"]["Customer"] | components["schemas"]["CustomerGuest"];
+        CustomerTimeline: {
+            /** @description a student under 18: the course shows in counts, never a trail */
+            child: boolean;
+            /** @description newest first, at most 200 */
+            rows: components["schemas"]["CustomerTimelineRow"][];
+            /** @description `?before=` for the older rows; null: that is all */
+            next_before: string | null;
+            /** @description the parts the reader's permissions leave out (their kinds) */
+            withheld: string[];
+        };
+        CustomerTimelineRow: {
+            /** Format: date-time */
+            at: string;
+            /** @description order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff */
+            kind: string;
+            /** @description in words: numbers and codes, never an address or a number */
+            label: string;
+            /** @description the console's page for it (/orders/EL-…/), or null */
+            href: string | null;
         };
         DarkPatternAudit: {
             readonly id: number;
@@ -11976,6 +14406,586 @@ export interface components {
             /** @description the sync's dead row, if one */
             readonly erp_outbox: number | null;
         };
+        FinanceDocumentErp: {
+            number: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            /**
+             * @description mirrored (ERPNext has it), waiting, failed (tried again), dead (staff replay or discard it), discarded, not_sent (no outbox row: the reconciliation reports it), off (its flow is off), test
+             *
+             *     * `mirrored` - mirrored
+             *     * `waiting` - waiting
+             *     * `failed` - failed
+             *     * `dead` - dead
+             *     * `discarded` - discarded
+             *     * `not_sent` - not_sent
+             *     * `off` - off
+             *     * `test` - test
+             */
+            state: components["schemas"]["FinanceDocumentErpStateEnum"];
+            doctype: string | null;
+            /** @description ERPNext's name of it */
+            name: string | null;
+            /** Format: date-time */
+            synced_at: string | null;
+            /** @description its outbox rows, oldest first */
+            outbox: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `mirrored` - mirrored
+         *     * `waiting` - waiting
+         *     * `failed` - failed
+         *     * `dead` - dead
+         *     * `discarded` - discarded
+         *     * `not_sent` - not_sent
+         *     * `off` - off
+         *     * `test` - test
+         * @enum {string}
+         */
+        FinanceDocumentErpStateEnum: "mirrored" | "waiting" | "failed" | "dead" | "discarded" | "not_sent" | "off" | "test";
+        FinanceFetchRequest: {
+            /**
+             * Format: date
+             * @description a day of Razorpay's settlements (India), today at the latest
+             */
+            day: string;
+            /**
+             * @description fetch and match, keep nothing
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        FinanceLineRef: {
+            id: number;
+            order: string | null;
+            /** Format: decimal */
+            amount: string | null;
+        };
+        /** @description A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink). */
+        FinanceLink: {
+            kind: components["schemas"]["FinanceLinkKindEnum"];
+            /** @description the order link's payment, or the B2B link's own id */
+            id: number;
+            order: string | null;
+            /** @description the ERPNext invoice's name */
+            invoice: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            state: components["schemas"]["FinanceLinkStateEnum"];
+            url: string;
+            razorpay_link_id: string;
+            razorpay_payment_id: string | null;
+            /**
+             * Format: date-time
+             * @description when it was made
+             */
+            sent_at: string;
+            /**
+             * Format: date-time
+             * @description an order's: its last email to the customer
+             */
+            last_sent_at: string | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description a B2B link's: its entry posted in ERPNext
+             */
+            posted_at: string | null;
+            /** @description the Payment Entry FINANCE posted by hand */
+            erp_name: string;
+            livemode: boolean;
+            is_test: boolean;
+        };
+        /** @description A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink). */
+        FinanceLinkAnswer: {
+            kind: components["schemas"]["FinanceLinkKindEnum"];
+            /** @description the order link's payment, or the B2B link's own id */
+            id: number;
+            order: string | null;
+            /** @description the ERPNext invoice's name */
+            invoice: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            state: components["schemas"]["FinanceLinkStateEnum"];
+            url: string;
+            razorpay_link_id: string;
+            razorpay_payment_id: string | null;
+            /**
+             * Format: date-time
+             * @description when it was made
+             */
+            sent_at: string;
+            /**
+             * Format: date-time
+             * @description an order's: its last email to the customer
+             */
+            last_sent_at: string | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description a B2B link's: its entry posted in ERPNext
+             */
+            posted_at: string | null;
+            /** @description the Payment Entry FINANCE posted by hand */
+            erp_name: string;
+            livemode: boolean;
+            is_test: boolean;
+            detail: string;
+        };
+        FinanceLinkAskRequest: {
+            /** @description a staff order's number */
+            order?: string;
+            /** @description an ERPNext invoice */
+            invoice?: string;
+            /**
+             * @description send: made once, then sent again
+             *
+             *     * `send` - send
+             *     * `cancel` - cancel
+             */
+            action: components["schemas"]["OrderPaymentLinkActionEnum"];
+        };
+        /**
+         * @description * `order` - an order's link
+         *     * `invoice` - a B2B invoice's link
+         * @enum {string}
+         */
+        FinanceLinkKindEnum: "order" | "invoice";
+        FinanceLinkPostedRequest: {
+            /** @description the Payment Entry's name in ERPNext */
+            erp_name: string;
+        };
+        /**
+         * @description * `sent` - sent, waiting for the payment
+         *     * `paid` - paid
+         *     * `cancelled` - cancelled
+         *     * `expired` - expired unpaid
+         * @enum {string}
+         */
+        FinanceLinkStateEnum: "sent" | "paid" | "cancelled" | "expired";
+        FinanceMatchRequest: {
+            /** @description the line's id */
+            line: number;
+            /** @description a payment's id */
+            payment?: number | null;
+            /** @description a refund's id */
+            refund?: number | null;
+            /**
+             * @description an adjustment accepted as it is (no target)
+             * @default false
+             */
+            accept: boolean;
+            /** @description why: kept in the audit log */
+            note: string;
+        };
+        /** @description A payment in the list (no query a row: the view prefetches). */
+        FinancePayment: {
+            readonly id: number;
+            readonly order: string;
+            readonly order_status: components["schemas"]["OrderStatusEnum"];
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            readonly razorpay_payment_link_id: string | null;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (the key of its order).
+             */
+            readonly livemode: boolean;
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            /** @description waiting on Razorpay too long: ask it again */
+            readonly stuck: boolean;
+            /** @description a staff order's payment link */
+            readonly is_link: boolean;
+            /**
+             * Format: decimal
+             * @description Razorpay's fee without its GST, once settled
+             */
+            readonly fee: string | null;
+            /**
+             * Format: decimal
+             * @description the GST on the fee, once settled
+             */
+            readonly tax: string | null;
+            readonly settlement: components["schemas"]["FinanceSettlementRef"] | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description A payment as its record shows it: its order's facts, refunds, the webhooks seen (kept 7 days), what the last
+         *     webhook said of it (no card, bank or contact field; kept 180 days), and its timeline.
+         */
+        FinancePaymentDetail: {
+            readonly id: number;
+            readonly order: string;
+            readonly order_status: components["schemas"]["OrderStatusEnum"];
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            readonly razorpay_payment_link_id: string | null;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (the key of its order).
+             */
+            readonly livemode: boolean;
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            /** @description waiting on Razorpay too long: ask it again */
+            readonly stuck: boolean;
+            /** @description a staff order's payment link */
+            readonly is_link: boolean;
+            /**
+             * Format: decimal
+             * @description Razorpay's fee without its GST, once settled
+             */
+            readonly fee: string | null;
+            /**
+             * Format: decimal
+             * @description the GST on the fee, once settled
+             */
+            readonly tax: string | null;
+            readonly settlement: components["schemas"]["FinanceSettlementRef"] | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly order_id: number;
+            /** Format: decimal */
+            readonly order_total: string;
+            /** Format: date-time */
+            readonly order_placed_at: string;
+            /** Format: uri */
+            readonly payment_link_url: string;
+            readonly refunds: components["schemas"]["FinancePaymentRefund"][];
+            readonly webhooks: components["schemas"]["FinanceWebhook"][];
+            /** @description its allowed fields only */
+            readonly last_webhook: unknown;
+            readonly timeline: components["schemas"]["OrderTimelineEntry"][];
+        };
+        FinancePaymentRefund: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["RefundStatusEnum"];
+            readonly method: components["schemas"]["OrderRefundMethodEnum"];
+            readonly speed: components["schemas"]["RefundSpeedEnum"];
+            readonly razorpay_refund_id: string | null;
+            /** @description The bank's reference, from Razorpay. */
+            readonly arn: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+        };
+        FinanceReconciled: {
+            /** @description Razorpay had a captured payment for the order */
+            paid: boolean | null;
+            /** @description what Razorpay's answer changed, in words */
+            detail: string;
+            /** @description {what: [before, after]}: the order's status, each payment's, refunds */
+            changes: {
+                [key: string]: unknown;
+            };
+            payment: components["schemas"]["FinancePaymentDetail"];
+        };
+        /**
+         * @description A row of the offline payments' or the refunds' lists: a change request waiting for a second person (`request`),
+         *     or the payment or refund itself.
+         */
+        FinanceRequestRow: {
+            kind: components["schemas"]["FinanceRowKindEnum"];
+            /** @description the change request's, the payment's or the refund's */
+            id: number;
+            order: string;
+            /** Format: decimal */
+            amount: string | null;
+            /** @description the change request's status, or the payment's or the refund's */
+            status: string;
+            /** @description an offline payment's UTR or UPI reference */
+            reference: string;
+            /** @description a refund's: source, bank or none */
+            method: string;
+            speed: string;
+            reason: string;
+            /** @description the bank's reference of a refund, from Razorpay */
+            arn: string;
+            /** @description a bank refund's transfer */
+            utr: string;
+            razorpay_refund_id: string;
+            credit_note: string | null;
+            payee_masked: string;
+            payment_method: string;
+            error: string;
+            /** @description its approval (the console's /approvals/) */
+            change_request: number | null;
+            change_request_status: string;
+            /** @description the permission its approver needs */
+            checker: string;
+            rule: string;
+            /** @description who asked for it or recorded it */
+            by: string;
+            /** Format: date-time */
+            created: string;
+            /**
+             * Format: date-time
+             * @description a refund made, a payment recorded
+             */
+            done_at: string | null;
+            livemode: boolean;
+        };
+        /**
+         * @description * `request` - request
+         *     * `payment` - payment
+         *     * `refund` - refund
+         * @enum {string}
+         */
+        FinanceRowKindEnum: "request" | "payment" | "refund";
+        FinanceSettlement: {
+            readonly id: number;
+            /** Razorpay's id */
+            readonly settlement_id: string;
+            /**
+             * Format: date
+             * @description The day Razorpay settled it (India).
+             */
+            readonly date: string;
+            /** @description The bank's reference of the transfer. */
+            readonly utr: string;
+            /** Format: decimal */
+            readonly gross: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's fees without their GST
+             */
+            readonly fees: string;
+            /**
+             * Format: decimal
+             * @description the GST on the fees
+             */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly adjustments: string;
+            /**
+             * Format: decimal
+             * @description what reached the bank
+             */
+            readonly net: string;
+            readonly state: components["schemas"]["FinanceSettlementStateEnum"];
+            /** @description Why it is mismatched: counts, never a name. */
+            readonly problem: string;
+            /** Live mode */
+            readonly livemode: boolean;
+            readonly is_test: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** Format: date-time */
+            readonly posted_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        FinanceSettlementDetail: {
+            readonly id: number;
+            /** Razorpay's id */
+            readonly settlement_id: string;
+            /**
+             * Format: date
+             * @description The day Razorpay settled it (India).
+             */
+            readonly date: string;
+            /** @description The bank's reference of the transfer. */
+            readonly utr: string;
+            /** Format: decimal */
+            readonly gross: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's fees without their GST
+             */
+            readonly fees: string;
+            /**
+             * Format: decimal
+             * @description the GST on the fees
+             */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly adjustments: string;
+            /**
+             * Format: decimal
+             * @description what reached the bank
+             */
+            readonly net: string;
+            readonly state: components["schemas"]["FinanceSettlementStateEnum"];
+            /** @description Why it is mismatched: counts, never a name. */
+            readonly problem: string;
+            /** Live mode */
+            readonly livemode: boolean;
+            readonly is_test: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** Format: date-time */
+            readonly posted_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description its lines: in all, not yet ours, by type */
+            readonly counts: {
+                [key: string]: number;
+            };
+            readonly erp: components["schemas"]["FinanceSettlementErp"] | null;
+        };
+        FinanceSettlementErp: {
+            /** @description its outbox row (System → sync) */
+            outbox: number;
+            /** @description the row's: pending, sending, sent, failed, dead, discarded */
+            state: string;
+            attempts: number;
+            last_error: string;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** @description the Journal Entry ERPNext made */
+            name: string | null;
+        };
+        FinanceSettlementLine: {
+            readonly id: number;
+            readonly type: components["schemas"]["FinanceSettlementLineTypeEnum"];
+            /** Razorpay's id */
+            readonly entity_id: string;
+            /** Format: decimal */
+            readonly amount: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's, without its GST
+             */
+            readonly fee: string;
+            /** Format: decimal */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly credit: string;
+            /** Format: decimal */
+            readonly debit: string;
+            /** Format: date-time */
+            readonly settled_at: string | null;
+            /**
+             * Razorpay order's receipt
+             * @description Our number.
+             */
+            readonly order_receipt: string;
+            readonly order: string | null;
+            readonly payment: components["schemas"]["FinanceLineRef"] | null;
+            readonly refund: components["schemas"]["FinanceLineRef"] | null;
+            /** @description a B2B invoice's link it paid */
+            readonly link: {
+                [key: string]: unknown;
+            } | null;
+            readonly matched: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** @description empty: matched by Razorpay's id */
+            readonly matched_by: string;
+            /** @description Why it was matched by hand. */
+            readonly note: string;
+        };
+        /**
+         * @description * `payment` - payment
+         *     * `refund` - refund
+         *     * `adjustment` - adjustment
+         * @enum {string}
+         */
+        FinanceSettlementLineTypeEnum: "payment" | "refund" | "adjustment";
+        FinanceSettlementRef: {
+            id: number;
+            settlement_id: string;
+            /** Format: date */
+            date: string;
+            utr: string;
+            state: components["schemas"]["FinanceSettlementStateEnum"];
+        };
+        /**
+         * @description * `fetched` - fetched
+         *     * `matched` - matched
+         *     * `posted` - posted to ERPNext
+         *     * `mismatched` - mismatched
+         * @enum {string}
+         */
+        FinanceSettlementStateEnum: "fetched" | "matched" | "posted" | "mismatched";
+        FinanceToday: {
+            /** @description the site runs on live keys: test rows are left out */
+            livemode: boolean;
+            /** Format: date-time */
+            as_of: string;
+            rows: components["schemas"]["FinanceTodayRow"][];
+        };
+        /**
+         * @description * `refunds_to_approve` - refunds_to_approve
+         *     * `bank_refunds` - bank_refunds
+         *     * `offline_to_approve` - offline_to_approve
+         *     * `stuck_payments` - stuck_payments
+         *     * `b2b_to_post` - b2b_to_post
+         *     * `settlement_lines` - settlement_lines
+         *     * `settlements_mismatched` - settlements_mismatched
+         *     * `cod_receivable` - cod_receivable
+         *     * `cod_overdue` - cod_overdue
+         *     * `cod_mismatched` - cod_mismatched
+         *     * `credit_notes_refused` - credit_notes_refused
+         *     * `sync_differences` - sync_differences
+         *     * `disputes` - disputes
+         * @enum {string}
+         */
+        FinanceTodayKeyEnum: "refunds_to_approve" | "bank_refunds" | "offline_to_approve" | "stuck_payments" | "b2b_to_post" | "settlement_lines" | "settlements_mismatched" | "cod_receivable" | "cod_overdue" | "cod_mismatched" | "credit_notes_refused" | "sync_differences" | "disputes";
+        FinanceTodayRow: {
+            key: components["schemas"]["FinanceTodayKeyEnum"];
+            /** @description null: not configured */
+            count: number | null;
+            /**
+             * Format: date
+             * @description the day of the oldest (India)
+             */
+            oldest: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            configured: boolean;
+        };
+        FinanceWebhook: {
+            event_id: string;
+            /** @description payment.captured, payment.failed, order.paid, payment_link.paid, refund.… */
+            name: string;
+            /** Format: date-time */
+            received_at: string;
+        };
         Flag: {
             key: string;
             /** @description in effect now (a known flag not set: the environment's) */
@@ -12046,9 +15056,11 @@ export interface components {
          *     * `accounts_per_code` - one code tried by several accounts
          *     * `shared_phone` - accounts sharing a phone number on COD or coupon orders
          *     * `shared_address` - accounts sharing an address on COD or coupon orders
+         *     * `codes_failed_device` - failed book codes from one device in an hour
+         *     * `codes_undispatched` - codes redeemed from a batch not yet dispatched (a leak)
          * @enum {string}
          */
-        FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address";
+        FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address" | "codes_failed_device" | "codes_undispatched";
         GoogleFigures: {
             /** @description STAFF_GOOGLE_DOMAIN: staff's Workspace */
             domain: string;
@@ -12192,6 +15204,80 @@ export interface components {
              * @description the last day it holds; none: released
              */
             until?: string | null;
+        };
+        Home: {
+            /** Format: date-time */
+            as_of: string;
+            /** @description the period of the totals */
+            period: components["schemas"]["HomePeriod"];
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            /** @description orders placed in the periods shown that were made with test keys on the live site, left out */
+            test_orders_left_out: number;
+            cards: components["schemas"]["HomeCard"][];
+        };
+        HomeCard: {
+            key: string;
+            label: string;
+            /** @description measure (a total) or queue (what waits for a person) */
+            group: string;
+            /** @description inr (rupees, two places) or count */
+            unit: string;
+            /** @description a decimal string for rupees, a whole number else; null with an error */
+            value: string | null;
+            /** @description how it is counted, in words (shown on hover and in 'How this is counted') */
+            definition: string;
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the days a total covers; null for a queue */
+            period: components["schemas"]["HomeSpan"] | null;
+            /** @description the console's list or report it counts, already filtered */
+            href: string;
+            /** @description made of test-mode rows (the site runs on test keys) */
+            test_mode: boolean;
+            comparison: components["schemas"]["HomeComparison"] | null;
+            error: string;
+        };
+        HomeComparison: {
+            /** @description the same figure for the period before, of the same length */
+            previous: string;
+            /** @description this period's less the previous one's, signed */
+            difference: string;
+            /** @description the difference as a signed percent of the previous; null from 0 */
+            percent: string | null;
+            period: components["schemas"]["HomeSpan"];
+        };
+        HomePeriod: {
+            /**
+             * Format: date
+             * @description the first day (India's calendar)
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
+            /** @description today, week or month */
+            key: string;
+            label: string;
+        };
+        HomeSpan: {
+            /**
+             * Format: date
+             * @description the first day (India's calendar)
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
         };
         HsnCode: {
             readonly code: string;
@@ -12407,9 +15493,12 @@ export interface components {
          *     * `ticket_due` - a ticket's legal clock three quarters gone
          *     * `ticket_breach` - a ticket past its legal clock
          *     * `ticket_mention` - named in a ticket's note
+         *     * `settlement` - a Razorpay settlement that does not match
+         *     * `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext
+         *     * `fraud_signal` - a fraud signal to look at
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention" | "settlement" | "b2b_payment" | "fraud_signal";
         Incident: {
             readonly id: number;
             title: string;
@@ -12595,15 +15684,18 @@ export interface components {
          *     * `orders_export` - order export
          *     * `content_import` - import from the books repository
          *     * `grievance_export` - grievance register export
+         *     * `settlement_fetch` - Razorpay settlements fetched
+         *     * `report_export` - report export
          *     * `coupon_codes` - single-use coupon codes
          *     * `product_import` - product import
          *     * `product_export` - product export
+         *     * `code_batch` - book codes made for the printer
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "coupon_codes" | "product_import" | "product_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "settlement_fetch" | "report_export" | "coupon_codes" | "product_import" | "product_export" | "code_batch";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); coupon_codes: {"coupon": a single-use coupon's code, "count", "prefix", "note": the school's name}; product_import: {"file": catalogue/import/'s, "dry_run_job": the dry run's id (to apply)}; product_export: {"filters": {…}} (the product list's) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; the customers' bulk actions (user.suspend, user.unsuspend, user.end_sessions, user.resend_consent) name accounts by id and take no payload; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/); coupon_codes: {"coupon": a single-use coupon's code, "count", "prefix", "note": the school's name}; product_import: {"file": catalogue/import/'s, "dry_run_job": the dry run's id (to apply)}; product_export: {"filters": {…}} (the product list's); code_batch: {"batch": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one) */
             params?: {
                 [key: string]: unknown;
             };
@@ -14452,7 +17544,7 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ContentSolution"][];
         };
-        PaginatedCustomerList: {
+        PaginatedCourseBatchList: {
             /**
              * Format: uri
              * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
@@ -14463,7 +17555,72 @@ export interface components {
              * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
              */
             previous?: string | null;
-            results: components["schemas"]["Customer"][];
+            results: components["schemas"]["CourseBatch"][];
+        };
+        PaginatedCourseBinRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseBinRow"][];
+        };
+        PaginatedCourseEntitlementList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseEntitlement"][];
+        };
+        PaginatedCourseItemRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseItemRow"][];
+        };
+        PaginatedCustomerConsentPendingList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CustomerConsentPending"][];
+        };
+        PaginatedCustomerRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CustomerRow"][];
         };
         PaginatedDarkPatternAuditList: {
             /**
@@ -14600,6 +17757,71 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Failure"][];
+        };
+        PaginatedFinanceLinkList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceLink"][];
+        };
+        PaginatedFinancePaymentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinancePayment"][];
+        };
+        PaginatedFinanceRequestRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceRequestRow"][];
+        };
+        PaginatedFinanceSettlementLineList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceSettlementLine"][];
+        };
+        PaginatedFinanceSettlementList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceSettlement"][];
         };
         PaginatedFlashCardList: {
             /** @example 123 */
@@ -15641,6 +18863,61 @@ export interface components {
             printing?: string;
             step?: number | null;
         };
+        PatchedCourseCardRequest: {
+            /** @description Markdown. */
+            front?: string;
+            /** @description Markdown. */
+            back?: string;
+            tags?: string[];
+        };
+        PatchedCourseChapterRequest: {
+            /**
+             * Must-do note
+             * @description Markdown.
+             */
+            must_do?: string;
+        };
+        PatchedCourseClipRequest: {
+            title?: string;
+            kind?: components["schemas"]["ClipKindEnum"];
+            /**
+             * Transcript or notes
+             * @description Markdown.
+             */
+            notes?: string;
+            /**
+             * Free preview
+             * @description The first clip of a revision is free anyway (LEARN_FREE_PREVIEW).
+             */
+            is_free_preview?: boolean;
+            tags?: string[];
+        };
+        PatchedCourseItemRequest: {
+            kind?: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            text?: string;
+            /** @description Multiple choice: the options, ["(i) …", …]. */
+            options?: unknown;
+            /** @description Multiple choice: the right option's number (1 for the first); true or false: true or false; fill in the blank: the accepted answers, separated by |. */
+            answer?: string;
+            /** @description Markdown. */
+            explanation?: string;
+            /** @description Within the chapter: Coulomb's law. */
+            topic?: string;
+            marks?: number;
+            difficulty?: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            /** Bloom level */
+            bloom?: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
+            tags?: string[];
+        };
+        PatchedCourseRevisionRequest: {
+            title?: string;
+            /** @description 10 to 15. */
+            target_minutes?: number;
+        };
         PatchedDarkPatternAuditRequest: {
             /**
              * Format: int64
@@ -16545,6 +19822,23 @@ export interface components {
             options?: unknown;
         };
         /**
+         * @description * `remember` - remember
+         *     * `understand` - understand
+         *     * `apply` - apply
+         *     * `analyse` - analyse
+         *     * `evaluate` - evaluate
+         *     * `create` - create
+         * @enum {string}
+         */
+        QuizItemBloomEnum: "remember" | "understand" | "apply" | "analyse" | "evaluate" | "create";
+        /**
+         * @description * `easy` - easy
+         *     * `medium` - medium
+         *     * `hard` - hard
+         * @enum {string}
+         */
+        QuizItemDifficultyEnum: "easy" | "medium" | "hard";
+        /**
          * @description * `mcq` - multiple choice
          *     * `true_false` - true or false
          *     * `fill_blank` - fill in the blank
@@ -16850,6 +20144,418 @@ export interface components {
             replayed: number;
             /** @description more failed events wait: replay again */
             more: boolean;
+        };
+        ReportBacktest: {
+            horizon_weeks: number;
+            /** Format: double */
+            wape: number | null;
+            /** Format: double */
+            mase_vs_seasonal_naive: number | null;
+            shown: boolean;
+            n_weeks: number;
+            /** Format: date-time */
+            data_as_of: string;
+        };
+        ReportCod: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            /** Format: date */
+            as_of_day: string;
+            /** @description remitted in the period */
+            remitted: components["schemas"]["ReportCodRemitted"];
+            by_courier: components["schemas"]["ReportCodCourier"][];
+            /** @description what is outstanding, by how late */
+            rows: components["schemas"]["ReportCodRow"][];
+        };
+        ReportCodCourier: {
+            courier: string;
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            overdue: number;
+        };
+        ReportCodRemitted: {
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            /** Format: decimal */
+            received: string;
+            /**
+             * Format: decimal
+             * @description received less expected
+             */
+            difference: string;
+        };
+        ReportCodRow: {
+            key: string;
+            label: string;
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            /** Format: date */
+            oldest_expected_on: string | null;
+        };
+        ReportCodes: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            batch: string;
+            minimum: number;
+            /** Format: date-time */
+            districts_computed_at: string | null;
+            districts: components["schemas"]["ReportCodesDistrict"][];
+            rows: components["schemas"]["ReportCodesRow"][];
+        };
+        ReportCodesDistrict: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            district: string;
+            redeemed: number | null;
+            redeemed_7d: number | null;
+        };
+        ReportCodesRow: {
+            batch: string;
+            printed: number;
+            /** @description null until the course module records a batch's book */
+            sold: number | null;
+            activated: number;
+            activated_7d: number;
+            /** @description null until the course module can void codes */
+            revoked: number | null;
+            /** Format: decimal */
+            activation_rate: string | null;
+        };
+        ReportColumn: {
+            key: string;
+            label: string;
+            /** @description how the column's numbers are counted */
+            definition: string;
+        };
+        ReportDemandRange: {
+            /** @description copies from now to the exam: a season in ten sells less */
+            p10: number;
+            p50: number;
+            /** @description a season in ten sells more */
+            p90: number;
+            weeks: number;
+        };
+        ReportHealth: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            grain: string;
+            /**
+             * Format: date-time
+             * @description null: the nightly job has not run yet
+             */
+            computed_at: string | null;
+            /** @description a cell of fewer learners is hidden */
+            minimum: number;
+            subject: number | null;
+            chapter: number | null;
+            /** @description the subjects the person looks after */
+            subjects: components["schemas"]["ReportHealthSubject"][];
+            /** @description the series is of the whole course */
+            whole_course: boolean;
+            /** @description active learners and the rest, one point per period */
+            series: components["schemas"]["ReportHealthPoint"][];
+            codes_by_week: components["schemas"]["ReportHealthWeek"][];
+            /** @description the chapters over the last 28 days */
+            rows: components["schemas"]["ReportHealthChapter"][];
+        };
+        ReportHealthChapter: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            subject: number;
+            chapter: number;
+            number: number;
+            title: string;
+            label: string;
+            active_7d: number | null;
+            active_28d: number | null;
+            clips_started: number | null;
+            clips_completed: number | null;
+            /** Format: decimal */
+            completion_rate: string | null;
+            quiz_answers: number | null;
+            /** Format: decimal */
+            quiz_accuracy: string | null;
+            card_reviews: number | null;
+            card_lapses: number | null;
+        };
+        ReportHealthPoint: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            /** Format: date */
+            period_start: string;
+            active_learners: number | null;
+            clips_completed: number | null;
+            quiz_answers: number | null;
+            /** Format: decimal */
+            quiz_accuracy: string | null;
+            card_reviews: number | null;
+            card_lapses: number | null;
+            /**
+             * Format: decimal
+             * @description daily series only
+             */
+            smoothed_7: string | null;
+            /**
+             * Format: decimal
+             * @description daily series only
+             */
+            smoothed_28: string | null;
+        };
+        ReportHealthSubject: {
+            id: number;
+            name: string;
+        };
+        ReportHealthWeek: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            /** Format: date */
+            week_start: string;
+            redeemed: number | null;
+        };
+        ReportIndex: {
+            test_mode: boolean;
+            reports: components["schemas"]["ReportIndexItem"][];
+        };
+        ReportIndexItem: {
+            key: string;
+            label: string;
+            summary: string;
+            /** @description the console's page */
+            page: string;
+            /** @description where the numbers are */
+            api: string;
+            /** @description the permissions that open it */
+            needs: string[];
+            /** @description the person holds them all */
+            available: boolean;
+            /** @description false: its source is not set up yet */
+            configured: boolean;
+        };
+        ReportPeriod: {
+            /** Format: date */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
+        };
+        ReportPlace: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            level: string;
+            state: string;
+            /** @description a place with fewer orders is hidden */
+            minimum: number;
+            hidden_rows: number;
+            /** @description the rows shown only: the places hidden are not in it */
+            totals_shown: components["schemas"]["ReportPlaceTotals"];
+            rows: components["schemas"]["ReportPlaceRow"][];
+        };
+        ReportPlaceRow: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            level: string;
+            /** @description a state's code */
+            state: string | null;
+            state_name: string | null;
+            district: string | null;
+            pin: string | null;
+            label: string;
+            orders: number | null;
+            units: number | null;
+            /** Format: decimal */
+            net: string | null;
+        };
+        ReportPlaceTotals: {
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportPrintRun: {
+            product: string;
+            title: string;
+            /** Format: decimal */
+            net_price: string;
+            /** Format: decimal */
+            unit_cost: string;
+            /** Format: decimal */
+            salvage: string;
+            /**
+             * Format: double
+             * @description (net price - cost) / (net price - salvage): the quantile to print
+             */
+            critical_ratio: number;
+            /** @description the critical ratio in percent: print the Pn of the demand */
+            percentile: number;
+            /** @description the season's demand at that percentile */
+            target_quantity: number | null;
+            /** @description copies in stock and on order */
+            supply: number;
+            /** @description copies to print now; null: no forecast */
+            recommended_quantity: number | null;
+            range: components["schemas"]["ReportDemandRange"] | null;
+            method: string;
+            /** Format: date-time */
+            data_as_of: string | null;
+            /** @description the last backtest of every title, 4 weeks ahead */
+            backtest: components["schemas"]["ReportBacktest"] | null;
+            /** @description false: the forecast has not beaten the seasonal naive in a backtest */
+            shown: boolean;
+            note: string;
+        };
+        ReportPrintRunRequestRequest: {
+            /** @description the title's slug */
+            product: string;
+            /**
+             * Format: decimal
+             * @description what a copy sells for after discounts
+             */
+            net_price: string;
+            /**
+             * Format: decimal
+             * @description print cost per copy
+             */
+            unit_cost: string;
+            /**
+             * Format: decimal
+             * @description what a copy left after the exams fetches
+             * @default 0.00
+             */
+            salvage: string;
+        };
+        ReportSales: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            by: string;
+            grain: string;
+            /** @description the whole period, whatever the grouping */
+            totals: components["schemas"]["ReportSalesTotals"];
+            rows: components["schemas"]["ReportSalesRow"][];
+        };
+        ReportSalesRow: {
+            key: string;
+            label: string;
+            /** Format: date */
+            period_start: string | null;
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            gross: string;
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportSalesTotals: {
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            gross: string;
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportSettlementRow: {
+            reference: string;
+            /** Format: date */
+            date: string | null;
+            /** Format: decimal */
+            gross: string | null;
+            /** Format: decimal */
+            fees: string | null;
+            /** Format: decimal */
+            tax: string | null;
+            /** Format: decimal */
+            refunds: string | null;
+            /** Format: decimal */
+            net: string | null;
+            utr: string;
+            state: string;
+        };
+        ReportSettlements: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            /** @description false: the Finance module has not set up the settlements */
+            configured: boolean;
+            note: string;
+            rows: components["schemas"]["ReportSettlementRow"][];
         };
         /**
          * @description * `solution` - solution
@@ -26235,6 +29941,1129 @@ export interface operations {
             };
         };
     };
+    staff_course_bin_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description clips (default), cards or items */
+                kind?: "cards" | "clips" | "items";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseBinRowList"];
+                };
+            };
+        };
+    };
+    staff_course_cards_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_cards_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseCardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_chapters_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this chapter. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseChapterRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseChapter"];
+                };
+            };
+        };
+    };
+    staff_course_clips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_clips_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseClipRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_retry_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its label */
+                q?: string;
+                /**
+                 * @description * `generating` - generating
+                 *     * `failed` - failed
+                 *     * `ready` - ready
+                 *     * `dispatched` - dispatched
+                 *     * `void` - void
+                 */
+                state?: "dispatched" | "failed" | "generating" | "ready" | "void";
+                /** @description its code, or ALL */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseBatchList"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseBatchCreateRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchStarted"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchDetail"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_dispatched_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseDispatchedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatch"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_void_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseVoidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchVoided"];
+                };
+            };
+        };
+    };
+    staff_course_codes_lookup_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCodeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCodeLookup"];
+                };
+            };
+        };
+    };
+    staff_course_codes_report_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseReport"];
+                };
+            };
+        };
+    };
+    staff_course_codes_void_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCodeVoidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCodeVoided"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an account's email address, exactly */
+                q?: string;
+                /**
+                 * @description * `book_code` - book code
+                 *     * `purchase` - purchase
+                 *     * `grant` - staff grant
+                 */
+                source?: "book_code" | "grant" | "purchase";
+                /**
+                 * @description * `active` - open today
+                 *     * `ended` - ended
+                 *     * `revoked` - revoked by staff
+                 */
+                state?: "active" | "ended" | "revoked";
+                /** @description its code, or ALL: every subject */
+                subject?: string;
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseEntitlementList"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseGrantRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlementDetail"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_extend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseExtendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_items_list: {
+        parameters: {
+            query?: {
+                /** @description a Bloom level, or none (not set) */
+                bloom?: string;
+                chapter?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description easy, medium, hard, or none (not set) */
+                difficulty?: string;
+                /** @description true: an open report in the triage */
+                flagged?: boolean;
+                /** @description any, or a flag: low_discrimination, too_easy, too_hard, distractor */
+                flags?: string;
+                /**
+                 * @description * `mcq` - multiple choice
+                 *     * `true_false` - true or false
+                 *     * `fill_blank` - fill in the blank
+                 */
+                kind?: "fill_blank" | "mcq" | "true_false";
+                marks?: number;
+                /** @description true: under 30 learners (N/A) */
+                n_too_small?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description words of its text */
+                q?: string;
+                /**
+                 * @description * `book` - from a book question
+                 *     * `app` - written for the app
+                 */
+                source?: "app" | "book";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description one tag's name, exactly */
+                tag?: string;
+                topic?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseItemRowList"];
+                };
+            };
+        };
+    };
+    staff_course_items_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_items_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_flag_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseFlagRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseFlagAnswer"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseFlagAnswer"];
+                };
+            };
+        };
+    };
+    staff_course_items_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"][];
+                };
+            };
+        };
+    };
+    staff_course_items_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_learners_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseLearner"];
+                };
+            };
+        };
+    };
+    staff_course_learners_devices_sign_out_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device: number;
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_course_revisions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseRevisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseCommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_needs_changes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseCommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CoursePublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_unpublish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_subjects_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseSubject"][];
+                };
+            };
+        };
+    };
+    staff_course_subjects_outline_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOutline"];
+                };
+            };
+        };
+    };
     staff_data_requests_list: {
         parameters: {
             query?: {
@@ -26860,6 +31689,455 @@ export interface operations {
             };
         };
     };
+    staff_finance_documents_erp_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceDocumentErp"];
+                };
+            };
+        };
+    };
+    staff_finance_offline_payments_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number */
+                q?: string;
+                /** @description waiting: the change requests */
+                state?: "recorded" | "waiting";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceRequestRowList"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                kind?: "invoice" | "order";
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number, or an ERPNext invoice's name */
+                q?: string;
+                /**
+                 * @description * `sent` - sent, waiting for the payment
+                 *     * `paid` - paid
+                 *     * `cancelled` - cancelled
+                 *     * `expired` - expired unpaid
+                 */
+                state?: "cancelled" | "expired" | "paid" | "sent";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceLinkList"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceLinkAskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_invoices_posted_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this invoice payment link. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceLinkPostedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_invoices_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this invoice payment link. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_list: {
+        parameters: {
+            query?: {
+                /** @description a day (India time), from it on */
+                created_from?: string;
+                /** @description a day (India time), up to its end */
+                created_to?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /**
+                 * @description * `razorpay` - online (UPI, card, net banking)
+                 *     * `cod` - cash on delivery
+                 *     * `offline` - bank transfer or UPI to our account
+                 */
+                method?: "cod" | "offline" | "razorpay";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number, a Razorpay payment, order or link id, an offline reference */
+                q?: string;
+                /**
+                 * @description * `created` - created
+                 *     * `authorized` - authorized
+                 *     * `captured` - captured
+                 *     * `failed` - failed
+                 *     * `refunded` - refunded
+                 */
+                status?: "authorized" | "captured" | "created" | "failed" | "refunded";
+                /** @description true: the stuck ones (SHOP_STUCK_PAYMENT_MINUTES) */
+                stuck?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinancePaymentList"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this payment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancePaymentDetail"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this payment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceReconciled"];
+                };
+            };
+        };
+    };
+    staff_finance_refunds_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                method?: "bank" | "none" | "source";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number */
+                q?: string;
+                /** @description waiting: approvals */
+                state?: "failed" | "pending" | "processed" | "waiting";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceRequestRowList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                date_from?: string;
+                date_to?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Razorpay's settlement id (setl_…) or its UTR */
+                q?: string;
+                /**
+                 * @description * `fetched` - fetched
+                 *     * `matched` - matched
+                 *     * `posted` - posted to ERPNext
+                 *     * `mismatched` - mismatched
+                 */
+                state?: "fetched" | "matched" | "mismatched" | "posted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceSettlementList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this settlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceSettlementDetail"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_match_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this settlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceMatchRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceSettlementLine"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_lines_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                matched?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `payment` - payment
+                 *     * `refund` - refund
+                 *     * `adjustment` - adjustment
+                 */
+                type?: "adjustment" | "payment" | "refund";
+            };
+            header?: never;
+            path: {
+                settlement: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceSettlementLineList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_fetch_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceFetchRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_finance_today_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceToday"];
+                };
+            };
+        };
+    };
     staff_flags_list: {
         parameters: {
             query?: never;
@@ -26946,6 +32224,28 @@ export interface operations {
             };
         };
     };
+    staff_home_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the totals' period (week) */
+                period?: "month" | "today" | "week";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+        };
+    };
     staff_inbox_list: {
         parameters: {
             query?: {
@@ -26988,8 +32288,11 @@ export interface operations {
                  *     * `ticket_due` - a ticket's legal clock three quarters gone
                  *     * `ticket_breach` - a ticket past its legal clock
                  *     * `ticket_mention` - named in a ticket's note
+                 *     * `settlement` - a Razorpay settlement that does not match
+                 *     * `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext
+                 *     * `fraud_signal` - a fraud signal to look at
                  */
-                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
+                kind?: "approval" | "b2b_payment" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "fraud_signal" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "settlement" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -27275,11 +32578,14 @@ export interface operations {
                  *     * `orders_export` - order export
                  *     * `content_import` - import from the books repository
                  *     * `grievance_export` - grievance register export
+                 *     * `settlement_fetch` - Razorpay settlements fetched
+                 *     * `report_export` - report export
                  *     * `coupon_codes` - single-use coupon codes
                  *     * `product_import` - product import
                  *     * `product_export` - product export
+                 *     * `code_batch` - book codes made for the printer
                  */
-                kind?: "audit_export" | "bulk_action" | "content_import" | "coupon_codes" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "product_export" | "product_import";
+                kind?: "audit_export" | "bulk_action" | "code_batch" | "content_import" | "coupon_codes" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "product_export" | "product_import" | "report_export" | "settlement_fetch";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -29779,6 +35085,198 @@ export interface operations {
             };
         };
     };
+    staff_reports_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportIndex"];
+                };
+            };
+        };
+    };
+    staff_reports_cod_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCod"];
+                };
+            };
+        };
+    };
+    staff_reports_codes_retrieve: {
+        parameters: {
+            query?: {
+                /** @description one batch's districts */
+                batch?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCodes"];
+                };
+            };
+        };
+    };
+    staff_reports_course_health_retrieve: {
+        parameters: {
+            query?: {
+                /** @description a chapter's id */
+                chapter?: number;
+                /** @description the series' periods (week) */
+                grain?: "day" | "month" | "week";
+                /** @description a subject's id (the whole course by default) */
+                subject?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportHealth"];
+                };
+            };
+        };
+    };
+    staff_reports_print_run_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportPrintRunRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPrintRun"];
+                };
+            };
+        };
+    };
+    staff_reports_sales_retrieve: {
+        parameters: {
+            query?: {
+                by?: "board" | "class" | "edition" | "none" | "product" | "subject";
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description a row per period too */
+                grain?: "day" | "month" | "none" | "week";
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSales"];
+                };
+            };
+        };
+    };
+    staff_reports_sales_by_place_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                level?: "district" | "pin" | "state";
+                /** @description a state's code (AS): the districts and PIN codes of it */
+                state?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPlace"];
+                };
+            };
+        };
+    };
+    staff_reports_settlements_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSettlements"];
+                };
+            };
+        };
+    };
     staff_saved_views_list: {
         parameters: {
             query?: {
@@ -31547,9 +37045,17 @@ export interface operations {
                 /** @description The pagination cursor value. */
                 cursor?: string;
                 is_active?: boolean;
+                /**
+                 * @description the tab: students (a class level, or under 18), parents (adult accounts a student named as their parent's contact), guests (buyers without an account: another shape of row, by their orders)
+                 *
+                 *     * `students` - accounts with a class level, or a student under 18
+                 *     * `parents` - adult accounts a student named as their parent's contact
+                 *     * `guests` - buyers without an account, by the email address of their orders
+                 */
+                kind?: "guests" | "parents" | "students";
                 /** @description Number of results to return per page. */
                 page_size?: number;
-                /** @description an email address, a mobile number, or 3+ letters of a name */
+                /** @description an email address (exactly), a mobile number in any Indian format or its last digits (4 or more), or 3 letters or more of a name: a lookup of a person, written to the access log */
                 q?: string;
             };
             header?: never;
@@ -31563,7 +37069,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedCustomerList"];
+                    "application/json": components["schemas"]["PaginatedCustomerRowList"];
                 };
             };
         };
@@ -31586,6 +37092,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+        };
+    };
+    staff_users_commerce_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerCommerce"];
+                };
+            };
+        };
+    };
+    staff_users_consent_verify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerConsentVerifyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerConsentRecord"];
                 };
             };
         };
@@ -31788,6 +37342,33 @@ export interface operations {
             };
         };
     };
+    staff_users_timeline_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the older rows: the `next_before` of the last answer (or a time) */
+                before?: string;
+                /** @description only these kinds, comma-separated: order, payment, refund, code, access, course, ticket, sms, email, consent, note, staff */
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerTimeline"];
+                };
+            };
+        };
+    };
     staff_users_unlock_create: {
         parameters: {
             query?: never;
@@ -31832,6 +37413,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    staff_users_consent_pending_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCustomerConsentPendingList"];
                 };
             };
         };

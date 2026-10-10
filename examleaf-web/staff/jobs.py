@@ -62,8 +62,17 @@ class Cancelled(Exception):
 
 
 def bulk_actions():
-    """The approvals actions a bulk action may name: those asked for through change-requests/."""
-    return sorted(name for name, action in approvals.ACTIONS.items() if action.generic)
+    """The approvals actions a bulk action may name: those asked for through change-requests/, and the customers'
+    account actions (user.suspend …), which are named by bulk actions only."""
+    return sorted(name for name, action in approvals.ACTIONS.items() if action.generic or action.bulk)
+
+
+def children_in(kind, params):
+    """How many of a bulk action's targets are children's accounts (Action.children): such a job waits for an approver
+    whatever its size (a child's data is never changed in bulk by one person alone)."""
+    if kind == Job.Kind.BULK_ACTION and isinstance(params, dict) and params.get("action") in approvals.ACTIONS:
+        return approvals.ACTIONS[params["action"]].children(params.get("targets") or [])
+    return 0
 
 
 def permission(kind, params):
@@ -104,6 +113,8 @@ def _event(job, verb, request=None, **kwargs):
         "failed": len(job.errors),
         "dry_run": job.dry_run,
     }
+    if job.kind == Job.Kind.BULK_ACTION and isinstance(job.params, dict):  # the batch's own event names its action
+        details["action"] = str(job.params.get("action", ""))[:60]
     return audit.record(f"job.{verb}", request=request, actor=job.started_by, target=job, details=details, **kwargs)
 
 
@@ -148,7 +159,7 @@ def start(kind, params, *, user, dry_run=False, request=None):
             CodeBatch.objects.filter(pk=params["batch"]).update(job=job)
         _event(job, "requested", request)
         limit = approvals.limit_of(user, LIMITS[kind]) if kind in LIMITS else None
-        if dry_run or not approvals.over(total, limit, "{amount} {limit}"):
+        if dry_run or not (approvals.over(total, limit, "{amount} {limit}") or children_in(kind, params)):
             enqueue(job)
             return job
         reason = f"{job.get_kind_display().capitalize()} of {total:,} rows (job #{job.pk})"
@@ -263,7 +274,9 @@ def export_audit(job, progress):
 
 def bulk_action(job, progress):
     """Each target as its own request (`approvals.ask`, an idempotency key per job and target: a task run twice does
-    nothing twice): run at once within the limits, waiting for an approver above them, or refused with its reason."""
+    nothing twice): run at once within the limits, waiting for an approver above them, or refused with its reason.
+    The result also counts the children's accounts among the targets (`minors`), and a dry run says whether the real
+    run will wait for an approver (`approval`: the rule's words, or null)."""
     params, maker = job.params, job.started_by
     action = approvals.ACTIONS[params["action"]]
     outcomes, waiting = Counter(), []
@@ -287,7 +300,12 @@ def bulk_action(job, progress):
             outcomes["refused"] += 1
             progress.error(target, target, message(error))
         progress.row()
-    return {"outcomes": dict(outcomes), "waiting": waiting}
+    result = {"outcomes": dict(outcomes), "waiting": waiting}
+    if minors := action.children(params["targets"]):
+        result["minors"] = minors
+    if job.dry_run:
+        result["approval"] = approvals.bulk_rule(maker, len(params["targets"]), minors)
+    return result
 
 
 def erp_initial_load(job, progress):

@@ -4,11 +4,15 @@ from datetime import date, timedelta
 
 from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import is_mfa_enabled
+from axes.models import AccessAttempt
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts import roles
+from accounts.models import age_on
 from api.views import DetailSerializer  # noqa: F401  (the API's own, one schema component)
 
 from . import catalogue
@@ -194,7 +198,9 @@ class JobStartSerializer(serializers.Serializer):
         default=dict,
         help_text='audit_export: {"filters": {…}} (the audit list\'s); bulk_action: {"action": "order.refund", '
         '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), '
-        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); '
+        '"reason"}; the customers\' bulk actions (user.suspend, user.unsuspend, user.end_sessions, '
+        "user.resend_consent) name accounts by id and take no payload; "
+        'erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); '
         'gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); '
         'orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", '
         '"customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the '
@@ -279,7 +285,7 @@ class JobStartSerializer(serializers.Serializer):
         if action not in bulk_actions():
             problems["action"] = [f"One of {', '.join(bulk_actions())}."]
         if not isinstance(targets, list) or not targets or not all(isinstance(t, str | int) for t in targets):
-            problems["targets"] = ["A list of order numbers, slugs or ids."]
+            problems["targets"] = ["A list of order numbers, slugs or ids (accounts' ids for the customers' actions)."]
         elif len(targets) > self.MAX_TARGETS or len({str(t) for t in targets}) != len(targets):
             problems["targets"] = [f"At most {self.MAX_TARGETS:,}, each once."]
         if not isinstance(payload, dict):
@@ -532,8 +538,42 @@ def consent_state(user) -> str:
     return "pending" if site_setting("PARENTAL_CONSENT_MODE") == "verified" else "declared"
 
 
+def age_band(user) -> str:
+    """under_13, 13_17, adult, or unknown (no date of birth on record): the badge, never the date (reveal/ shows it)."""
+    if user.date_of_birth is None:
+        return "unknown"
+    age = age_on(user.date_of_birth)
+    return "under_13" if age < 13 else "13_17" if age < 18 else "adult"
+
+
+def consent_method(user) -> str:
+    """How a student under 18's consent stands: the method of the newest consent a parent verified (email_link,
+    sms_link, adult_account, digilocker, staff_manual), else of the newest one given (declared); empty for an adult or
+    when none is on record. From the prefetched consent records, newest first."""
+    if not user.is_minor:
+        return ""
+    given = [record for record in user.consents.all() if record.event == "given"]
+    verified = [record for record in given if record.verified_at]
+    chosen = verified or given
+    return chosen[0].method if chosen else ""
+
+
+def locked_usernames(users) -> set[str]:
+    """Of these accounts' sign-in names (the email address, the log-in number), those django-axes locked out after
+    AXES_FAILURE_LIMIT failed log-ins: one query for a whole page of accounts."""
+    names = {name for user in users for name in (user.email, user.login_phone) if name}
+    failed = AccessAttempt.objects.filter(username__in=names, failures_since_start__gte=settings.AXES_FAILURE_LIMIT)
+    return set(failed.values_list("username", flat=True))
+
+
+SECOND_FACTORS = {Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN}  # recovery codes alone are not a factor
+
+
 class CustomerSerializer(serializers.ModelSerializer):
-    """A customer as support sees one: contact details masked (reveal/ shows them, logged)."""
+    """A customer as support sees one: contact details masked (reveal/ shows them, logged), with the badges the plan
+    asks for (5.4): email and phone verified, age band, the parental consent's state and method, teacher verification,
+    two-step sign-in on, and the account's status (with a lock-out apart: `locked`). A list reads them with no query
+    per row (the view prefetches; the page's lock-outs come with the context)."""
 
     email = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
@@ -542,11 +582,20 @@ class CustomerSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     consent = serializers.SerializerMethodField(help_text="adult, declared, pending, verified")
     email_verified = serializers.SerializerMethodField()
+    age_band = serializers.SerializerMethodField(help_text="under_13, 13_17, adult, unknown")
+    consent_method = serializers.SerializerMethodField(
+        help_text="how a student under 18's consent stands: declared, email_link, sms_link, adult_account, digilocker, "
+        "staff_manual; empty for an adult"
+    )
+    teacher = serializers.SerializerMethodField(help_text="none, requested, verified")
+    mfa_on = serializers.SerializerMethodField(help_text="an authenticator app or a passkey is set up")
+    locked = serializers.SerializerMethodField(help_text="locked out by failed log-ins (axes)")
 
     class Meta:
         model = User
         fields = ["id", "email", "phone", "full_name", "class_level", "board", "district", "under_18", "status"]
         fields += ["consent", "email_verified", "login_phone_verified", "created", "last_login"]
+        fields += ["age_band", "consent_method", "teacher", "mfa_on", "locked"]
 
     def get_email(self, user) -> str:
         return mask_email(user.email)
@@ -566,49 +615,94 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_email_verified(self, user) -> bool:
         return any(address.verified for address in user.emailaddress_set.all())
 
+    def get_age_band(self, user) -> str:
+        return age_band(user)
+
+    def get_consent_method(self, user) -> str:
+        return consent_method(user)
+
+    def get_teacher(self, user) -> str:
+        profile = getattr(user, "teacher_profile", None)  # (the list selects it with the account: no query per row)
+        return "none" if profile is None else ("verified" if profile.verified else "requested")
+
+    def get_mfa_on(self, user) -> bool:
+        return any(factor.type in SECOND_FACTORS for factor in user.authenticator_set.all())
+
+    def get_locked(self, user) -> bool:
+        locked = self.context.get("locked")  # a list: its page's lock-outs, found at once (staff/customers_api.py)
+        if locked is None:
+            locked = locked_usernames([user])
+        return bool(locked & {user.email, user.login_phone})
+
+
+class CustomerParentLinkSerializer(serializers.Serializer):
+    """A student under 18's consent link: what went, and when it stops working."""
+
+    sent = serializers.IntegerField(help_text="links sent so far")
+    last_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True, help_text="the last one works for 7 days")
+    expired = serializers.BooleanField()
+    today = serializers.IntegerField(help_text="sent today for this account")
+    daily_limit = serializers.IntegerField(help_text="links a day to one parent's address or number")
+
+
+class CustomerLinkedSerializer(serializers.Serializer):
+    """An account a student's parent contact points to, or a student who named this account."""
+
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    relation = serializers.CharField(help_text="parent or child")
+
 
 class CustomerDetailSerializer(CustomerSerializer):
     roles = serializers.SerializerMethodField()
-    locked = serializers.SerializerMethodField(help_text="locked out by failed log-ins (axes)")
     mfa = serializers.SerializerMethodField()
-    teacher = serializers.SerializerMethodField(help_text="none, requested, verified")
     parent_contact = serializers.SerializerMethodField()
     orders = serializers.SerializerMethodField()
     consents = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
     deletion_due_at = serializers.SerializerMethodField()
+    parent_link = serializers.SerializerMethodField(help_text="a student under 18's consent link; null for anyone else")
+    linked = serializers.SerializerMethodField(help_text="a student's parent's own account, or an adult's students")
 
     class Meta(CustomerSerializer.Meta):
-        fields = [*CustomerSerializer.Meta.fields, "roles", "locked", "mfa", "teacher", "parent_contact", "orders"]
-        fields += ["consents", "sessions", "deletion_due_at"]
+        fields = [*CustomerSerializer.Meta.fields, "roles", "mfa", "parent_contact", "orders"]
+        fields += ["consents", "sessions", "deletion_due_at", "parent_link", "linked"]
+
+    @extend_schema_field(CustomerParentLinkSerializer(allow_null=True))
+    def get_parent_link(self, user):
+        from .customers import parent_link
+
+        return CustomerParentLinkSerializer(parent_link(user)).data if user.is_minor and user.parent_contact else None
+
+    @extend_schema_field(CustomerLinkedSerializer(many=True))
+    def get_linked(self, user):
+        from .customers import linked_accounts
+
+        request = self.context.get("request")
+        return list(linked_accounts(request.user, user)) if request is not None else []
 
     def get_roles(self, user) -> list[str]:
         return sorted(user.groups.values_list("name", flat=True))
 
-    def get_locked(self, user) -> bool:
-        from axes.models import AccessAttempt
-        from django.conf import settings
-
-        names = [user.email, *([user.login_phone] if user.login_phone else [])]
-        attempts = AccessAttempt.objects.filter(username__in=names).values_list("failures_since_start", flat=True)
-        return any(count >= settings.AXES_FAILURE_LIMIT for count in attempts)
-
     def get_mfa(self, user) -> list[str]:
         return sorted(set(user.authenticator_set.values_list("type", flat=True)))
-
-    def get_teacher(self, user) -> str:
-        profile = getattr(user, "teacher_profile", None)
-        return "none" if profile is None else ("verified" if profile.verified else "requested")
 
     def get_parent_contact(self, user) -> str:
         contact = user.parent_contact
         return mask_email(contact) if "@" in contact else mask_phone(contact)
 
     def get_orders(self, user) -> list[dict]:
-        return list(user.orders.order_by("-created").values("number", "status", "created")[:10])
+        from shop.models import live_mode
+
+        orders = (
+            user.orders.filter(livemode=True) if live_mode() else user.orders.all()
+        )  # test orders: not on a live site
+        return list(orders.order_by("-created").values("number", "status", "created")[:10])
 
     def get_consents(self, user) -> list[dict]:
-        return list(user.consents.values("event", "method", "by_parent", "verified_at", "notice_version", "created"))
+        fields = ["event", "method", "by_parent", "verified_at", "notice_version", "created"]
+        return list(user.consents.values(*fields, "purpose", "channel", "evidence_ref", "verified_by"))
 
     def get_sessions(self, user) -> list[dict]:
         return [

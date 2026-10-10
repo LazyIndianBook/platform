@@ -28,6 +28,7 @@ import {
   type World,
 } from "./fixtures";
 import { ordersJob, ordersJobPermission, ordersPermission, ordersRoute, type OrdersKit } from "./orders";
+import { type CustomersKit, customersJob, customersJobPermission, customersRoute } from "./customers";
 import { MANAGEMENT_PERMISSIONS, offerEndSessions, passkeyDue, routeManagement } from "./management";
 import { contentPermission, contentRoute, startContentImport, type Tools } from "./content";
 import {
@@ -93,6 +94,9 @@ const SUPPORT = [
   ...["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
   ...["learn.view_entitlement", "learn.change_entitlement", "learn.view_bookcode"],
   ...["learn.add_entitlement", "learn.view_codebatch"], // the course (learn/staff_api.py): access given, print runs
+  // customers (roles.py SUPPORT): the timeline's parts, and a parent's consent recorded by hand
+  ...["shop.view_payment", "shop.view_refund", "accounts.view_consentrecord", "ops.view_smslog"],
+  "staff.verify_consent",
 ];
 const FINANCE = [
   ...PANEL,
@@ -105,7 +109,7 @@ const FINANCE = [
   ...["staff.cancel_document", "staff.run_gstr1"],
   ...["accounts.view_legalhold", "staff.manage_holds"], // legal holds: a chargeback, a dispute over money
   ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_returnrequest"],
-  ...["shop.view_quoterequest", "shop.export_order"],
+  ...["shop.view_quoterequest", "shop.export_order", "shop.view_payment", "shop.view_refund"],
   "integrations.view_integrationaccount", // the connections' cards (the payment settings)
   // Finance (shop/staff_finance.py): payments, refunds, links and settlements; a day fetched, a line matched by hand
   ...["shop.view_payment", "shop.view_refund", "shop.view_settlement", "shop.view_settlementline"],
@@ -255,8 +259,7 @@ const RISKY = new Set([
   ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance", "staff.cancel_document"],
   ...["staff.manage_holds", "staff.manage_compliance"],
   ...["staff.record_offline_payment", "shop.export_order"],
-  ...["staff.import_content", "staff.export_grievances", "staff.export_report"],
-  ...["staff.import_content", "staff.export_grievances"],
+  ...["staff.import_content", "staff.export_grievances", "staff.export_report", "staff.verify_consent"],
   ...["shop.import_product", "shop.delete_productimage"], // the catalogue's high ones
   ...["staff.make_book_codes", "staff.void_book_codes"], // the course: book codes made (high) and voided (critical)
   ...["learn.delete_clip", "learn.delete_flashcard", "learn.delete_quizitem"], // Django's delete verb: high
@@ -555,7 +558,10 @@ function permissionFor(context: Context): string | null {
       if (kind === "settlement_fetch") return "staff.reconcile_settlements";
       if (kind === "report_export") return "staff.export_report";
       if (kind === "code_batch") return "staff.make_book_codes";
-      if (kind === "bulk_action") return courseBulkPermission(context.body.params) ?? "staff.add_job";
+      if (kind === "bulk_action")
+        return (
+          courseBulkPermission(context.body.params) ?? customersJobPermission(context.body.params) ?? "staff.add_job"
+        );
       return ordersJobPermission(kind) ?? catalogueJobPermission(kind) ?? "staff.add_job";
     }
     case "home": // insights/staff_home.py and staff_api.py: any member of staff's Home; the insights' reader's reports
@@ -592,8 +598,9 @@ function permissionFor(context: Context): string | null {
     case "access-review":
       return "staff.view_staff";
     case "users": {
-      if (get) return "accounts.view_user";
+      if (get) return b === "commerce" ? "shop.view_order" : "accounts.view_user"; // the figures are the orders'
       const verbs: Record<string, string> = {
+        consent: "staff.verify_consent",
         reveal: "staff.reveal_contact",
         suspend: "staff.suspend_user",
         unsuspend: "staff.suspend_user",
@@ -1008,9 +1015,13 @@ async function route(context: Context): Promise<Response> {
         if (catalogueJobPermission(kind)) return catalogueJob(catalogueKit(context), kind, (body.params ?? {}) as Body);
         if (kind === "bulk_action" && courseBulkPermission(body.params)) return startCourseBulk(context, KIT);
         if (kind === "code_batch") return remakeBatchJob(context, KIT);
+        if (kind === "bulk_action" && customersJobPermission(body.params))
+          return customersJob(customersKit(context), Boolean(body.dry_run));
         if (!ordersJobPermission(kind))
           return invalid({
-            kind: ["The mock starts the orders', the catalogue's, the course's jobs and content imports only."],
+            kind: [
+              "The mock starts the orders', the catalogue's and the course's jobs, content imports and bulk actions only.",
+            ],
           });
         return ordersJob(ordersKit(context), kind, (body.params ?? {}) as Body);
       }
@@ -1460,44 +1471,10 @@ async function route(context: Context): Promise<Response> {
       );
 
     case "users": {
-      if (method === "GET" && !a) {
-        const q = query("q").toLowerCase();
-        const rows = world.users.filter((user) => {
-          const contact = world.contacts[String(user.id)];
-          const found =
-            !q ||
-            (q.includes("@")
-              ? contact?.email === q
-              : /^\+?\d[\d\s-]{6,}$/.test(q)
-                ? [contact?.phone, contact?.login_phone].some(
-                    (phone) => phone && phone.endsWith(q.replace(/\D/g, "").slice(-10)),
-                  )
-                : q.length >= 3 && user.full_name.toLowerCase().includes(q));
-          return (
-            found &&
-            (!query("class_level") || String(user.class_level) === query("class_level")) &&
-            (!query("is_active") ||
-              (user.status !== "suspended" && user.status !== "erased") === bool(query("is_active")))
-          );
-        });
-        // the list's fields only (CustomerSerializer); the record adds the rest
-        const LIST = [
-          "id",
-          "email",
-          "phone",
-          "full_name",
-          "class_level",
-          "board",
-          "district",
-          "under_18",
-          "status",
-        ].concat(["consent", "email_verified", "login_phone_verified", "created", "last_login"]);
-        return paginate(
-          context,
-          rows.map((user) => Object.fromEntries(LIST.map((field) => [field, user[field as keyof typeof user]]))),
-          8,
-        );
-      }
+      // the list with its tabs, the timeline, the spending, those waiting for a parent, the consent by hand and the
+      // link again are customers.ts's; a record, reveal, suspend, unlock … are here
+      const customers = customersRoute(customersKit(context));
+      if (customers) return customers;
       const user = byId(world.users, a);
       if (!user) return notFound();
       const label = target("accounts.user", user.id, `User #${user.id}`);
@@ -1553,11 +1530,6 @@ async function route(context: Context): Promise<Response> {
           user.locked = false;
           record(context, "user.unlocked", label);
           return json(200, { attempts_cleared: 5 });
-        case "resend-verification":
-          if (user.consent !== "pending")
-            return invalid({ non_field_errors: ["No parent's link waits for this account."] });
-          record(context, "user.parent_link_sent", label);
-          return json(200, { detail: "The parent's link to confirm is on its way." });
         case "end-sessions":
           user.sessions = [];
           record(context, "user.sessions_ended", label);
@@ -2974,6 +2946,31 @@ function catalogueKit(context: Context): CatalogueKit {
       }
       return visibleJob(context, job);
     },
+  };
+}
+
+/** What the customers area (customers.ts) is lent: the request, the person and the mock's ways of answering. */
+function customersKit(context: Context): CustomersKit {
+  const { world, who } = context;
+  return {
+    url: context.url,
+    method: context.method,
+    parts: context.parts,
+    body: context.body,
+    world,
+    me: who.id,
+    name: who.name,
+    can: (permission) => who.breakGlass || context.permissions.includes(permission),
+    limit: (name) => limitOf(context, name),
+    json,
+    notFound,
+    invalid,
+    record: (action, extra) => record(context, action, extra),
+    nextId: () => nextId(world),
+    paginate: (rows, size) => paginate(context, rows, size),
+    waiting: (row) => waiting(context, row as Parameters<typeof waiting>[1]),
+    startJob: (kind, params, rows) => startJob(context, kind, params, rows),
+    visibleJob: (job) => visibleJob(context, job),
   };
 }
 

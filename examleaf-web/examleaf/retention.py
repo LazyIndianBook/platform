@@ -169,6 +169,16 @@ SCHEDULE = (
         "180 days, then blanked (the payment stays, a book of account)",
         enforced_by="shop.tasks.clean_up, nightly",
     ),
+    Rule(
+        "parent_links",
+        "The consent links sent to a student's parent: when, by email or SMS, and by whom (no contact is kept)",
+        (Minimum(None, None, "none before the DPDP Rules"), Minimum(DPDP_RULES, 365, "one year from the processing")),
+        "DPDP Rules r.8(3) from 13 May 2027",
+        "A year; an erasure keeps them with the account's number only",
+        keep_days=365,
+        model="accounts.ParentLinkSend",
+        date_field="sent_at",
+    ),
 )
 RULES = {rule.key: rule for rule in SCHEDULE}
 

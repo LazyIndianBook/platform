@@ -187,6 +187,11 @@ function sidebar(context: SupportContext, ticket: MockTicket): S["Sidebar"] {
           login_phone_verified: person.login_phone_verified,
           created: person.created,
           last_login: person.last_login,
+          age_band: person.age_band,
+          consent_method: person.consent_method,
+          teacher: person.teacher,
+          mfa_on: person.mfa_on,
+          locked: person.locked,
         }
       : null,
     orders: can("shop.view_order")

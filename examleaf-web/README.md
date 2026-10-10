@@ -123,6 +123,15 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   number (and, from 1 January 2027, a copy of the complaint); the queue, the conversation, saved replies in English,
   Assamese and Bengali, and the actions on the customer's orders and course from the ticket; the grievance register as
   a CSV.
+- **Customers in the panel** (`staff/customers.py`, `staff/README.md` "Phase B: customers", API.md "Customers (staff)"):
+  the list with its tabs (students, parents, guest buyers) and its badges (email and mobile confirmed, age band, a
+  student under 18's parent consent and how it was given, teacher, two-step sign-in, lock-out), a record with its merged
+  timeline (orders, payments, refunds, codes, course access and use, tickets, texts and emails, consent, notes, what
+  staff did; a child's course only in counts) and what they bought (a child's: counts only); every look at a record, a
+  timeline or a spending summary a `sensitive_read` (a child's marked) and every search for a person a `customer.lookup`
+  by its hash; the children waiting for a parent, with each link sent and its life, and a parent's consent recorded by
+  hand with its method and where the evidence is; suspend, lift, sign out and resend as bulk jobs, checked first and
+  approved by a second person whenever a child's account is among them; no predicted value, group or score.
 - **Messages and protection.** An SMS gateway (MSG91, under India's DLT rules) with a daily cap and a log, email through
   Amazon SES with a suppression list fed by bounce and complaint webhooks, Cloudflare Turnstile on public forms,
   passwords of 10 characters that are not in breaches, rate limits, a strict Content-Security-Policy, error reports
