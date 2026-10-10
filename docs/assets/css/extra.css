@@ -1,0 +1,52 @@
+/* The documentation portal's look: the brand's ink and leaf on Material's layout, the badge rows, the home page's
+   cards with a quiet lift on hover, diagrams given room, and nothing that moves for a reader who asked for less. */
+:root {
+  --md-primary-fg-color: #0b2a5b;
+  --md-primary-fg-color--light: #1d4ed8;
+  --md-primary-fg-color--dark: #071c3d;
+  --md-accent-fg-color: #15803d;
+  --md-accent-fg-color--transparent: rgba(21, 128, 61, 0.1);
+  --el-paper: #f7f3ea;
+  --el-line: #e5dfd2;
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #0b2a5b;
+  --md-accent-fg-color: #4ade80;
+  --el-paper: #1c2230;
+  --el-line: #2d3546;
+}
+.md-header { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 12px rgba(0, 0, 0, 0.12); }
+.md-typeset { font-size: 0.82rem; line-height: 1.65; }
+.md-typeset h1 { font-weight: 700; letter-spacing: -0.01em; color: var(--md-primary-fg-color); }
+[data-md-color-scheme="slate"] .md-typeset h1 { color: #dbe4f3; }
+.md-typeset h2 { font-weight: 700; margin-top: 2.2em; padding-top: 0.4em; border-top: 1px solid var(--el-line); }
+
+/* badge rows: the images of a paragraph that holds only badges sit in one line with a little air */
+.md-typeset p > img[src*="/badges/"] { margin: 0 0.35rem 0.35rem 0; vertical-align: middle; height: 20px; }
+.md-typeset p:has(> img[src*="/badges/"]:first-child) { margin: 0.4rem 0 1.1rem; }
+
+/* callouts: a left bar in the brand's colours, flat otherwise */
+.md-typeset .admonition, .md-typeset details { border-radius: 6px; box-shadow: none; border-width: 0 0 0 4px; background: var(--el-paper); }
+.md-typeset .admonition-title, .md-typeset summary { font-weight: 700; }
+
+/* diagrams and tables */
+.md-typeset .mermaid { margin: 1.2rem auto; text-align: center; }
+.md-typeset .mermaid + p > em { display: block; text-align: center; color: var(--md-default-fg-color--light); margin-top: -0.6rem; }
+.md-typeset table:not([class]) { font-size: 0.74rem; border-radius: 6px; overflow: hidden; }
+.md-typeset table:not([class]) th { background: var(--el-paper); }
+.md-typeset details > summary { cursor: pointer; }
+
+/* the home page's cards (Material's grid cards) with a quiet lift */
+.md-typeset .grid.cards > ul > li { border-radius: 8px; border: 1px solid var(--el-line); transition: transform 180ms ease, box-shadow 180ms ease; }
+.md-typeset .grid.cards > ul > li:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(11, 42, 91, 0.12); border-color: var(--md-primary-fg-color--light); }
+.md-typeset .grid.cards > ul > li > hr { margin: 0.6rem 0; }
+
+/* the hero on the home page */
+.el-hero { margin: 0.5rem 0 1.5rem; padding: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--el-line); background: var(--el-paper); }
+.el-hero img, .el-hero svg { display: block; width: 100%; height: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .grid.cards > ul > li { transition: none; }
+  .md-typeset .grid.cards > ul > li:hover { transform: none; }
+  .el-hero * { animation: none !important; }
+}

@@ -11,3 +11,7 @@ dist/
 
 # page atlases are published as release assets, not committed
 docs/design/*.pdf
+
+# the documentation portal (make docs)
+site/
+.docs-build/

@@ -1,0 +1,145 @@
+# The documentation portal: `make docs` (scripts/docs/build_site.py gathers the documents into .docs-build/, then
+# mkdocs builds site/); `make docs-serve` to read it at http://localhost:8008/. docs/STYLE.md is the standard.
+site_name: ExamLeaf platform
+site_description: The website, API, staff console, ERPNext back office and deployment of ExamLeaf, documented.
+site_url: https://docs.examleaf.in/
+repo_url: https://github.com/LazyIndianBook/platform
+repo_name: LazyIndianBook/platform
+docs_dir: .docs-build
+site_dir: site
+use_directory_urls: true
+strict: false
+
+theme:
+  name: material
+  language: en
+  custom_dir: docs/assets/overrides
+  logo: docs/assets/mark.svg
+  favicon: docs/assets/mark.svg
+  font:
+    text: Source Sans 3
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Dark
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Light
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+
+extra_css:
+  - docs/assets/css/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Start here:
+      - The repository: README.md
+      - Handover: docs/HANDOVER.md
+      - The documentation standard: docs/STYLE.md
+      - Decisions register: docs/decisions.md
+      - Changelog: examleaf-web/CHANGELOG.md
+  - Backend:
+      - Overview: examleaf-web/README.md
+      - API: examleaf-web/API.md
+      - Deployment: examleaf-web/DEPLOYMENT.md
+      - Runbook: examleaf-web/RUNBOOK.md
+      - Resilience: examleaf-web/RESILIENCE.md
+      - Apps:
+          - Staff and the panel: examleaf-web/staff/README.md
+          - Shop: examleaf-web/shop/README.md
+          - Content: examleaf-web/content/README.md
+          - Course: examleaf-web/learn/README.md
+          - Support: examleaf-web/support/README.md
+          - Insights: examleaf-web/insights/README.md
+          - Shipping: examleaf-web/shipping/README.md
+          - Integrations: examleaf-web/integrations/README.md
+          - Operations and messages: examleaf-web/ops/README.md
+          - ERPNext sync: examleaf-web/erp/README.md
+          - ERPNext shadow run: examleaf-web/erp/SHADOW-RUN.md
+      - Security reviews:
+          - Phase B authorization review: docs/security/phase-b-authorization-review.md
+          - Phases 1 to 4: examleaf-web/SECURITY_REVIEW.md
+          - Phases 5 and 6: examleaf-web/SECURITY_REVIEW_PHASE5_6.md
+  - Frontends:
+      - Staff console: examleaf-admin/README.md
+      - Website: examleaf-frontend/README.md
+      - Frontend architecture: docs/examleaf-frontend-architecture.md
+  - ERPNext:
+      - Back office: examleaf-erp/README.md
+      - Sync API: examleaf-erp/API.md
+      - Upgrades: examleaf-erp/UPGRADE.md
+  - Deployment:
+      - Kubernetes chart: deploy/kubernetes/README.md
+      - Chart testing: deploy/kubernetes/TESTING.md
+  - Admin Control Panel:
+      - The plan: docs/examleaf-admin-control-panel-plan.md
+      - Role guides:
+          - Index: docs/guides/roles/README.md
+          - Owner: docs/guides/roles/OWNER.md
+          - Admin: docs/guides/roles/ADMIN.md
+          - Finance: docs/guides/roles/FINANCE.md
+          - Sales: docs/guides/roles/SALES.md
+          - Sales representative: docs/guides/roles/SALES_REP.md
+          - Packer: docs/guides/roles/PACKER.md
+          - Support: docs/guides/roles/SUPPORT.md
+          - Content editor: docs/guides/roles/CONTENT_EDITOR.md
+          - Reviewer: docs/guides/roles/REVIEWER.md
+          - Marketing: docs/guides/roles/MARKETING.md
+          - Auditor: docs/guides/roles/AUDITOR.md
+      - Phase B integration: docs/phase-b-integration/README.md
+  - Plans and research:
+      - Platform plan: docs/examleaf-platform-plan.md
+      - Phase 5 plan: docs/examleaf-phase5-plan.md
+      - Phase 6 plan: docs/examleaf-phase6-plan.md
+      - Phase 8 plan (Next.js): docs/examleaf-phase8-nextjs-plan.md
+      - AI answer checker design: docs/examleaf-ai-checker-design.md
+      - Research index: docs/research/README.md
+      - Design:
+          - Answer Script implementation: docs/design/answer-script-implementation.md
+          - Components: docs/design/components.md
+          - Coverage matrix: docs/design/coverage-matrix.md
+          - Resources brief: docs/design/resources-brief.md

@@ -14,3 +14,7 @@ Faker==40.41.0
 iniconfig==2.3.1
 pluggy==1.6.0
 Pygments==2.21.0
+
+# the documentation portal (make docs; docs/STYLE.md)
+mkdocs-material==9.7.7
+pymdown-extensions==12.1

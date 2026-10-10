@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="t d" font-family="Source Sans 3, Segoe UI, Helvetica, Arial, sans-serif">
+  <title id="t">The ExamLeaf platform: how its parts talk to each other</title>
+  <desc id="d">Students, parents and teachers use the website and the app; staff use the console; both talk to the Django backend, which keeps PostgreSQL, Redis and the private storage, runs Celery, receives webhooks from Razorpay, the couriers and MSG91, and keeps ERPNext in step for the business's books.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5 0 10z" fill="#64748b"/></marker>
+    <style>
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; rx: 10; }
+      .ink { fill: #0b2a5b; }
+      .leaf { fill: #15803d; }
+      .label { font-size: 14px; font-weight: 700; fill: #0b2a5b; }
+      .sub { font-size: 11px; fill: #475569; }
+      .flow { fill: none; stroke: #64748b; stroke-width: 1.6; marker-end: url(#arrow); stroke-dasharray: 6 5; animation: dash 1.6s linear infinite; }
+      .quiet { animation: none; }
+      @keyframes dash { to { stroke-dashoffset: -22; } }
+      @media (prefers-reduced-motion: reduce) { .flow { animation: none; } }
+    </style>
+  </defs>
+  <rect width="960" height="300" fill="#f7f3ea"/>
+  <!-- people -->
+  <rect class="box" x="30" y="50" width="170" height="64"/><text class="label" x="115" y="78" text-anchor="middle">Website and app</text><text class="sub" x="115" y="98" text-anchor="middle">students, parents, teachers</text>
+  <rect class="box" x="30" y="186" width="170" height="64"/><text class="label" x="115" y="214" text-anchor="middle">Staff console</text><text class="sub" x="115" y="234" text-anchor="middle">admin.examleaf.in</text>
+  <!-- the backend -->
+  <rect class="box" x="330" y="96" width="220" height="108" stroke="#0b2a5b" stroke-width="1.8"/>
+  <text class="label" x="440" y="128" text-anchor="middle">Django backend</text>
+  <text class="sub" x="440" y="148" text-anchor="middle">REST API · allauth · the staff API</text>
+  <text class="sub" x="440" y="166" text-anchor="middle">approvals · audit log · jobs</text>
+  <text class="sub" x="440" y="184" text-anchor="middle">Celery worker and beat</text>
+  <!-- stores -->
+  <rect class="box" x="650" y="30" width="150" height="50"/><text class="label" x="725" y="60" text-anchor="middle">PostgreSQL 17</text>
+  <rect class="box" x="650" y="100" width="150" height="50"/><text class="label" x="725" y="130" text-anchor="middle">Redis</text>
+  <rect class="box" x="650" y="170" width="150" height="50"/><text class="label" x="725" y="200" text-anchor="middle">Private storage</text>
+  <rect class="box" x="650" y="240" width="150" height="50" stroke="#15803d"/><text class="label leaf" x="725" y="270" text-anchor="middle">ERPNext v16</text>
+  <!-- providers -->
+  <rect class="box" x="330" y="236" width="220" height="48"/><text class="label" x="440" y="256" text-anchor="middle">Razorpay · couriers · MSG91</text><text class="sub" x="440" y="274" text-anchor="middle">webhooks in, calls out</text>
+  <!-- flows -->
+  <path class="flow" d="M200 82 C 270 82, 280 130, 330 130"/>
+  <path class="flow" d="M200 218 C 270 218, 280 170, 330 170"/>
+  <path class="flow" d="M550 120 C 600 110, 600 60, 650 55"/>
+  <path class="flow" d="M550 140 C 600 135, 600 125, 650 125"/>
+  <path class="flow" d="M550 160 C 600 170, 600 195, 650 195"/>
+  <path class="flow" d="M550 180 C 600 200, 600 265, 650 265"/>
+  <path class="flow quiet" d="M440 236 L 440 204" stroke-dasharray="0"/>
+  <text class="sub" x="770" y="20" text-anchor="middle">the one rule: the backend decides</text>
+</svg>
