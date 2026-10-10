@@ -1,9 +1,11 @@
 # ExamLeaf admin console
 
 The staff console of ExamLeaf's Admin Control Panel (`docs/examleaf-admin-control-panel-plan.md`), served at
-`admin.examleaf.in`: the product side that ERPNext cannot see (customers and their consent, the data-rights queue and
-the breach register, staff roles and scopes, approvals, the audit trail, settings and feature flags, the system's
-health), with deep links into ERPNext for money, tax, stock, purchases and CRM. Next.js 16 (App Router, Turbopack),
+`admin.examleaf.in`: the product side that ERPNext cannot see (orders and packing, the catalogue, customers and their
+consent, the revision course and its book codes, content review, support tickets, legal and privacy, staff roles and
+scopes, approvals, the audit trail, settings and connections, the system's health, Home and its reports), the
+platform's own records of money and tax (payments, refunds, settlements, GST documents), and deep links into ERPNext
+for the books of account, GST returns, stock, purchases and CRM. Next.js 16 (App Router, Turbopack),
 React 19, TypeScript strict, Tailwind CSS 4, the public site's toolchain, token layer and design-system kit.
 
 **The one rule: the backend decides.** Every button calls the staff API (`/api/v1/staff/`, examleaf-web's `staff`
@@ -87,6 +89,7 @@ throws and the import sits behind the same check).
 | `NEXT_PUBLIC_SITE_URL`    | build   | the console's own address (`https://admin.examleaf.in`), the host Django sees              |
 | `NEXT_PUBLIC_WEBSITE_URL` | build   | the public website: two-step sign-in and passkeys, and the impersonation link's address    |
 | `NEXT_PUBLIC_ERP_URL`     | build   | ERPNext's desk, for the business modules' links; empty: none are drawn                     |
+| `NEXT_PUBLIC_API_BASE`    | build   | base of the browser's `/_allauth/` calls; empty: its own origin (always, in the image)     |
 | `API_INTERNAL_BASE`       | runtime | Django for server components (`http://web:8000` in compose)                                |
 | `INTERNAL_API_TOKEN`      | runtime | the secret shared with Django: Django then counts each person's address, not this server's |
 | `API_INTERNAL_TIMEOUT_MS` | runtime | how long a request may wait on Django in all (default 10000), then "can't be reached"      |
@@ -165,9 +168,10 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   tabs everyone, students, parents and guest buyers as `?kind=`, the badges, search, the filters in the address, saved
   views, the bulk bar: suspend, lift, sign out everywhere, send the parents' links again, each checked first), `/users/<id>/`
   (the badges, a student under 18's banner "Under 18: every view is logged", the details, the parent consent with the
-  link's life, send it again and record it by hand, the linked accounts, what they bought, the latest orders, the
-  consent records, the customer's nominee, devices, actions and Danger), `/users/<id>/timeline/` (the merged timeline,
-  `?kind=` and `?before=`) and `/users/consent-pending/` (the students waiting for a parent, the oldest first),
+  link's life, send it again and record it by hand, the linked accounts, what they bought, the Course section
+  (a link to the learner's page, `/course/learners/<id>/`, for whoever holds `learn.view_entitlement`), the latest
+  orders, the consent records, the customer's nominee, devices, actions and Danger), `/users/<id>/timeline/` (the
+  merged timeline, `?kind=` and `?before=`) and `/users/consent-pending/` (the students waiting for a parent, the oldest first),
   `/privacy/` (Legal and privacy's compliance cockpit), `/privacy/requests/` and `<id>/` (the erasure's dry run with
   what the law keeps, each a sentence), `/privacy/policies/` and `<slug>/` (versions, diffs, publishing),
   `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/privacy/retention/`, `/privacy/holds/` and `<id>/`,
@@ -187,23 +191,26 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   its books, money, documents, parcels, the customer masked, risk, hold and tags, the timeline; Danger: cancel, the
   refund dialog, a return), `/orders/packing/` (packer mode), `/orders/returns/` and `<id>/`, `/orders/new/` (a staff
   order, the discount rule's answer before saving) and `/orders/quotes/` and `<id>/` (made into an order once).
-  `/shipping/`, `/marketing/`, `/course/` and `/partners/` (distributors, schools, teachers) say they come in the
-  next phase and where that work is done today.
+  `/shipping/`, `/marketing/` and `/partners/` (distributors, schools, teachers) say they come in the next phase and
+  where that work is done today (the Django admin; the shipping staff API is built, its pages are not).
 - Home and reports (`src/components/modules/reports/`): Home (`/`) draws the numbers of the person's roles first
   (streamed on their own, so they show as soon as they are ready): the totals (net revenue, orders, codes redeemed,
   active learners) beside the period before them in a sentence, the queues (orders to pack, quotes, refunds to
   approve, tickets due, mistakes to triage, COD overdue …) as they stand, each card a link to the list or report it
   counts with its definition on hover and under "How this is counted", "Data as of", test data said first, the period
-  chosen with `?period=today|month` (7 days by default); the inbox, approvals, clocks and health stay below.
+  chosen with `?period=today|week|month` (`week`, the last 7 days, with no parameter); the inbox, approvals, clocks
+  and health stay below.
   `/reports/` (the `insights` entry of the modules became `reports`) lists the reports the role may open, each with a
   line of what it counts, and how every number is counted; `/reports/sales/` (`?from&to&by&grain`: title, subject,
   class, board or edition, by day, week or month, a bar beside each net), `/reports/place/` (`?level=state|district|pin`
   and `&state=`: a state's row opens its districts; a place under the minimum says "fewer than 10"),
-  `/reports/codes/` (by print run and district, `?batch=`), `/reports/course-health/` (`?subject&chapter&grain`: learners,
-  clips, quiz answers and flash cards by day, week or month, the chapters over 28 days), `/reports/cod/` (what the
-  couriers owe by how late, what they remitted, by courier), `/reports/settlements/` (says it is not set up while the
-  Finance module has none), `/reports/cohorts/` (`?page=`) and `/reports/forecasts/` (`?product=`: the print runs with
-  their levels, the sum worked out again from the net price, print cost and salvage typed, and the weekly forecast as a
+  `/reports/codes/` (the insights' codes report, by print run and district, `?batch=`; the Course module has another,
+  below), `/reports/course-health/` (`?subject&chapter&grain`: learners, clips, quiz answers and flash cards by day,
+  week or month, the chapters over 28 days), `/reports/cod/` (what the
+  couriers owe by how late, what they remitted, by courier), `/reports/settlements/` (the settlements Finance fetched
+  in the period, of the live keys; it says it is not set up only where the platform has no Finance module, which the
+  mock's `staff_mock_settlements=off` shows), `/reports/cohorts/` (`?page=`) and `/reports/forecasts/` (`?product=`:
+  the print runs with their levels, the sum worked out again from the net price, print cost and salvage typed, and the weekly forecast as a
   range). Every report page has its tabs by permission, its filters in the address (a plain GET form), tables and CSS-width
   bars (no chart library) and, for whoever holds `staff.export_report`, "Export as a file" (a job, its file ending
   with who made it).
@@ -255,8 +262,20 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   subject, source, state or a whole email address; extended or revoked, one at once or many with a dry run; given to
   one account or to many), `/course/codes/` and `<key>/` (the lookup box answering in one line with Void this code; a
   print run made with the printer's file; the print runs, one with its weeks, signals, Mark dispatched and Void the
-  run), `/course/report/` (per print run, districts under 10 hidden) and `/course/learners/<id>/` (from a ticket's
-  sidebar, an access row or a code; says at the top that the view is logged; a child's a summary).
+  run), `/course/report/` (the Course module's codes report, below) and `/course/learners/<id>/` (from a ticket's
+  sidebar, an access row, a code or the customer's record; says at the top that the view is logged; a child's a
+  summary; "Open the customer's record" goes back to `/users/<id>/` for whoever holds `accounts.view_user`).
+- **The two codes reports** both stay, and answer different questions. `/course/report/` (`getCourseCodesReport`,
+  `GET course/codes/report/`; `learn.view_codebatch`: SUPPORT, SALES, ADMIN, the owners and the auditor) works out the
+  newest 200 print runs when asked: the codes printed; the copies of the run's book sold online from the run's day
+  until the next run of that book (a bundle holding it counts); the codes activated; "revoked", the access a code
+  opened that staff took back; "void", the codes voided before use; the activation rate; and the districts of the
+  redemptions, one under 10 shown as "fewer than 10". `/reports/codes/` (`getCodesReport`, `GET reports/codes/`;
+  `staff.view_insights` with `learn.view_bookcode`: ADMIN, the owners and the auditor) is the insights' own: by print
+  run too, with the last 7 days; its "sold" is the book's copies sold in all, every run of it together; its "revoked"
+  is the codes voided before use (the Course report's "void"); and its districts are the night's count (`?batch=`
+  narrows them; the minimum is `INSIGHTS_MIN_CELL`). Its "sold" and "revoked" columns, empty until the Course module
+  recorded the book of a run and the voided codes, are filled now; a run made with no book has no "sold" in either.
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): GST returns
   `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm` (Finance is a panel page that
@@ -279,8 +298,8 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 
 ```sh
 npm run lint && npm run format:check && npm run typecheck
-npm test                                                   # Vitest
-npx playwright test --project=chromium                     # mock mode: e2e/console.spec.ts
+npm test                                                   # Vitest: 350 tests at the merge of Phase B
+npx playwright test --project=chromium                     # mock mode: e2e/console.spec.ts, 23 tests
 E2E_STAFF_API=real npx playwright test --project=real      # the staff API as built: e2e/real.spec.ts
 ```
 
@@ -496,8 +515,8 @@ jobs/?kind=grievance_export&mine=true`.
 - **Home and reports** (API.md "Home and reports (staff)"): `GET home/` (`?period=today|week|month`: the cards of the
   person's roles, each `{key, label, group, unit, value, definition, as_of, period, href, test_mode, comparison,
 error}`), `GET reports/` (the index: `available`, `configured`), `GET reports/sales/` (`from`, `to`, `by`, `grain`),
-  `reports/sales-by-place/` (`level`, `state`), `reports/codes/` (`batch`), `reports/course-health/` (`subject`,
-  `chapter`, `grain`), `reports/cod/`, `reports/settlements/` (`configured`, `note`), `POST reports/print-run/`
+  `reports/sales-by-place/` (`level`, `state`), `reports/codes/` (`batch`; `getCodesReport`),
+  `reports/course-health/` (`subject`, `chapter`, `grain`), `reports/cod/`, `reports/settlements/` (`configured`, `note`), `POST reports/print-run/`
   (`{product, net_price, unit_cost, salvage}`); a report as a file is `POST jobs/` `{kind: "report_export", params:
 {report, filters}}` (`staff.export_report`). The insights' own lists, which the reports draw and do not rebuild, are
   numbered pages (`count`, `?page=`) under `/api/v1/insights/` (`print-runs/`, `forecasts/?product=`, `cohorts/`) with
@@ -531,7 +550,8 @@ course/clips/{id}/`, `course/cards/{id}/`, `course/items/{id}/` (DELETE answers 
   `GET`/`POST course/codes/batches/` (202 `{batch, job}`; `product` a slug, suggested by `orders/products/?q=`),
   `GET course/codes/batches/{key}/` (a label, or `~` and the id), `POST …/dispatched/` (`{at}`), `…/void/`
   (`{reason}`), `POST course/codes/void/` (`{code, reason}`), `POST course/codes/lookup/` (`{code}`; throttled),
-  `GET course/codes/report/`; `GET course/learners/{user}/` (a sensitive read: never prefetched),
+  `GET course/codes/report/` (`getCourseCodesReport`: the Course module's own, whose columns differ from
+  `reports/codes/`'s); `GET course/learners/{user}/` (a sensitive read: never prefetched),
   `POST …/devices/{id}/sign-out/`; bulk work as `POST jobs/` `{kind: "bulk_action", params: {action, targets,
 payload, reason}, dry_run}` with `item_metadata`, `entitlement.grant`, `entitlement.extend` and `entitlement.revoke`,
   and a failed print run made again with `{kind: "code_batch", params: {batch}}`. The saved views' `list_key`s are
