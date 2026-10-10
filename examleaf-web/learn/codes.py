@@ -124,7 +124,9 @@ def run_job(job, progress):
     owners told. Returns its result: no code, only the counts."""
     with transaction.atomic():
         batch = (
-            CodeBatch.objects.select_for_update().select_related("subject", "generated_by").get(pk=job.params["batch"])
+            CodeBatch.objects.select_for_update(of=("self",))  # the batch alone: its joins are nullable
+            .select_related("subject", "generated_by")
+            .get(pk=job.params["batch"])
         )
         if batch.generated_at is not None or batch.voided_at is not None:
             raise refused("Its codes were made already, or it was voided.")
@@ -179,7 +181,7 @@ def void_batch(batch, reason, *, by, request=None):
     if not str(reason or "").strip():
         raise refused("Say why.", "reason")
     with transaction.atomic():
-        batch = CodeBatch.objects.select_for_update().select_related("job").get(pk=batch.pk)
+        batch = CodeBatch.objects.select_for_update(of=("self",)).select_related("job").get(pk=batch.pk)
         if batch.voided_at:
             raise refused("It was voided already.")
         if batch.generated_at is None:

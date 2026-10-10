@@ -117,7 +117,7 @@ def move(obj, to, target=None, request=None):
 
 
 def locked_revision(revision):
-    return Revision.objects.select_for_update().select_related("chapter__subject").get(pk=revision.pk)
+    return Revision.objects.select_for_update(of=("self",)).select_related("chapter__subject").get(pk=revision.pk)
 
 
 def ready_clips(revision):
