@@ -1,18 +1,69 @@
 # Resilience
 
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Component: Kubernetes chart](../docs/assets/badges/component-kubernetes.svg)
+![For operators](../docs/assets/badges/audience-operators.svg)
+![For developers](../docs/assets/badges/audience-developers.svg)
+
 What keeps the Django backend from hanging, from falling over, and from depending on any one web or worker process: the
 audit of 9 October 2026 (the checklist below, item by item), the load test that measured it, every knob an operator
 can turn, what the Kubernetes chart must change, and what was left for later and why. Every fix left a test behind
-that fails without it, where one could; the tests are named in the table.
+that fails without it, where one could; the tests are named in the table. Operators read the knobs and the chart's
+part; developers read the checklist before they change a timeout or a limit.
 
-Contents: [the checklist](#the-checklist) · [task by task](#celery-task-by-task) · [the load test](#the-load-test) ·
-[settings](#settings-for-operators) · [the pooler and the connections](#the-pooler-and-the-connections) ·
-[the Kubernetes chart](#what-the-kubernetes-chart-must-change) · [deferred](#deferred)
+> [!NOTE]
+> **At a glance**
+> - Every call to another service has a connect and a read timeout and a bounded retry; a web statement stops at 15 s.
+> - A slow Razorpay or MSG91 gets at most half of a web process's threads (the bulkhead), so the rest of the site goes on.
+> - A task is acknowledged once it has run: one cut short runs again on another worker, three lost processes at most.
+> - The cache's Redis fails soft (misses), while the shop's own limits refuse until it is back.
+> - The knobs are in "Settings for operators"; what the chart must change has a section of its own.
+
+## Contents
+
+- [Where the limits sit](#where-the-limits-sit): a request's path and a task's, in one picture
+- [The checklist](#the-checklist): the audit of 9 October 2026, item by item
+- [Celery, task by task](#celery-task-by-task): what running a task twice does
+- [The load test](#the-load-test): the runs, and what they show
+- [Settings for operators](#settings-for-operators): the environment's knobs, and the values fixed in the code
+- [The pooler and the connections](#the-pooler-and-the-connections): PgBouncer, and PostgreSQL's `max_connections`
+- [What the Kubernetes chart must change](#what-the-kubernetes-chart-must-change): for the packaging agent
+- [Deferred](#deferred): what was left for later, and why
+- [Related documents](#related-documents)
+
+## Where the limits sit
+
+A request and a task meet a timeout, a lock or a limit at each step; the values are those of the tables below.
+
+```mermaid
+flowchart LR
+    client["A browser or the app"] --> caddy["Caddy<br/>headers 10 s, body 5 min,<br/>10 MB read whole"]
+    caddy --> gunicorn["gunicorn<br/>WEB_CONCURRENCY processes of 8 threads,<br/>a silent process replaced after 60 s"]
+    gunicorn --> django["Django<br/>1 MB of form or JSON, 10 files,<br/>throttles counted in the cache"]
+    django -->|"half the threads at most:<br/>the bulkhead"| providers["Razorpay and MSG91<br/>3 s to connect, 10 s to read"]
+    django --> cache[("The cache's Redis<br/>1 s a call, then 5 s of misses")]
+    django -->|"row locks: checkout,<br/>payment, refunds"| db[("PostgreSQL<br/>5 s to connect, a statement<br/>15 s in the web, 600 s in Celery")]
+    django -->|"a task"| queue[("The queue's Redis<br/>2 s a call, one publish retry,<br/>unacknowledged for 2 h: another worker")]
+    beat["beat"] --> queue
+    queue --> worker["Celery worker<br/>acks late, prefetch 1,<br/>270/300 s, PDFs 60/90, long jobs 1500/1800,<br/>replaced after 200 tasks or 300 MB"]
+    queue --> media["Media worker<br/>a clip 3500/3600 s,<br/>ffmpeg 3000 s"]
+    worker --> db
+    worker -->|"a periodic job that sends:<br/>one run at a time"| cache
+    worker --> providers
+    worker -->|"the integrations client,<br/>the relay's 5-minute lease"| partners["Shiprocket and ERPNext<br/>5 s and 20 s, a circuit breaker"]
+    worker --> storage["The buckets and SES<br/>3 s and 20 s (SES 10 s), three tries"]
+    worker --> firebase["Firebase<br/>20 s a call"]
+```
+
+*Where a request and a task meet each timeout, lock and limit; the checklist proves each one.*
 
 ## The checklist
 
 "Fixed" names the change and its file; "already right" names where the existing code does it. Line numbers are those
 of this commit.
+
+<details>
+<summary>The checklist: 47 items, each with its finding, its fix or where the code already does it, and its proof</summary>
 
 | # | Item | Finding | Fixed / already right | Proven by |
 |---|---|---|---|---|
@@ -59,10 +110,12 @@ of this commit.
 | 9.3 | Webhooks answer fast | — | already right: Razorpay's handled in one database transaction with its record, no provider call, follow-ups queued (`shop/payments.py` `handle_webhook`); the parcel events and ERPNext's stored and answered, then processed by a task (`shipping/webhooks.py:25`); anymail's tracking a row written (`ops/models.py:32`) | existing tests |
 | 9.3.1 | Webhooks from inside the cluster | ERPNext posts to web's Service over plain http (no ingress, no `X-Forwarded-Proto`): the https redirect answered 301 (the chaos run) | fixed: `SECURE_REDIRECT_EXEMPT` = `^api/hooks/erp-events/`: authenticated by the HMAC signature of each body (`erp/inbound.py`), not by TLS; through Traefik it arrives over https as before. Judged and left redirected: Shiprocket's `/api/hooks/parcel-events/` (a static token in a header: plain http would expose it), anymail's (HTTP basic auth, the same), Razorpay's (signed, but sent from the internet over https, a customer's details in its body) | `examleaf/test_resilience.py::test_erpnext_webhooks_reach_django_over_plain_http…` |
 | 9.4 | Idempotency of money and state | place order: the same cash-on-delivery checkout sent twice at once placed two orders | fixed: one checkout of a cart at a time under its row's lock, the cart emptied in the same transaction (`api/shop.py` `OrderViewSet.create`); already right: pay (the Razorpay order made once; capture once by its state: `record_capture`), the webhooks (`WebhookEvent`), refunds (state, the refund task's lock and notes), cancel (the state machine), book codes (`learn/services.py:66`), consent (`api/parent_link.py:69`), the panel's bulk actions (an idempotency key per target) | `shop/test_resilience.py::test_the_same_cash_on_delivery_checkout_sent_twice_at_once…` (PostgreSQL: two placed on the old code); `shop/test_razorpay.py`, `shop/test_robustness.py`, `shop/test_api.py`, `learn/test_api.py:178`, `api/test_parent_link.py:17` (existing) |
-| 9.5 | SIGTERM | compose stopped every container after Docker's 10 seconds | fixed: compose gives web 40 s (gunicorn's 30 for the requests in progress) and the Celery workers 5 minutes (warm shutdown); the chart already gives web 70 s and the workers 300 s | measured (the load test's section): gunicorn finished a request 2 s into a 10-second Razorpay call, then exited; a Celery worker finished a refund's 10-second try, queued its retry and exited, nothing left unacknowledged |
+| 9.5 | SIGTERM | compose stopped every container after Docker's 10 seconds | fixed: compose gives web 40 s (gunicorn's 30 for the requests in progress) and the Celery workers 5 minutes (warm shutdown); the chart already gives web 75 s, the worker 330 s and the media worker 3630 s | measured (the load test's section): gunicorn finished a request 2 s into a 10-second Razorpay call, then exited; a Celery worker finished a refund's 10-second try, queued its retry and exited, nothing left unacknowledged |
 | 10 | Logs and tracing | no request was logged (gunicorn wrote no access log, and the frontend's calls never pass Caddy); task logs had no task id | fixed: one JSON line per request (`examleaf.middleware.RequestLogMiddleware`): the URL pattern (never the address itself, which can hold an order link's or a consent link's secret), status, milliseconds, the account's id; a warning past 2 s (`SLOW_REQUEST_SECONDS`); `task_id` and `task_name` on every line inside a task (`examleaf.celery.TaskIds`), beside the request id django-guid passes on (already); gunicorn's own lines JSON too. RUNBOOK.md "Reading the logs" | `examleaf/test_resilience.py::test_each_request_is_logged_once…`, `::test_a_tasks_log_lines_name_the_task…` |
 | 10.1 | The frontend's contract | — | already right: `X-Request-ID` from the proxy taken when it is a UUID and sent back (django-guid), the internal token compared in constant time and removed before the view (`examleaf.middleware.FrontendClientMiddleware`), the forwarded headers trusted only behind `PROXY_COUNT` proxies and `USE_X_FORWARDED_HOST`. The frontend sends no `X-Request-ID` of its own and puts no timeout on its server-side calls (deferred) | `ops/tests.py::test_the_request_id_from_the_proxy…`, `api/tests.py` (the internal token; existing) |
 | 11 | The load test | | below | below |
+
+</details>
 
 ## Celery, task by task
 
@@ -160,7 +213,7 @@ Environment variables (each also in DEPLOYMENT.md section 13):
 | `WEB_CONCURRENCY` | `2` (the chart sets 3) | gunicorn processes: about 2 × the CPUs + 1. More processes, more memory (about 120 MB each) and database connections |
 | `GUNICORN_THREADS` | `8` | requests at once per process; half of them may wait on providers (the bulkhead). More threads: more database connections (one each) |
 | `GUNICORN_TIMEOUT` | `60` | a process whose main loop is silent this long is killed (with threads, not a request's limit) |
-| `GUNICORN_GRACEFUL_TIMEOUT` | `30` | after SIGTERM, the requests in progress may finish; keep the stop grace above it (compose 40 s, the chart 70 s) |
+| `GUNICORN_GRACEFUL_TIMEOUT` | `30` | after SIGTERM, the requests in progress may finish; keep the stop grace above it (compose 40 s, the chart 75 s) |
 | `GUNICORN_KEEPALIVE` | `5` | seconds an idle connection from the proxy stays open |
 | `GUNICORN_MAX_REQUESTS`, `GUNICORN_MAX_REQUESTS_JITTER` | `5000`, `2500` | a process is replaced after this many requests, each after a number of its own; lower only if a process's memory grows |
 | `GUNICORN_WORKER_CONNECTIONS` | `1000` | connections a process takes at once; a cap starves a proxy's kept-alive connections (the load test) |
@@ -256,3 +309,13 @@ For the packaging agent (`deploy/kubernetes/examleaf-platform`):
 | `preload_app` under load | added after the load test (the chaos run's finding); its precondition is tested, the recycling gap not measured again here |
 | The web's 15 s statement limit behind the pooler | needs the chart's roles of their own (web, workers); until then the pooler's single `query_timeout` |
 | A task that kills its process: the worker without a database | the bound needs the result backend (django-db), which every worker has; a worker given no database would loop as before |
+
+## Related documents
+
+- [README.md](README.md): "Production", the stack and what keeps it running without surprises
+- [DEPLOYMENT.md](DEPLOYMENT.md): section 13, every setting, these knobs among them
+- [RUNBOOK.md](RUNBOOK.md): "Incidents" and "Reading the logs", where these limits show
+- [deploy/kubernetes/README.md](../deploy/kubernetes/README.md): the chart, its probes, grace periods and pooler
+- [deploy/kubernetes/TESTING.md](../deploy/kubernetes/TESTING.md): the chart's runs on kind, the chaos runs among them
+- [SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md): H1, the gunicorn timeout that a slow request could hold
+- [The website's](../examleaf-frontend/RESILIENCE.md) and [the console's](../examleaf-admin/RESILIENCE.md) resilience: the frontends' own
