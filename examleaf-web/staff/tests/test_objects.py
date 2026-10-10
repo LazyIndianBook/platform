@@ -286,6 +286,17 @@ def test_a_note_on_a_record_out_of_scope_is_404_both_ways():
     assert client.post(STAFF + "notes/", {**params, "body": "A note"}, format="json").status_code == 404
 
 
+def test_a_hold_on_a_record_out_of_scope_is_no_such_record():
+    """A record a hold names (an order, a payment …) is found among those its maker may see, as every object is."""
+    from accounts.models import LegalHold
+
+    order = make_order((ProductFactory(stock=5), 1))  # pending: out of a "cancelled" order scope
+    body = {"target_type": "shop.order", "target_id": order.number, "reason": "dispute"}
+    refused = signed_in(outsider()).post(STAFF + "privacy/holds/", body, format="json")
+    assert refused.status_code == 400 and "target_id" in refused.json() and not LegalHold.objects.exists()
+    assert signed_in(make_staff(roles.FINANCE)).post(STAFF + "privacy/holds/", body, format="json").status_code == 201
+
+
 # Customers
 
 

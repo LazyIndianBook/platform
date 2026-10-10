@@ -145,9 +145,12 @@ HOLD_TARGETS = {
 }
 
 
-def find_hold_target(label, value):
-    """(content type, the object) a hold may name, by its number or id; None when there is no such record."""
+def find_hold_target(label, value, user=None):
+    """(content type, the object) a hold may name, by its number or id, among the records `user` may see (its model's
+    view_ permission, in their scope); None when there is no such record, or none in reach."""
     from django.apps import apps
+
+    from .backends import scoped
 
     model = apps.get_model(label)
     number = HOLD_TARGETS[label]
@@ -155,7 +158,10 @@ def find_hold_target(label, value):
     query = Q(**{number: value}) if number else Q(pk__in=[])
     if value.isdigit():
         query |= Q(pk=int(value))
-    found = model._default_manager.filter(query).first() if value else None
+    records = model._default_manager.filter(query)
+    if user is not None:
+        records = scoped(records, user, f"{model._meta.app_label}.view_{model._meta.model_name}")
+    found = records.first() if value else None
     return (ContentType.objects.get_for_model(model), found) if found else None
 
 
