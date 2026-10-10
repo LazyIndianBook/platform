@@ -56,7 +56,9 @@ def receive_event(provider, body, headers, account=None, rejected=False, event_i
             event = InboundEvent.objects.create(
                 provider=provider,
                 account=account,
-                body=body.decode("utf-8", "replace"),
+                # the text as it came, with what no text column may hold replaced (PostgreSQL refuses a NUL byte);
+                # the digest is of the raw bytes, so a replay is still the same body
+                body=body.decode("utf-8", "replace").replace("\x00", "\ufffd"),
                 sha256=digest,
                 headers=kept,
                 event_id=event_id[:100],
