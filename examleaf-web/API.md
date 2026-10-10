@@ -1512,9 +1512,9 @@ the saved replies and the module's numbers. It keeps every rule of the [Staff AP
 member of staff with a second factor (an API key reads only), each action's catalogued permission (area "Support"),
 every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the schema tags it `support (staff)`.
 The tickets reach each person through their scope: a SALES member's are the order, payment and school-order tickets, a
-content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details,
-downloading a file and looking a person up by email or phone are `sensitive_read` events (the lookup's keyed hash,
-never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
+content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details and
+downloading a file are `sensitive_read` events; looking a person up by email or phone is a `customer.lookup` (the
+query's keyed hash and the count found, never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
 `support.replied`, `support.noted`, `support.assigned`, `support.status`, `support.reopened`, `support.acknowledged`,
 `support.action` with the action's name, `support.clock_breached`, `support.saved_reply_*`), naming the ticket by its
 number and never its requester.
