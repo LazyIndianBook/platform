@@ -45,6 +45,7 @@ from staff.serializers import ChangeRequestSerializer
 
 from . import invoices, payments, services
 from .models import (
+    Address,
     CreditNote,
     Order,
     OrderItem,
@@ -1597,6 +1598,7 @@ def ask_staff_order(view, request, data, quote=None):
     email = data["email"].lower()
     confirmed = EmailAddress.objects.filter(email__iexact=email, verified=True).values_list("user", flat=True)
     address = {name: str(value) for name, value in data["address"].items()}
+    address.setdefault("state", Address._meta.get_field("state").get_default())  # optional: an address's default
     payload = {
         "channel": data.get("channel", "school"),
         "lines": data["lines"],
