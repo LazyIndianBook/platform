@@ -1,12 +1,28 @@
 # content: the papers, their solutions, and the panel's content module
 
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg)
+
 The books' papers as the website and the app show them (board, class, subject, book, paper, question, solution, read
 from the books repository by `import_papers`), and, since Phase B, the Admin Control Panel's content module: a
-question's or a solution's text changed in the panel as a draft that a second person reviews and publishes, the
-mistakes readers report and their triage, the errata, the imports as staff jobs, the legal deposits, and the ISBN and
-LaTeX checks. The panel draws what the API answers and decides nothing itself. The endpoints are in
-[API.md](../API.md) "Content (staff)", and the public "Report a mistake" and errata in "Catalogue and solutions"; the
-rules every staff endpoint keeps are [staff/README.md](../staff/README.md)'s.
+question's or a solution's text changed in the panel as a draft that a second person reviews and publishes, the mistakes
+readers report and their triage, the errata, the imports as staff jobs, the legal deposits, and the ISBN and LaTeX
+checks. The panel draws what the API answers and decides nothing itself. Developers read it for the rules; what each
+role's pages do is under "The module's pages, by role". The endpoints are in [API.md](../API.md) "Content (staff)", and
+the public "Report a mistake" and errata in "Catalogue and solutions"; the rules every staff endpoint keeps are
+[staff/README.md](../staff/README.md)'s.
+
+> [!NOTE]
+> **At a glance**
+> - The site shows a question's or a solution's live text; the panel only ever writes its draft, after the LaTeX
+>   check, and a second person reviews and publishes it.
+> - A publish keeps the text it replaced on the review, so `rollback` can put it back until the live text changes
+>   again; the panel offers five seconds to undo.
+> - An import is a staff job: a dry run writes nothing, and its apply names the dry run (within 24 hours, the same
+>   subject and commit) and refuses to run if the repository moved.
+> - Readers' reports (5 an hour, 20 a day per address) are triaged: reported, confirmed or rejected, fixed online,
+>   fixed in a printing; the errata list the confirmed and fixed ones.
+> - Each book's legal deposits (four libraries, 30 days after publication) are an inbox item until all four have their
+>   copy.
 
 | File | What |
 |---|---|
@@ -34,15 +50,33 @@ draft, to be reviewed like any other change.
 
 ## The review: always two people
 
-`submit` sends the draft to a reviewer: a `ReviewTask` (stage `check`, state `in_progress`) holding a copy of the
-draft, the record `in_review`, and an inbox item for the reviewers of the subject (`staff.publish_paper`) or the one
-named. A reviewer approves it (stage `publish`), asks for changes with a comment (the editor's inbox item says so, the
-record is a draft again) or publishes it, approving it on the way. Whoever edited the draft last or submitted it
-decides nothing on it (`403 own_edit`), owners included: the two-person rule has no override. A publish refuses a
-draft changed since it was submitted; a change to a draft in review withdraws the review (submit it again). A
-publish keeps the text it replaced on the review (`previous`): `rollback` puts it back live and the published text
-back into the draft, until the live text changes again (an import, a later publish). In the panel a publish can be
-undone for five seconds after it, the same way. Every step is an audit event naming the record by its codes.
+`submit` sends the draft to a reviewer: a `ReviewTask` (stage `check`, state `in_progress`) holding a copy of the draft,
+the record `in_review`, and an inbox item for the reviewers of the subject (`staff.publish_paper`) or the one named. A
+reviewer approves it (stage `publish`), asks for changes with a comment (the editor's inbox item says so, the record is
+a draft again) or publishes it, approving it on the way. A publish refuses a draft changed since it was submitted; a
+change to a draft in review withdraws the review (submit it again). A publish keeps the text it replaced on the review
+(`previous`): `rollback` puts it back live and the published text back into the draft, until the live text changes again
+(an import, a later publish). In the panel a publish can be undone for five seconds after it, the same way. Every step
+is an audit event naming the record by its codes.
+
+> [!IMPORTANT]
+> **The two-person rule has no override.** Whoever edited the draft last or submitted it decides nothing on it
+> (`403 own_edit`), owners included.
+
+```mermaid
+flowchart LR
+    live["Live text: what the site shows"] -->|"a save in the panel, LaTeX checked"| draft["Draft: the changed fields"]
+    draft -->|"Submit for review"| review["In review: a ReviewTask and an inbox item for the reviewers"]
+    review -->|"a reviewer approves"| approved["Approved: stage publish"]
+    approved -->|"a reviewer publishes"| live
+    review -->|"a reviewer publishes, approving on the way"| live
+    review -.->|"changes asked for, or the draft edited"| draft
+    draft -.->|"discarded, or typed back to the live text"| live
+    live -.->|"rollback, until the live text changes"| draft
+    rule["A reviewer is never the one who edited the draft last or submitted it"] -.-> review
+```
+
+*A draft's way to the live text: submitted, reviewed, published, and undone by a rollback until the live text changes again.*
 
 ## Reported mistakes and errata
 
@@ -70,6 +104,20 @@ run if the repository moved since; it writes each paper in its own transaction a
 history stays meaningful), and takes a question gone from the books off the site (`is_published`) rather than deleting
 it. An import changes the live text and leaves a draft saved in the panel alone: the draft then shows its difference
 against the new text. The server needs git and the books repository's checkout (`PAPERS_ROOT`, DEPLOYMENT.md section 4).
+
+```mermaid
+flowchart TB
+    start["A subject and a commit (empty: the folder as it is), after a re-authentication"] --> dry["Dry run: reads and compares, writes nothing"]
+    dry --> result["Its result: the counts and the labels behind them (new, changed, the same, not matched, no longer in the books)"]
+    result --> apply{"Apply: names the dry run"}
+    apply -->|"no dry run of this subject and commit in the last 24 hours"| refused["Refused: run a dry run again"]
+    apply -->|"the repository moved since the dry run"| refused
+    apply -->|"otherwise"| write["Each paper in its own transaction, only the fields that changed"]
+    write --> removed["A question gone from the books is taken off the site, never deleted"]
+    write --> drafts["A draft saved in the panel is left alone and shows its difference against the new text"]
+```
+
+*An import in the panel: the dry run first, then an apply that names it.*
 
 ## Legal deposits
 
@@ -117,3 +165,16 @@ with KaTeX before a save, with the website's options.
 Comments on a single line of a draft (a comment names a field); assigning a review to someone from the panel's
 review page (the API takes `assignee` on submit); the website's public errata page (the API is there); the reports of
 a quiz item from the app (the API takes them).
+
+## Related documents
+
+- [staff/README.md](../staff/README.md): the rules every staff endpoint keeps, and "Jobs" for `content_import` and its
+  inbox items
+- [learn/README.md](../learn/README.md): the Course module, whose quiz bank joins the same triage queue
+- [insights/README.md](../insights/README.md): "Item analysis", the flags that reach the triage at 02:20
+- [API.md](../API.md): "Content (staff)", and "Catalogue and solutions" for the public report and the errata
+- [RUNBOOK.md](../RUNBOOK.md): "Content", an import, a wrong solution, undoing a publish, QR codes, legal deposits
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 4 (`PAPERS_ROOT`, the books repository's checkout)
+- [CONTENT_EDITOR.md](../../docs/guides/roles/CONTENT_EDITOR.md): the role's page (books, papers, the editor, the
+  triage)
+- [REVIEWER.md](../../docs/guides/roles/REVIEWER.md): the role's page (reviews, publishing, undoing, imports)
