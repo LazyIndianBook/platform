@@ -54,3 +54,24 @@ def test_the_ci_report_joins_pip_audits_and_npm_audits_findings(tmp_path):
     assert rows[("pypi", "pillow")]["severity"] == "unknown" and rows[("pypi", "pillow")]["fixed_in"] == "11.0.1"
     missing = next(row for row in report["inputs"] if row["source"] == "npm audit frontend")
     assert missing["ok"] is False and missing["error"].startswith("FileNotFoundError")
+
+
+def test_an_audit_that_did_not_run_is_unreadable_not_clean_and_strict_fails_on_it(tmp_path):
+    spec = importlib.util.spec_from_file_location("dependency_report", SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    registry_down = {"message": "request to the registry failed", "error": {"summary": "", "detail": ""}}
+    (tmp_path / "admin.json").write_text(json.dumps(registry_down))  # npm audit when it could not ask the registry
+    (tmp_path / "frontend.json").write_text(json.dumps({"auditReportVersion": 2, "vulnerabilities": {}}))  # clean
+    (tmp_path / "pip.json").write_text("")  # pip-audit killed before it wrote
+    out = tmp_path / "report.json"
+    args = ["--pip", str(tmp_path / "pip.json"), "--npm", f"admin={tmp_path / 'admin.json'}"]
+    args += ["--npm", f"frontend={tmp_path / 'frontend.json'}", "--output", str(out)]
+    assert module.main(args) == 0  # the report says what it saw ...
+    seen = {row["source"]: row for row in json.loads(out.read_text())["inputs"]}
+    assert seen["npm audit admin"]["ok"] is False and "registry" in seen["npm audit admin"]["error"]
+    assert seen["pip-audit"]["ok"] is False and seen["npm audit frontend"]["ok"] is True
+    assert module.main([*args, "--strict"]) == 1  # ... and CI, which asks for --strict, makes no artifact of it
+    (tmp_path / "admin.json").write_text(json.dumps({"vulnerabilities": {}}))
+    (tmp_path / "pip.json").write_text(json.dumps({"dependencies": [], "fixes": []}))
+    assert module.main([*args, "--strict"]) == 0

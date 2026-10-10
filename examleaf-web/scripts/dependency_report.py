@@ -5,7 +5,10 @@ advisories by severity, each with its package, version, fix and link; the versio
     python scripts/dependency_report.py --pip pip-audit.json --npm frontend=npm-frontend.json \
         --npm admin=npm-admin.json --commit "$GITHUB_SHA" --output dependency-report.json
 
-A missing or unreadable input is reported in the file (`inputs`), never a failure: the report says what it saw."""
+A missing or unreadable input, or one that is no audit's output (npm audit writes {"message", "error"} when it could
+not ask the registry), is reported in the file (`inputs`: `ok` false), never a failure: the report says what it saw.
+With --strict the file is written all the same, and the exit status is 1 when any input is not ok: CI uses it, so that
+an audit that did not run makes no artifact to be loaded, instead of a report that looks clean."""
 
 import argparse
 import json
@@ -21,6 +24,15 @@ def read(path):
         return json.loads(Path(path).read_text() or "null"), ""
     except (OSError, ValueError) as error:
         return None, f"{type(error).__name__}: {error}"[:200]
+
+
+def unusable(data, key):
+    """Why an audit's output is no audit, or "": pip-audit and npm audit always write `key` (a list of dependencies,
+    a map of vulnerabilities), even for a clean tree; an empty file, or npm's error object, did not run."""
+    if isinstance(data, list) or (isinstance(data, dict) and key in data):
+        return ""
+    message = str(data.get("message") or "") if isinstance(data, dict) else ""
+    return f"No '{key}' in it" + (f": {message}" if message else "")[:200]
 
 
 def pip_rows(data):
@@ -85,10 +97,12 @@ def main(argv=None):
     parser.add_argument("--version", action="append", default=[], help="name=version to report (next=16.0.1)")
     parser.add_argument("--commit", default="")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--strict", action="store_true", help="exit 1 when an input is not ok (the file is written)")
     args = parser.parse_args(argv)
     advisories, versions, inputs = [], {}, []
     if args.pip:
         data, problem = read(args.pip)
+        problem = problem or unusable(data, "dependencies")
         rows, found = pip_rows(data) if not problem else ([], {})
         advisories += rows
         versions.update(found)
@@ -96,6 +110,7 @@ def main(argv=None):
     for given in args.npm:
         project, _, path = given.partition("=")
         data, problem = read(path)
+        problem = problem or unusable(data, "vulnerabilities")
         advisories += npm_rows(project, data) if not problem else []
         inputs.append({"source": f"npm audit {project}", "path": path, "ok": not problem, "error": problem})
     for given in args.version:
@@ -111,6 +126,12 @@ def main(argv=None):
     }
     Path(args.output).write_text(json.dumps(report, indent=1))
     print(f"{len(report['advisories'])} advisories written to {args.output}")
+    broken = [row for row in inputs if not row["ok"]]
+    if args.strict and broken:
+        print(
+            "Not every audit ran: " + "; ".join(f"{row['source']}: {row['error']}" for row in broken), file=sys.stderr
+        )
+        return 1
     return 0
 
 

@@ -284,6 +284,10 @@ npx playwright test --project=chromium                     # mock mode: e2e/cons
 E2E_STAFF_API=real npx playwright test --project=real      # the staff API as built: e2e/real.spec.ts
 ```
 
+CI (`.github/workflows/ci.yml`, the `admin` job) runs the first two lines on every change to this directory; the
+Playwright journeys start `next dev` and Django together and stay a check to run before a merge. Its `npm audit` is
+the workflow's `dependency-audit` job, whose report the System page reads (`../examleaf-web/DEPLOYMENT.md` section 25).
+
 The Playwright tests reuse a running console (3020) and Django (8103), or start them: `scripts/e2e-backend.sh`
 migrates a SQLite file of its own (`.e2e/db.sqlite3`) and runs Django; `next dev` runs with `STAFF_API_MOCK=1` in mock
 mode and without it for the real project (the console in mock mode must not be the one reused). `E2E_WEB_PORT`,

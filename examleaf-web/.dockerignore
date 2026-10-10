@@ -13,3 +13,11 @@ htmlcov
 # No JSON file is part of the site: a Firebase service account's key left here must never be baked into the image
 # (I9). Give FCM_SERVICE_ACCOUNT_JSON the JSON itself in .env, or mount the file at run time.
 **/*.json
+# … except the ones the code reads at run time, all committed and none a secret: Shiprocket's recorded answers (a
+# test-mode account answers from them: shipping/carriers/fake.py), India Post's tariff (manage.py loaddata
+# postal_tariffs, DEPLOYMENT.md section 22) and the four subjects' format.json of the test papers (the panel's Content
+# import and import_papers --fixtures on a test site read them, content/imports.py). The image did not carry them: a
+# test-mode connection failed to import its answers, loaddata found no fixture, and the test papers' import no format.
+!shipping/carriers/recorded/shiprocket.json
+!shipping/fixtures/postal_tariffs.json
+!content/fixtures/papers/production/*/format.json

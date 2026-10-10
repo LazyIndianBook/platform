@@ -335,7 +335,53 @@ What run 1 found, and what changed because of it:
   in on the admin host (the panel's arrived later, section 6), so a sign-in through the panel is untried, and its
   staff API (`/api/v1/staff/`) is not built yet.
 
-## 10. Cleaning up
+## 10. Phase B: what the next run should check (not run)
+
+Phase B (the Admin Control Panel's modules, integrated on the branch phase-b) changed what the chart carries, and **no kind
+run has seen it**: the laptop's disk is at 99 % and its memory is taken by other agents' work (the reason ERPNext stayed
+off in section 6), so kind was not started. What was checked without a cluster: `make lint` (three `helm lint`s and
+four `helm template`s, clean), the ConfigMap rendered with sample values for the new settings (an apostrophe and comma
+lists survive, and `settings.py` parses them back), and `docker compose config` with the `admin` profile. The next run,
+on images built from the Phase B head, should check these, in this order:
+
+1. **An upgrade, not only an install.** Install the release of the commit before Phase B, then `helm upgrade` to this
+   one: web's init container applies some forty migrations to a database that has data. Then once with
+   `INTEGRATION_KEYS` taken out of `examleaf-env`: the init container must stop at `support.E001`, the rollout stall and
+   `--rollback-on-failure` put the old release back (README.md "Secrets"). `make kind-secrets` makes the key.
+2. **Routing of the new paths.** All are under `/api/` and `/admin/`, which Traefik already sends to web, so what to
+   see is the answers: `POST /api/hooks/support-mail/` and `/api/hooks/sms-events/` without their token (403 from
+   Django, not the website's 404; with a 5 MB body for the first, passing; with an 11 MB one, 413 from Traefik),
+   `/api/v1/reports/`, `/api/v1/errata/`, `/api/v1/me/tickets/` (Django's 200 or 401), `/api/v1/staff/session/` on the
+   admin host (200 signed in) and on the main host (404: `ADMIN_HOSTS`). The uploads (a return photograph, the
+   dark-pattern certificate, a legal-deposit proof: 5 MiB at most; the catalogue import: 2 MiB) must pass the
+   `body-limit` Middleware's 10 MB.
+3. **Beat.** The 59 entries are in django-celery-beat (27 new), one beat pod, and a few run when called by hand:
+   `shop.tasks.watch_tax_thresholds`, `support.tasks.watch_clocks`, `learn.tasks.publish_due`,
+   `learn.tasks.purge_code_files` and `staff.tasks.check_backups`. None of them has a queue of its own: the worker's
+   command needs no `--queues`.
+4. **The backups bucket from the pods.** With RustFS as the backups bucket, `config.BACKUP_BUCKET` and
+   `BACKUP_ENDPOINT_URL` set and a token of its own in `examleaf-env` (README.md "Backups and restore"): the System page
+   lists the newest object under `cnpg/` once the base backup has run; `accounts.tasks.copy_erasure_ledger` writes
+   `erasures/<id>.json` after an erasure; `staff.tasks.export_audit_log` writes `audit/…/<day>.jsonl`. Without them the
+   page must say that no bucket is set, and nothing may be reported stale.
+5. **The private storage and the jobs in the worker.** With the buckets of `values-kind-ha.yaml`: a staff job of each
+   kind that makes a file (`orders_print`, WeasyPrint's packing slips, on the read-only root and the `/tmp` emptyDir;
+   `gstr1_export`; `report_export`; `code_batch`) leaves its file under `staff/jobs/<id>/`, the signed link downloads
+   it, and the book codes' file is gone an hour after its 24 hours (`learn.tasks.purge_code_files`; backdate the job
+   to see it). Watch the worker's working set (768Mi) during the packing slips of 250 orders.
+6. **The panel's Content → Imports** is expected to answer "No production/ folder in …" (no books in the worker pod,
+   README.md "Install"). It is the one Phase B page the chart does not serve yet.
+7. **The System page's own fetches.** Its hardening check and the daily scripts inventory request the site's public
+   pages (`/checkout/`, the console's `/sign-in/` and `robots.txt`) from the pod. On kind `examleaf.localhost` is the
+   pod itself, so expect errors there; on a real cluster confirm that the pods can reach the public address (the
+   ingress from inside).
+8. **CI's dependency report**: `kubectl cp` and `load_dependency_report` as README.md "Upgrades and migrations" has
+   them, then System → Dependencies lists the advisories and no inbox item `dependencies_stale` stays open.
+9. **A bad setting stops the rollout, not the site.** `--set-string config.SHOP_SERIES_PREFIXES=tax_invoice=T` (one
+   capital) must keep the new web pod in its init container and, with `--rollback-on-failure`, bring the old release
+   back; the same for `config.INSIGHTS_MIN_CELL=3` (`insights.E001`).
+
+## 11. Cleaning up
 
 ```sh
 make kind-down                    # kind delete cluster --name examleaf-test; docker image prune -f

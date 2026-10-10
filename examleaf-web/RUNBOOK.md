@@ -66,7 +66,10 @@ order and audit event are there, drop it (`dropdb`), and record it in the panel:
 (the backup's name, the engine, the result, the minutes it took). The page then says when the backups were last
 proven to work; it also says each source's newest backup, its SHA-256 (compare it with `sha256sum` of the file you
 restored) and whether it is older than `BACKUP_STALE_HOURS` (an inbox item `backup_stale` opens then: look at the
-backup job's logs, `docker compose logs backup` or the CronJob's last run).
+backup job's log, `/srv/examleaf/backup.log` of the host's crontab entry in DEPLOYMENT.md section 9 and its last run
+of `scripts/backup.sh`; on Kubernetes the Cluster's backups, `kubectl -n examleaf get backups,scheduledbackups`, and the
+bucket's access, which the page reads with `config.BACKUP_BUCKET` and a token of its own: deploy/kubernetes/README.md
+"Backups and restore").
 
 On a new server: follow DEPLOYMENT.md up to `docker compose up -d`, then restore as above (the empty database's tables
 are replaced). The files are not in the dump: the `media` volume (DEPLOYMENT.md section 9) or the buckets (section 17)
