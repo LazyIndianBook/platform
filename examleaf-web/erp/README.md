@@ -1,11 +1,41 @@
 # erp: the platform kept in step with ERPNext
 
+![Component](../../docs/assets/badges/component-backend.svg) ![Status](../../docs/assets/badges/status-merged.svg) ![Tests](../../docs/assets/badges/tests-erp.svg) ![Audience](../../docs/assets/badges/audience-developers.svg) ![Audience](../../docs/assets/badges/audience-operators.svg)
+
 ERPNext is the system of record for the business (the books, GST returns, physical stock by print run, the B2B side);
 the platform stays the system of record for the product (accounts, content, the course, the storefront and its
-documents). This app mirrors the platform's facts into ERPNext through an outbox and reads ERPNext's back. Its
-contract is the Frappe app `examleaf_erp` (`../../examleaf-erp/API.md`), mapped in one module, `contract.py`. The
-plan is `../../docs/examleaf-admin-control-panel-plan.md` sections 3.1, 3.2, 7.5 and 9.3; the research
+documents). This app mirrors the platform's facts into ERPNext through an outbox and reads ERPNext's back; this page is
+for its developers and for whoever keeps the sync running. Its contract is the Frappe app `examleaf_erp`
+(`../../examleaf-erp/API.md`), mapped in one module, `contract.py`. The plan is
+`../../docs/examleaf-admin-control-panel-plan.md` sections 3.1, 3.2, 7.5 and 9.3; the research
 `../../docs/research/2026-10-09-admin-control-panel/research-erpnext.md` section 5.
+
+> [!NOTE]
+> **At a glance**
+> - One writer per fact: the platform's documents go to ERPNext through the outbox; ERPNext's stock and B2B documents
+>   come back by doorbell and by the 15-minute pull.
+> - A row is written in the transaction of the change it describes and sent in its aggregate's order: an earlier row
+>   that failed holds the later ones.
+> - A refusal that never succeeds unchanged is dead at once; a failed try is tried again, the delay doubling from a
+>   minute to six hours, and dead after `ERP_MAX_ATTEMPTS` (10 tries).
+> - A dead row is a dead letter and an item in the staff inbox until staff replay it or discard it with a reason.
+> - `ERP_ENABLED` and each flow are switches: environment settings that the panel's feature flags of the same name
+>   override.
+> - Every night at 03:30 the reconciliation compares the day before with ERPNext's `daily_totals`.
+
+## Contents
+
+- [The files](#the-files)
+- [Who owns what (plan 3.1)](#who-owns-what-plan-31)
+- [The flows](#the-flows)
+- [The contract, field by field (examleaf-erp/API.md)](#the-contract-field-by-field-examleaf-erpapimd)
+- [Shadow mode and the cut-over (plan 9.3)](#shadow-mode-and-the-cut-over-plan-93)
+- [Operations](#operations)
+- [The staff app (the panel)](#the-staff-app-the-panel)
+- [Development](#development)
+- [Related documents](#related-documents)
+
+## The files
 
 | File | What |
 |---|---|
@@ -69,6 +99,34 @@ Test-mode orders (made with test keys on a live site) never sync. A producer nev
 its own failure is undone in a savepoint and logged, and the nightly reconciliation names the document missing; a
 payload that cannot be built is written without one and built again at the send.
 
+```mermaid
+sequenceDiagram
+    participant Change as A change (shop, shipping)
+    participant Outbox as ErpOutbox
+    participant Relay as The relay (Celery)
+    participant ERP as ERPNext (examleaf_erp)
+    participant Staff as Staff
+    Change->>Outbox: a row, pending, in the change's own transaction
+    Change-->>Relay: nudged at the commit (beat runs it every minute too)
+    Relay->>Outbox: claimed: sending, under a 5-minute lease
+    Relay->>ERP: the payload with examleaf_ref and idempotency_key
+    alt ERPNext answers, a duplicate too
+        ERP-->>Relay: 200 {ok, name, duplicate}
+        Relay->>Outbox: sent: the answer kept, its ErpLink written
+    else unreachable, a 5xx, or a refusal that may pass later
+        ERP-->>Relay: no answer, a 5xx, not_found, insufficient_stock …
+        Relay->>Outbox: failed: due again after a minute, the delay doubling to six hours
+        Note over Relay,ERP: the next try sends the same idempotency_key
+    else a refusal that never succeeds unchanged, or the tenth try
+        ERP-->>Relay: invalid_request, conflict, total_mismatch …, or any failure the tenth time
+        Relay->>Outbox: dead: the aggregate's later rows wait
+        Relay->>Staff: a dead letter and an item in the inbox
+        Staff->>Outbox: replayed from its first try, or discarded with a reason
+    end
+```
+
+*An outbox row from its change to ERPNext: queued, sent and answered, or tried again, or dead and in the inbox.*
+
 **The relay** (`tasks.relay`, beat every minute and nudged at each commit that wrote rows): per aggregate, its first
 row not sent, of the flows switched on (an earlier row that failed holds its aggregate's later rows, never another
 aggregate's; a flow switched off holds its rows, and what follows them in their aggregate). A row is claimed with a
@@ -89,6 +147,28 @@ lease first, so two relays never send one; no transaction is held during the cal
 A dead row is a dead letter (`integrations.IntegrationFailure`, task `erp.tasks.replay_row`, `dead_letter_created`)
 and an item in the staff inbox; it holds its aggregate until staff replay it (from its first try) or discard it with a
 reason (its aggregate goes on). Replayed or discarded in Admin → Integrations, the outbox follows.
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: written in the change's transaction
+    pending --> sending: claimed by the relay
+    failed --> sending: due again
+    sending --> sent: ERPNext answered
+    sending --> failed: a try failed
+    sending --> dead: a permanent refusal, or the last try
+    dead --> pending: replayed by staff
+    failed --> pending: replayed by staff
+    dead --> discarded: discarded with a reason
+    sent --> pending: erp_replay --sent-since, after a restore
+    sent --> [*]
+    discarded --> [*]
+    note right of sending
+        The circuit open or a 429: back as it was, no try counted.
+        A lease run out (its worker gone): claimed again.
+    end note
+```
+
+*An outbox row's states: only a sent or a discarded row lets its aggregate's later rows go.*
 
 **Reading ERPNext back** (`inbound.py`). ERPNext's webhooks are doorbells (Frappe tries three times, then gives up):
 `POST /api/hooks/erp-events/` checks `X-Frappe-Webhook-Signature` (base64 HMAC-SHA256 of the raw body) in constant
@@ -226,3 +306,14 @@ missing items and invoices, stock it has not got, a number issued again for anot
 does. `SHADOW-RUN.md` is the same flows against the real ERPNext of the dev stack, step by step, with the commands to
 run it again (a Celery worker on macOS needs `FORKED_BY_MULTIPROCESSING=1`; several processes on one SQLite file need
 `?timeout=30&transaction_mode=IMMEDIATE` in its `DATABASE_URL`).
+
+## Related documents
+
+- [The sync API](../../examleaf-erp/API.md): `examleaf_erp`'s methods, fields, answers and errors, the contract this app keeps
+- [ExamLeaf ERP](../../examleaf-erp/README.md): the ERPNext stack, its site config, the sync user and the roles
+- [The shadow run](SHADOW-RUN.md): this app against a real ERPNext, step by step, with its numbers
+- [ERPNext sync (staff)](../API.md#erpnext-sync-staff): the panel's endpoints under `/api/v1/staff/erp/`
+- [Integrations](../integrations/README.md): the account, its circuit breaker, its call log and the dead letters
+- [The shop](../shop/README.md): the invoices, payments and settlements the outbox mirrors
+- [The panel's plan](../../docs/examleaf-admin-control-panel-plan.md): sections 3.1, 3.2, 7.5 and 9.3, the decisions behind the sync
+- [Documentation map](../../docs/README.md): every other document, by audience
