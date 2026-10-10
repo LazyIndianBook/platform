@@ -1,16 +1,86 @@
 # Insights: the predictive jobs of the Admin Control Panel
 
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![for: operators](../../docs/assets/badges/audience-operators.svg)
+
 The numbers the panel shows beside the facts: demand forecasts and print runs, the quiz's item analysis, cohorts, code
 activation, delivery times, fraud signals and what offers did; and, since Phase B, the numbers of Home and the reports
 (the metrics, the reports, their exports: "Home and Reports" below). The research behind every method is
-`docs/research/2026-10-09-admin-control-panel/research-b2b-predictive.md`, section 4 (and section 0 for why).
+[research-b2b-predictive.md](../../docs/research/2026-10-09-admin-control-panel/research-b2b-predictive.md), section 4
+(and section 0 for why). Developers read it for the methods and the rules every number follows; whoever runs the season
+reads "The monthly review, in season".
+
+> [!NOTE]
+> **At a glance**
+> - Each job is a function over the database's rows that writes its own rows in one transaction; a Celery task runs
+>   each at night from 01:00 to 03:15, and `manage.py insights_run <job>|all` runs them by hand.
+> - A method must beat a naive baseline before the panel shows it, and every number says how it was made: the method,
+>   `data_as_of`, the last backtest, `n` and, for a prediction, a range from P10 to P90.
+> - Rules before machine learning: below about 200 known outcomes a model only fits noise, so every score is a rule
+>   with its reasons.
+> - Learner data stays aggregate (DPDP Act s. 9(3)): no row points to an account, a group under 5 shows its size only,
+>   and nothing here feeds marketing, prices or offers.
+> - Fraud rules count keyed hashes, never raw phone numbers, emails or IP addresses.
+> - Home and the reports define each number once (`metrics.py`) and hide a cell under `INSIGHTS_MIN_CELL` (10) or
+>   `INSIGHTS_MIN_CELL_CLASS` (5).
+
+## Contents
+
+- [The nightly pipeline](#the-nightly-pipeline)
+- [The rules every number follows](#the-rules-every-number-follows)
+- [The jobs](#the-jobs)
+- [Home and Reports (Phase B)](#home-and-reports-phase-b)
+- [The monthly review, in season](#the-monthly-review-in-season)
+- [When to graduate a method](#when-to-graduate-a-method)
+- [Seams](#seams)
+- [Related documents](#related-documents)
+
+## The nightly pipeline
 
 Each job is a function over the database's rows (`insights/jobs/`) that writes its own rows in one transaction. A
-Celery task runs each at night (01:00 to 03:00, `settings.CELERY_BEAT_SCHEDULE`), `manage.py insights_run <job>|all`
+Celery task runs each at night (01:00 to 03:15, `settings.CELERY_BEAT_SCHEDULE`), `manage.py insights_run <job>|all`
 runs them by hand, the admin lists their rows read-only (Insights), and `/api/v1/insights/` gives them to staff
 (API.md, "Insights (staff)"). The arithmetic is in `insights/stats.py`, on plain lists, checked against numbers worked
 out by hand in `insights/tests/test_stats.py`. No library beyond the standard one: seasonal naive, a growth factor,
 quantiles and correlations are a few lines each.
+
+```mermaid
+flowchart TB
+    subgraph demand ["Demand and print runs"]
+        direction LR
+        backtest["01:00 backtest<br/>writes Backtest"] -->|"a line that lost to the naive drops its growth factor"| forecast["01:15 forecast_demand<br/>writes ForecastRun, Forecast"]
+        forecast -->|"the newest forecast"| advise["01:30 advise_print_run<br/>writes PrintRunAdvice"]
+        advise --> page["The panel's Forecasts and print runs"]
+        advise -->|"the act ones"| mail["The night's email lists the print runs to act on"]
+    end
+
+    subgraph learners ["Learners and the course"]
+        direction LR
+        items["01:45 item_analysis<br/>writes ItemStat, ChapterStat"] --> triage["The content triage, from content.flag_items at 02:20"]
+        cohorts["02:00 cohorts<br/>writes CohortStat"] --> repcohorts["Reports: cohorts"]
+        health["03:15 course_health<br/>writes CourseHealthStat"] --> rephealth["Reports: course health"]
+    end
+
+    subgraph codes ["Book codes and fraud"]
+        direction LR
+        activation["02:15 code_activation<br/>writes CodeActivationStat"] --> repcodes["Reports: codes"]
+        fraud["03:00 fraud_rules<br/>writes FraudSignal"] --> inbox["The inbox: a fraud_signal item for each open signal"]
+        fraud -->|"the new or grown signals"| mail2["The same email, to INSIGHTS_ALERT_EMAILS"]
+        hourly["Every hour at :40: code_fraud_rules<br/>writes FraudSignal"] --> inbox
+        hourly -->|"a spike or a leak, at once"| mail2
+    end
+
+    subgraph shop ["Parcels and offers"]
+        direction LR
+        delivery["02:30 delivery_stats<br/>writes DeliveryStat"] --> late["is_late(shipment) and the delivery list"]
+        offers["02:45 offer_effectiveness<br/>writes OfferStat"] --> offerlist["The offers list"]
+    end
+
+    demand ~~~ learners
+    learners ~~~ codes
+    codes ~~~ shop
+```
+
+*Each job writes its own tables over the database's rows, and the panel, the reports, the content triage and the inbox read them.*
 
 ## The rules every number follows
 
@@ -53,7 +123,7 @@ no district typed in the address (or, for book codes, no order to take one from)
 - **Output:** a `ForecastRun` (method, parameters with each title's growth, spread, whether backtested and its share
   of the line, data time, code version) and its `Forecast` rows: per title and week from this week to the exam, every
   district together and each district.
-- **How to read it:** P50 is the middle of the week's copies; four weeks in ten fall outside P10 to P90. `n` is the
+- **How to read it:** P50 is the middle of the week's copies; two weeks in ten fall outside P10 to P90. `n` is the
   copies the forecast stands on: below a few dozen, read the range, not the middle. Nothing is forecast for a line
   with no sales last season: the first season gives the history.
 
@@ -82,6 +152,18 @@ no district typed in the address (or, for book codes, no order to take one from)
   move copies to distributors or stop the reprint), **ok**. The night's email lists the "act" ones.
 - **Not yet:** printing less first and reprinting before the peak (the reprint option priced), B2B demand (the
   adoption pipeline × stage probabilities, from ERPNext).
+
+The newsvendor's split in the example above: a copy short loses more than a copy too many costs, so the season's demand
+is printed at a high quantile.
+
+```mermaid
+pie showData
+    title The cost of a wrong print run, in rupees a copy
+    "A copy short loses (Cu: net price less print cost)" : 135
+    "A copy too many costs (Co: print cost less salvage)" : 55
+```
+
+*Net price ₹195, print cost ₹60, salvage ₹5: Cu ÷ (Cu + Co) = 135 ÷ 190 = 0.71, the 71st percentile.*
 
 ### Item analysis (`item_analysis`, 01:45)
 
@@ -294,10 +376,10 @@ FINANCE member's the money and the queues of refunds, bank transfers, settlement
 
 ## Seams
 
-- The API is on the staff app's rules (`staff.api.StaffAppView`): `staff.view_insights` (FINANCE, MARKETING, ADMIN,
-  the owners, AUDITOR) reads, `staff.acknowledge_signal` (ADMIN, the owners) acknowledges a fraud signal there and in
-  the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals file staff inbox
-  items (`fraud_signal`), closed by the acknowledgement.
+- The API is on the staff app's rules (`staff.api.StaffAppView`): `staff.view_insights` (FINANCE, SALES, MARKETING,
+  ADMIN, the owners, AUDITOR) reads, `staff.acknowledge_signal` (ADMIN, the owners) acknowledges a fraud signal there
+  and in the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals file staff
+  inbox items (`fraud_signal`), closed by the acknowledgement.
 - `RtoHistory` is filled by `history_for()` from the shipping app's parcels (delivered or returned to origin; the RTO
   reason and a lost parcel are not read); the repeated-refusal rule and a model after about 200 outcomes are not
   built.
@@ -312,3 +394,17 @@ FINANCE member's the money and the queues of refunds, bank transfers, settlement
   and `metrics.py` are the places to say so.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the
   integrations; `AccountScore` from its schools and distributors; a batch's dispatch date from its Book Code Batch.
+
+## Related documents
+
+- [learn/README.md](../learn/README.md): the course whose use the item analysis, cohorts, course health and the fraud
+  rules count
+- [shipping/README.md](../shipping/README.md): the parcels behind the delivery times and the return risk
+- [content/README.md](../content/README.md): the triage that the item analysis's flags join
+- [staff/README.md](../staff/README.md): the permissions, the inbox, and "Jobs" for `report_export`
+- [API.md](../API.md): "Insights (staff)" and "Home and reports (staff)"
+- [RUNBOOK.md](../RUNBOOK.md): "Insights": a failed job, a fraud spike, a number that looks wrong, the monthly review, a
+  new season
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 21, the predictive jobs and their settings
+- [research-b2b-predictive.md](../../docs/research/2026-10-09-admin-control-panel/research-b2b-predictive.md): section
+  4, the method behind every job, and section 0 for why
