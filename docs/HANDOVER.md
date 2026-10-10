@@ -28,7 +28,7 @@ ended, what to do next and in which order, and which decisions only the business
 
 Every app has a README of its own; `examleaf-web/API.md` documents every endpoint (the staff section is generated and a
 test fails if it drifts from the code); `examleaf-web/CHANGELOG.md` lists what each piece added; `RUNBOOK.md` the
-operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new apps, 25 and 26 Phase B's). The one-page
+operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new apps, 25 to 27 Phase B's). The one-page
 guide of each role is in `docs/guides/roles/` and the owner's, the CA's and the lawyer's open decisions in
 `docs/decisions.md`.
 

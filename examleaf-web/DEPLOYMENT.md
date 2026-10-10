@@ -11,7 +11,7 @@ Sections 1 to 12 are the first deployment, in order. After them: 13 every settin
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
 18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
 (the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log, 24 ERPNext, 25 the
-staff, settings and integrations, and system pages (Phase B), 26 Phase B's settings by module.
+staff, settings and integrations, and system pages (Phase B), 27 Phase B's settings by module.
 
 ## 1. Accounts you need
 
@@ -1281,7 +1281,7 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
 | Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk events |
 | Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days |
 
-## 26. Phase B settings by module
+## 27. Phase B settings by module
 
 Phase B's settings are in section 13's tables, each once, with its default and whether it is required. This section
 gathers them by module, for whoever sets up one module at a time, and says what is left to do before the module is used.
