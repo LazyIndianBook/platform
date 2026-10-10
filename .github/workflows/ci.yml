@@ -8,9 +8,9 @@ name: examleaf-web
 on:
   push:
     branches: [main]
-    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", ".github/workflows/ci.yml"]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", "docs/**", "deploy/**", "scripts/docs/**", "mkdocs.yml", "README.md", ".github/workflows/ci.yml"]
   pull_request:
-    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", ".github/workflows/ci.yml"]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", "docs/**", "deploy/**", "scripts/docs/**", "mkdocs.yml", "README.md", ".github/workflows/ci.yml"]
   schedule:
     - cron: "30 20 * * 0"  # Mondays 02:00 India time: before the Monday 09:00 check of the report's age
   workflow_dispatch:  # Actions, "examleaf-web", Run workflow
@@ -181,3 +181,23 @@ jobs:
         run: npm run typecheck
       - name: Unit and component tests (Vitest)
         run: npm test
+
+  docs:
+    # the documentation portal (docs/STYLE.md): built on every change to a document and kept as an artifact
+    name: Documentation portal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install mkdocs-material==9.7.7 pymdown-extensions==12.1 pyyaml
+      - run: python scripts/docs/badges.py && git diff --exit-code docs/assets/badges  # the badges match badges.json
+      - run: python scripts/docs/build_site.py
+      - run: python -m mkdocs build --clean
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-portal
+          path: site
+          retention-days: 30
