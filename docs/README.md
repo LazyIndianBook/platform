@@ -136,9 +136,9 @@ gantt
     ERPNext on a real cluster, in shadow  :active, c, 2026-10-11, 2026-12-31
     Phases C to E                         :e, 2027-01-01, 2027-06-30
     section Deadlines
-    Disclosures, prior price, the dark-pattern audit :milestone, m1, 2027-01-01, 0d
-    The document series from the CA, ERPNext cut-over :milestone, m2, 2027-04-01, 0d
-    DPDP Rules, verifiable parental consent :milestone, m3, 2027-05-13, 0d
+    Disclosures, prior price, the dark-pattern audit :milestone, m1, 2027-01-01, 1d
+    The document series from the CA, ERPNext cut-over :milestone, m2, 2027-04-01, 1d
+    DPDP Rules, verifiable parental consent :milestone, m3, 2027-05-13, 1d
 ```
 
 *Phases A and B are merged and verified; the dates on the right are the law's, each carried by a setting.*

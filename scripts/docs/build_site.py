@@ -29,8 +29,13 @@ def documents():
 def admonitions(text):
     """`> [!NOTE]` blocks become `!!! note` blocks (GitHub draws the first, the portal the second)."""
     def replace(match):
-        body = "\n".join(line[2:] if line.startswith("> ") else line[1:] for line in match.group(2).rstrip("\n").split("\n"))
-        indented = "\n".join("    " + line if line else "" for line in body.split("\n"))
+        lines = [line[2:] if line.startswith("> ") else line[1:] for line in match.group(2).rstrip("\n").split("\n")]
+        spaced = []  # Python-Markdown needs a blank line before a list that follows a paragraph (GitHub does not)
+        for line in lines:
+            if re.match(r"\s*[-*] ", line) and spaced and spaced[-1].strip() and not re.match(r"\s*[-*] ", spaced[-1]):
+                spaced.append("")
+            spaced.append(line)
+        indented = "\n".join("    " + line if line else "" for line in spaced)
         return f"!!! {ADMONITION[match.group(1)]}\n{indented}\n"
     return ALERT.sub(replace, text)
 
@@ -42,7 +47,13 @@ def code_links(text, path):
         if "://" in target or target.startswith("#") or target.startswith("mailto:"):
             return match.group(0)
         file = target.split("#")[0]
-        if file.endswith(".md") or not file:
+        if not file:
+            return match.group(0)
+        resolved = (path.parent / file).resolve()
+        if resolved == ROOT / "README.md":  # the repository's README is repository.md in the portal
+            depth = len(path.relative_to(ROOT).parts) - 1
+            return f"[{label}]({'../' * depth}repository.md{target[len(file):]})"
+        if file.endswith(".md"):
             return match.group(0)
         resolved = (path.parent / file).resolve()
         try:
@@ -68,11 +79,22 @@ def main():
     # home page
     shutil.copytree(ROOT / "docs" / "assets", OUT / "docs" / "assets", dirs_exist_ok=True)
     for path in (ROOT / "docs").rglob("*"):
-        if path.suffix.lower() in {".html", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".pdf"} and "assets" not in path.parts:
+        if path.suffix.lower() in {".html", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"} and "assets" not in path.parts:
             target = OUT / path.relative_to(ROOT)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, target)
-    (OUT / "index.md").write_text((OUT / "docs" / "README.md").read_text().replace("](../", "](").replace("](assets/", "](docs/assets/"))
+    # the hub (docs/README.md) is the home page at the root: its links one level up lose their "../", the rest gain
+    # "docs/"; the repository's README takes the name repository.md (README.md at the root would be the index)
+    def home_links(match):
+        label, target = match.groups()
+        if "://" in target or target.startswith(("#", "mailto:")):
+            return match.group(0)
+        return f"[{label}]({target[3:] if target.startswith('../') else 'docs/' + target})"
+    hub = (OUT / "docs" / "README.md").read_text()
+    hub = re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", home_links, hub).replace("](assets/", "](docs/assets/")
+    (OUT / "index.md").write_text(hub.replace("](README.md)", "](repository.md)"))
+    (OUT / "README.md").rename(OUT / "repository.md")
+    copied[copied.index("README.md")] = "repository.md"
     class Loader(yaml.SafeLoader):  # mkdocs.yml names a Python object for the Mermaid fence; the nav is all we read
         pass
 
