@@ -5,6 +5,46 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, security review (10 October 2026)
+
+Plan 9.2's security exit criteria, reviewed on the merged Phase B (`phase-b` at 5b30b78) against OWASP API1, API3 and
+API5: each criterion became a test that derives its cases from the code (the URL walk, the authorization tables, the
+catalogue, the approvals registry), so that an endpoint added later without the rule fails the suite. The findings
+(1 high, 6 medium, 7 low, each fixed with a test that fails without the fix), what was judged acceptable and why, and
+what the console still needs are in `docs/security/phase-b-authorization-review.md`. 2,504 backend tests pass on
+SQLite (13 skipped, 6,961 subtests), 617 of them new.
+
+- **A refund by cancellation re-authenticates** (H1). Cancelling an order paid online refunds it, but the cancellation
+  endpoints name `shop.change_order` (medium), so a session signed in hours ago refunded at once within the maker's
+  limit: from the order's page, a ticket, the Django admin and the bulk cancellation job. `approvals.ask()`, which
+  every refund goes through, now asks a recent re-authentication whenever the maker's permission is high
+  (`approvals.step_up`; the admin's session is read too), and `jobs.start()` asks it for the action a job kind's rows
+  ask (`shop.order_jobs.ASKS`).
+- **Exports and a child's erasure re-authenticate** (M1, M2). `staff.run_gstr1`, `shop.export_product` and
+  `shop.export_category` are high, and a coupon's file of single-use codes has its own high permission
+  (`shop.add_couponcode`); the parent's confirmation of a child's erasure asks it too (a plain view can now name a
+  method in `reauth`).
+- **The access log** (M3): the ticket queue's searches for a person are `customer.lookup` events with the count found,
+  as every other person search is.
+- **Contact and codes masked** (M4, M6): a data request's requester is masked in every answer and shown through
+  `data-requests/<id>/reveal/` (`staff.reveal_contact`, re-authenticated, the reveal rate, a `sensitive_read`); a
+  coupon's unused single-use codes are listed as their prefix and last four.
+- **Scope on writes** (M5, L5): an editor narrowed to a subject no longer makes or moves a product into another, by
+  the API or the import; a legal hold finds its record only within the maker's scope.
+- **Smaller fixes** (L1 to L4): an API key only reads, every change being a person's (and the inbox and saved views no
+  longer fail with a 500 for a key); a data request's export and a print run's codes take the export rate, a ticket's
+  book-code lookup the code lookups' (`STAFF_THROTTLE_CODE_LOOKUP`); the inbox's done, snooze and assign are audited
+  (`inbox.done`, `inbox.snoozed`, `inbox.assigned`); an address without its optional state no longer fails a staff
+  order or a quote's conversion with a 500.
+- **The tests** (`staff/tests/`): object-level authorization as one table (`test_objects.py`, 184), the step-up derived
+  from the catalogue (`test_step_up.py`, 92), the audit trail walked (`test_audit_trail.py`, 225), the throttles (28),
+  the access log (17), the approval paths (15), the inbound hooks (13), the public endpoints (13) and exposure (8, two
+  of them walks of every GET); the matrix is now asserted equal to the URL walk (462 endpoints) and walks
+  `ADMIN_HOSTS`, `Cache-Control: no-store`, the CSP's `frame-ancestors` and an API key over every endpoint (21 new).
+  API.md's rate table, doubled by the merges, lists each rate once. Two tests no longer depend on the order or the
+  hour they run at: a Course test left its lowered rate to every test after it, and a Support one failed by day, when
+  a ticket is acknowledged by SMS.
+
 ## Phase B, Finance (9 October 2026)
 
 FINANCE kept the money from the Django admin, Razorpay's Dashboard and a monthly CSV match: the fees were not in the
