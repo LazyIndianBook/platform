@@ -1,17 +1,20 @@
 # Handover: where the ExamLeaf work stands and how to resume it
 
-Written 9 October 2026 at the end of a long Claude Code session. Everything below is in this repository on the branch
-`design/answer-script` (about 170 commits on top of `main`'s `b3cd16b`, not pushed anywhere). The branch was merged into `main` (fast-forward) and pushed to `origin` (github.com/LazyIndianBook/platform) on 9 October 2026, so `main` holds everything described here. A new person with
-their own Claude Code can resume from this file alone: it says what exists, what is verified, what was in flight when the session
-ended, what to do next and in which order, and which decisions only the business owner can take.
+Written 9 October 2026 at the end of a long Claude Code session and brought up to date on 10 October 2026 at the end
+of the Phase B session. Everything below is in this repository: the Answer Script redesign and Phase A were merged
+into `main` (fast-forward) and pushed to `origin` (github.com/LazyIndianBook/platform) on 9 October 2026; Phase B
+was built on the integration branch `phase-b` on 10 October 2026 and merged into `main` the same way (section 4 says
+where that stands). A new person with their own Claude Code can resume from this file alone: it says what exists,
+what is verified, what was in flight when the session ended, what to do next and in which order, and which
+decisions only the business owner can take.
 
 ## 1. The two bodies of work on this branch
 
 1. **The "Answer Script" redesign of the public site** (`examleaf-frontend/`): finished and verified. Report with
    before/after screenshots and numbers: `docs/design/answer-script-implementation.md`. Design sources:
    `implementation/design/*.dc.html`, plan `implementation/README_IMPLEMENTATION.md`.
-2. **The Admin Control Panel** (the business's back office): planned in full, Phase A built and merged, Phases B to E
-   pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,650 lines; sections 9 and 10 are the phases and the
+2. **The Admin Control Panel** (the business's back office): planned in full, Phases A and B built and merged, Phases
+   C to E pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,650 lines; sections 9 and 10 are the phases and the
    owner's decisions). Research behind it: `docs/research/2026-10-09-admin-control-panel/` (seven reports, each with a
    numbered sources file; index row in `docs/research/README.md`).
 
@@ -127,74 +130,88 @@ plan's section 9.2; `examleaf-web/CHANGELOG.md` has one entry for each module an
 
 ## 4. In flight when the session ended
 
-Nothing: every agent branch was merged before the session ended. The last one, the console reconciliation
-(`worktree-agent-a7c56ccbd5413ea94`), landed with the frontend resilience behaviour carried into its rewritten files:
-generated types from the OpenAPI schema, every call mapped to the staff API as built, the mock regenerated, 87 console
-unit tests, 207 website unit tests, Playwright 6/6 in mock mode and 9/9 against a real seeded Django (a refund above the
-limit becoming a change request refused to its maker and approved by the owner, the audit trail, invites, a logged
-reveal, a data request, a setting, a website sign-in as the customer with a real token and its end, axe at two widths,
-the idle sign-out). Not verified end to end: the website's impersonation Playwright spec (the token is now bound to the
-panel session that asked for it, so a token made from `manage.py shell` may be refused) and the website band beyond its
-unit tests.
+Nothing: every Phase B branch was merged onto `phase-b` before the session ended, each with a `Merge <module> (P<n>)
+into phase-b` commit naming what was verified at the merge, and the agents' worktrees under `.claude/worktrees/` were
+removed. The last three to land were the deployment carry-through (P16), the documentation (P13) and the security
+review (P14; `docs/security/phase-b-authorization-review.md`), each followed by the fixes their findings asked of the
+application (the consolidated CHANGELOG entry's "At the integration" paragraph lists them). The briefs the packages were
+built from and the merge tools are in `docs/phase-b-integration/`.
 
-All agent worktrees under `.claude/worktrees/` can be removed (`git worktree remove <path>`; their branches are merged):
-agent-a009a5704becda5fc, a0f7774fe32d7eeb9, a16ce5a2c3a326b06, a390e0b7103133571, a40021327d34afa3c, a4096b6004b90366f,
-a4fd8184097a1d590, a7c56ccbd5413ea94, a7f1f0910b79f7cb6, aa3c9f6cbf68be366, aa730d1f1c1db6cea, ad642f6030a48fd85.
+Verified on the merged head before the merge into `main` (the exact counts are in the CHANGELOG's consolidated
+entry): the backend suite on SQLite and on PostgreSQL 17, the console's lint, formatting, types and Vitest, its
+Playwright journey in mock mode and against a seeded Django (the invitation accepted, the Orders, Finance, Home and
+reports, Catalogue, Course and Customers journeys among them), the website's lint, types, Vitest and Playwright
+(the course pages with `WEB_COURSE=1`), ruff and the migrations' check.
 
 ## 5. What to do next, in order (the plan's section 9 has the detail)
 
-1. **Close Phase A**: run every suite once more on `main`; fix the three staff tests' dependence on `DEBUG` if it
-   reappears (`STAFF_TEST_MODE` defaults to off under tests); regenerate `openapi.json` and the console's types
-   (`manage.py spectacular --file openapi.json`, then `npm run api:types` in `examleaf-admin`); run the console's
-   Playwright against a seeded Django; push the branch and open a pull request against `main`.
-2. **Operations setup** (needs the owner's accounts): a Shiprocket Lite account with an API user, R2 buckets with bucket
-   lock, a Google OAuth client with an Internal consent screen (`STAFF_GOOGLE_*`), `INTEGRATION_KEYS`, `ADMIN_HOSTS`,
-   the admin host in `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`, Sentry or GlitchTip, the uptime monitors (`/health/`,
-   `/health/integrations/`; basic auth on Kubernetes, the token header on Caddy). First deploy: compose (DEPLOYMENT.md)
-   or the chart on a real cluster (deploy/kubernetes/README.md); restore drill; the live Shiprocket smoke test.
-3. **Phase B (the panel's own modules)**: staff APIs and console pages for orders, customers, catalogue, content, course,
-   marketing, support tickets (the grievance ticket numbers and the 48 h / one-month clocks), partners (distributors,
-   schools, teachers with consented class links), reports; the HSN master with dated rates, one document series per type
-   with the Table 13 register, billing state at checkout, per-bundle tax treatment, Razorpay settlement fetching
-   (`erp/producers.py` has the hook), credit-note quantities, a `returned` order state (decision 10). Each module: the
-   plan's capability table in section 5, the role × endpoint matrix test, audit on every change, `ADMIN_HOSTS`.
-4. **ERPNext in shadow mode**: build the image (`examleaf-erp/image/build.sh`), deploy ERPNext from the chart (off by
-   default: switch it on), create the site and run the bootstrap Job, create the `erp-sync@` API key into the
-   integrations account, turn on the `ERP_SYNC_*` flags one at a time, watch `erp_status` and the nightly reconciliation;
-   initial load with `erp_initial_load`; cut-over planned for 1 April 2027 (plan 9.3).
-5. **Phases C to E**: the plan's sections 9.4 to 9.6 (B2B channel, predictive analytics graduating to statistical
-   methods once two seasons exist, the DPDP deadline of 13 May 2027 for verifiable parental consent, access reviews).
+1. **Close Phase B on `main`**: run every suite once more (`docs/phase-b-integration/tools/integrate.sh check` and
+   `pg`; the console's `npm run test:e2e` in mock mode and with `E2E_STAFF_API=real`; the website's `npm run test:e2e`
+   with `DJANGO_PYTHON` and `DJANGO_DATABASE_URL` set as CI sets them). The decisions register (`docs/decisions.md`)
+   says what waits for the owner, the CA and the lawyer.
+2. **Operations setup** (needs the owner's accounts): as before (a Shiprocket Lite account with an API user, R2 buckets
+   with bucket lock, a Google OAuth client with an Internal consent screen, `ADMIN_HOSTS`, the admin host in
+   `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS`, Sentry or GlitchTip, the uptime monitors), and now `INTEGRATION_KEYS`
+   from the first start (`support.E001` stops `migrate` without it). Then Phase B's own first-deploy steps,
+   DEPLOYMENT.md section 26: the disclosures filled in the panel, the connections page's credentials, the support mail
+   forwarder, the dependency report loaded, the restore drill recorded, the dark-pattern self-audit before 1 January
+   2027, the document series prefixes from the CA before 1 April 2027. First deploy: compose (DEPLOYMENT.md) or the
+   chart (`deploy/kubernetes/README.md`; `kind` was not run for Phase B: `TESTING.md` lists what that run should check).
+3. **ERPNext**: the shadow run on the Docker dev stack is recorded (`examleaf-web/erp/SHADOW-RUN.md`); on a real
+   cluster, build the image, switch ERPNext on in the chart, create the site, run the bootstrap Job, create the
+   `erp-sync@` API key, turn on the `ERP_SYNC_*` flags one at a time and watch `erp_status` and the nightly
+   reconciliation; cut-over planned for 1 April 2027 (plan 9.3).
+4. **Phases C to E**: the plan's sections 9.4 to 9.6 (the B2B channel on ERPNext's price lists and stock, predictive
+   analytics graduating to statistical methods once two seasons exist, the DPDP deadline of 13 May 2027 for
+   verifiable parental consent, access reviews). Build them as Phase B was built (`docs/phase-b-integration/`).
 
 ## 6. Decisions only the owner can take (plan section 10 has recommendations)
 
-Thresholds (refund caps per role, export and bulk limits: placeholders today in `accounts/roles.py` `ROLE_LIMITS`);
-Gyan Post eligibility (ask the Guwahati postal division in writing); the Shiprocket plan; WhatsApp provider (MSG91
-recommended; off today); Sentry (US/EU data) or GlitchTip (self-hosted); Tally export or Zoho; whether school and
-distributor orders need their own channel; the CA questions (above all the GST treatment of a book sold with a printed
-course code; "Exempted" or "Nil-Rated" for HSN 4901; one series or two; who files GSTR-1; the fee's GST; rounding;
-returned COD parcels) and the lawyer's (the legal form under E-Commerce Rule 4(1)(a); the children's-data analytics).
+`docs/decisions.md` is the register: every decision of plan section 10.1 with its status, what the code does today
+and the setting that carries the answer. The ones that matter first: the thresholds (refund caps per role, export
+and bulk limits: `accounts/roles.py` `ROLE_LIMITS`, placeholders today); Gyan Post eligibility; the Shiprocket plan;
+the WhatsApp provider (MSG91 recommended; off); Sentry or GlitchTip; Tally export or Zoho; the CA's questions (the GST
+treatment of a book sold with a printed course code, "Exempted" or "Nil-Rated" for HSN 4901, one document series or
+two and their prefixes, who files GSTR-1 and the QRMP choice, the fee's GST, rounding, returned COD parcels) and the
+lawyer's (the legal form under E-Commerce Rule 4(1)(a), the National Consumer Helpline status, whether reviews make
+ExamLeaf an intermediary, the children's-data analytics, the educational-institution question).
 
 ## 7. Known gaps and follow-ups (small, deliberate)
 
-- The chart's web readiness stays a static file on purpose (a shared dependency's hiccup must not empty the rotation);
-  liveness is `/health/live/`; the pooler carries the statement limits (`query_timeout`, `idle_transaction_timeout`).
-- An abandoned break-glass session sends no end alert; the Django admin does not ask the break-glass reason (the panel
-  does).
-- Shiprocket response shapes marked `_inferred` in `shipping/carriers/fake.py` need checking against a live account.
-- `insights` thresholds and weights are starting values; review monthly in season (`insights/README.md`).
-- The three-node HA run, autoscaler scaling, synchronous replication and ERPNext on Kubernetes are untested.
+- The chart has no books volume: the panel's Content imports run under compose (the worker mounts the books) but not
+  on Kubernetes yet. The import's commit mode needs `git` in the image; without it the folder's fingerprint stands in
+  for the commit, which is honest but cannot name a commit.
+- The System page reads the ERPNext apps' versions from a checkout the image lacks (CI could pass them in).
+- The two codes reports answer different questions on purpose (the Course module's by print run and its own
+  window; the reports module's with the districts and the title's total): each says which in its definitions.
+- The website's Playwright course tests skip unless the backend runs with `WEB_COURSE=1`; the website's Playwright
+  needs `DJANGO_PYTHON` and `DJANGO_DATABASE_URL` (CI sets them; a bare `npm run test:e2e` writes into the dev
+  database).
+- The console's Playwright journeys are not in CI (the unit checks are); the console's end-to-end database keeps
+  what a cut-off run left, and each seed clears its own kind first.
+- From before: an abandoned break-glass session sends no end alert; the Django admin does not ask the break-glass
+  reason; Shiprocket answer shapes marked `_inferred` need checking against a live account; `insights` thresholds are
+  starting values; the three-node HA run, the autoscaler, synchronous replication and ERPNext on Kubernetes are
+  untested; `kind` was not run for Phase B.
 
 ## 8. Conventions used, so the history stays consistent
 
 - Commit messages: a subject line saying what changed, then a paragraph on why, in sentences; each ends with a
-  `Co-Authored-By:` trailer naming the model that wrote it. Small commits per concern.
-- Work in parallel agents was done in git worktrees under `.claude/worktrees/`, each rebased onto the integration branch
-  before merging; node_modules were cloned with `cp -Rc` (APFS clonefile) to save disk; builds happened once and `.next`
-  was removed.
-- Local quirks: Docker here is Colima (`colima ssh -- sudo fstrim -av` shrinks its disk image after `docker system
-  prune`); the disk fills quickly with eight agents, so prune often; the backend venv is `examleaf-web/.venv`
-  (Python 3.14); a scratch PostgreSQL for the backend suite can be started with `pg_ctl` (DEPLOYMENT.md section 23 has
-  the DSN form); ports 3000 to 3041 and 8100 to 8104 were used by dev servers.
+  `Co-Authored-By:` trailer naming the model that wrote it. Small commits per concern. A merge of an agent branch is a
+  `--no-ff` merge whose message names the module and what was verified at the merge.
+- Work in parallel agents was done in git worktrees under `.claude/worktrees/`, each from the integration branch;
+  node_modules were cloned with `cp -Rc` (APFS clonefile) to save disk. Merges kept both sides of the shared files
+  (`docs/phase-b-integration/tools/`), with a merge migration and a union migration for the permissions and kinds per
+  module, then the API reference, `openapi.json` and the console's and the website's types regenerated.
+- What the merges taught (kept in the briefs' `AFTER-BATCH-A.md` too): schema component names are global, so
+  serializers carry their module's prefix; one enum name per choice set in `ENUM_NAME_OVERRIDES`; every job kind's
+  serializer branch returns; `select_for_update(of=("self",))` wherever a lock's queryset joins a nullable table
+  (only PostgreSQL catches it: run the suite there); the console's `copy.ts` needs its closers back after a union;
+  delete `examleaf-admin/.next` before Playwright.
+- Local quirks: Docker here is Colima; the disk fills quickly with many agents (`docker system prune`, remove merged
+  worktrees); the backend venv is `examleaf-web/.venv` (Python 3.14); the local PostgreSQL 17 at 5432 takes
+  `createdb examleaf_phaseb` for the suite; `socket.getfqdn()` takes five seconds on this Mac (settings now set the
+  Message-ID domain from `SITE_URL`); ports 3000 to 3048 and 8100 to 8122 were used by dev servers.
 - Guardrails kept throughout: the backend decides everything (the console only draws the manifest); no sample values
   shipped; every URL kept; private pages `noindex`; never show PAID before the server confirms; no emoji, gradients,
   glow or blur in the UI; copy as written.
