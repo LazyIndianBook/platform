@@ -1,10 +1,75 @@
 # ExamLeaf ERP
 
+![Component](../docs/assets/badges/component-erpnext.svg) ![ERPNext](../docs/assets/badges/stack-erpnext.svg) ![Status](../docs/assets/badges/status-merged.svg) ![Audience](../docs/assets/badges/audience-operators.svg) ![Audience](../docs/assets/badges/audience-developers.svg)
+
 ExamLeaf's back office: ERPNext v16.50.0 with India Compliance v16.10.0 (GST), HRMS v16.50.0, offsite_backups and
 `examleaf_erp`, the private Frappe app in this directory. ERPNext keeps the books, the GST returns, the stock by print
 run and the B2B side (schools, distributors, booksellers); the platform (`examleaf-web/`) stays the shop and the master
-of B2C orders, which reach ERPNext through `examleaf_erp`'s API (`API.md`). The decisions behind it are
-`docs/research/2026-10-09-admin-control-panel/research-erpnext.md` ("research n" below).
+of B2C orders, which reach ERPNext through `examleaf_erp`'s API (`API.md`). This page is for whoever runs ERPNext or
+changes the app: the stack, the site's config, the app itself, the roles and the hardening. The decisions behind it
+are `docs/research/2026-10-09-admin-control-panel/research-erpnext.md` ("research n" below).
+
+> [!NOTE]
+> **At a glance**
+> - One writer per fact: the platform masters the catalogue, B2C invoices, payments and dispatch; ERPNext the physical
+>   stock, the B2B side, purchases, journals, payroll and the GST returns.
+> - B2C customers are never copied: every storefront invoice goes to "Online Customers (B2C)" with the parcel's city,
+>   district, state and PIN only.
+> - `examleaf_erp` gives the platform twelve methods (`API.md`), called as the sync user; ERPNext's six webhooks only
+>   ring the platform's doorbell, and the platform reads again.
+> - ERPNext is staff-only and not on the public internet; in production every component runs the one image of `image/`.
+> - Nothing is installed on the Mac: the development stack and the app's 58 tests run in Docker (`compose/`, `./dev.sh`).
+
+## Contents
+
+- [The stack](#the-stack)
+- [Who owns what (research 5.8)](#who-owns-what-research-58)
+- [For the Kubernetes chart (`deploy/`)](#for-the-kubernetes-chart-deploy)
+- [Site config](#site-config)
+- [Local setup](#local-setup)
+- [The app](#the-app)
+- [Roles (research 5.5)](#roles-research-55)
+- [Hardening checklist (research 6.5, 6.6)](#hardening-checklist-research-65-66)
+- [India Compliance's GST API: a processor](#india-compliances-gst-api-a-processor)
+- [Licences (research 1.3)](#licences-research-13)
+- [Open questions](#open-questions)
+- [Related documents](#related-documents)
+
+## The stack
+
+```mermaid
+flowchart LR
+    platform["The platform<br/>(examleaf-web/erp)"]
+    staff["Staff in Desk<br/>(Google sign-in)"]
+    subgraph frappe["Frappe v16: one image for every process"]
+        frontend["frontend<br/>nginx"]
+        backend["backend<br/>gunicorn"]
+        websocket["websocket<br/>socket.io"]
+        scheduler["scheduler"]
+        workers["workers<br/>short, default, long"]
+        app["examleaf_erp, the private app:<br/>the sync API, five doctypes,<br/>GST rules, the jobs"]
+    end
+    db[("MariaDB 11.8")]
+    cache[("Valkey: the cache")]
+    queue[("Valkey: the queue")]
+    platform -->|"examleaf_erp.api.*, as the sync user"| frontend
+    staff --> frontend
+    frontend --> backend
+    frontend --> websocket
+    backend --> db
+    backend --> cache
+    backend -->|jobs| queue
+    scheduler -->|jobs| queue
+    queue --> workers
+    workers --> db
+    websocket --> queue
+    workers -->|"six webhooks, signed"| platform
+    backend -.- app
+    scheduler -.- app
+    workers -.- app
+```
+
+*The ERPNext stack: `compose/` runs these processes for development, the Kubernetes chart runs them in production.*
 
 | Path | What it holds |
 |---|---|
@@ -263,3 +328,13 @@ GPLv3. "Frappe" and "ERPNext" are registered trademarks: the app is `examleaf_er
   GST as input tax through the settlement journal or through a purchase invoice.
 - **Repeated value-only credits** on one line stop once its units are used (`API.md`, create_credit_note).
 - **The webhook receiver's URL** on the platform (`examleaf_webhook_base`) and its secret.
+
+## Related documents
+
+- [The sync API](API.md): `examleaf_erp`'s twelve methods, their fields, answers and errors, and the webhooks
+- [Upgrades](UPGRADE.md): the weekly patch, a new app, the next major
+- [The ERPNext sync](../examleaf-web/erp/README.md): the platform's side: the outbox, the pull and the reconciliation
+- [The shadow run](../examleaf-web/erp/SHADOW-RUN.md): the sync run against this stack, step by step
+- [ExamLeaf on Kubernetes](../deploy/kubernetes/README.md): the chart that runs ERPNext beside the platform
+- [The research on ERPNext](../docs/research/2026-10-09-admin-control-panel/research-erpnext.md): the decisions behind this page ("research n")
+- [Documentation map](../docs/README.md): every other document, by audience

@@ -1,31 +1,67 @@
 # ExamLeaf API (v1)
 
+![Component](../docs/assets/badges/component-backend.svg) ![Status](../docs/assets/badges/status-merged.svg) ![Backend tests](../docs/assets/badges/tests-backend.svg) ![Audience](../docs/assets/badges/audience-integrators.svg)
+
 The REST API behind the ExamLeaf app: the public catalogue (boards, subjects, books, papers), the solutions (for a
 signed-in student with a confirmed email address, as on the website, or for everyone while the site's solutions are
 open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), the
 shop (books, categories, collections, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices) and the
 revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the Admin Control Panel's
 API (`/api/v1/staff/…`, on the admin host only: the [Staff API](#staff-api) and a section for each module) and the
-insights (forecasts, print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`,
-`serializers.py`, `shop.py`, `learn.py`), `insights/api.py` and the staff API's, which each module keeps beside its
-models (its section names the file); settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
-`examleaf/api_urls.py`.
+insights (forecasts, print runs, item analysis, cohorts, fraud signals). It is written for the developers of the app,
+the website and the panel, and of an integration with an API key: how a client signs in, every endpoint and who may
+call it, each module's rules, the errors and the limits.
+
+> [!NOTE]
+> **At a glance**
+> - The base URL is `https://<domain>/api/v1/`: every path ends with `/`, JSON goes both ways, and the OpenAPI schema
+>   is at `/api/schema/` (Swagger UI: `/api/docs/`).
+> - The app signs in with JWT (an access token of 15 minutes, a refresh token of 30 days, replaced at every refresh);
+>   the website with its session cookie, through allauth.headless.
+> - The staff endpoints answer on the admin host only, to a member of staff with a second factor or to an API key that
+>   only reads, each action behind a permission of its own.
+> - Within v1 changes only add; removing or renaming a field, or a new required parameter, makes a v2.
+> - Code: `api/` (`auth.py`, `views.py`, `serializers.py`, `shop.py`, `learn.py`), `insights/api.py` and the staff
+>   API's, which each module keeps beside its models (its section names the file); settings:
+>   `examleaf/api_settings.py`, URLs: `api/urls.py` under `examleaf/api_urls.py`.
 
 ## Contents
 
-[Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
-[Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
-[Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
-[Shop](#shop) · [Revision course](#revision-course) · [Shipping (staff)](#shipping-staff) ·
-[Site](#site-configuration-and-legal-pages) · [Insights (staff)](#insights-staff) ·
-[ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) ·
-[Legal and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff) ·
-[Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Content (staff)](#content-staff) ·
-[Support (staff)](#support-staff) · [Finance (staff)](#finance-staff) ·
-[Home and reports (staff)](#home-and-reports-staff) · [Catalogue (staff)](#catalogue-staff) ·
-[Course (staff)](#course-staff) · [Customers (staff)](#customers-staff) · [Lists](#lists) · [Staff API](#staff-api) ·
-[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) ·
-[Operations](#operations)
+- [Conventions](#conventions)
+- [Endpoints](#endpoints)
+- [Authentication from the app](#authentication-from-the-app)
+- [Frontend integration guide](#frontend-integration-guide)
+- [Profile and data rights](#profile-and-data-rights)
+- [Catalogue and solutions](#catalogue-and-solutions)
+- [Attempts](#attempts)
+- [Store catalogue](#store-catalogue)
+- [Shop](#shop)
+- [Revision course](#revision-course)
+- [Shipping (staff)](#shipping-staff)
+- [Site configuration and legal pages](#site-configuration-and-legal-pages)
+- [Insights (staff)](#insights-staff)
+- [ERPNext sync (staff)](#erpnext-sync-staff)
+- [Tax (staff)](#tax-staff)
+- [Legal and privacy (staff)](#legal-and-privacy-staff)
+- [Orders (staff)](#orders-staff)
+- [Connections (staff)](#connections-staff)
+- [Templates (staff)](#templates-staff)
+- [Content (staff)](#content-staff)
+- [Support (staff)](#support-staff)
+- [Finance (staff)](#finance-staff)
+- [Home and reports (staff)](#home-and-reports-staff)
+- [Catalogue (staff)](#catalogue-staff)
+- [Course (staff)](#course-staff)
+- [Customers (staff)](#customers-staff)
+- [Lists](#lists)
+- [Staff API](#staff-api)
+- [Errors](#errors)
+- [Rate limits](#rate-limits)
+- [CORS](#cors)
+- [Versioning](#versioning)
+- [Operations](#operations)
+- [Every staff endpoint and field](#every-staff-endpoint-and-field)
+- [Related documents](#related-documents)
 
 ## Conventions
 
@@ -44,12 +80,43 @@ models (its section names the file); settings: `examleaf/api_settings.py`, URLs:
 
 ## Endpoints
 
+```mermaid
+flowchart LR
+    website["The website<br/>(the session cookie)"]
+    app["The app<br/>(JWT)"]
+    panel["The panel<br/>(the staff session)"]
+    key["An integration<br/>(an API key)"]
+    services["Shiprocket, ERPNext,<br/>MSG91, the mail forwarder"]
+    subgraph django["Django"]
+        headless["/_allauth/browser/v1/ and /_allauth/app/v1/:<br/>allauth.headless, the sign-in"]
+        account["/api/v1/auth/, me/, account/:<br/>the tokens, the profile, data rights"]
+        public["/api/v1/: catalogue, solutions, attempts,<br/>shop, course, config, legal pages"]
+        staff["/api/v1/staff/, the shipping desk's,<br/>the insights': the staff API"]
+        hooks["/api/hooks/: four webhooks"]
+    end
+    website --> headless
+    website --> account
+    website --> public
+    app --> headless
+    app --> account
+    app --> public
+    panel --> headless
+    panel -->|on the admin host only| staff
+    key -->|on the admin host only, to read| staff
+    services -->|a token or a signature| hooks
+```
+
+*The API's five surfaces and who calls each; the staff API answers on the admin host only.*
+
 Paths are under `/api/v1/` except those that start with a slash. Who: **anyone** needs no sign-in; **signed in** needs a
 valid access token (or the website's session); **confirmed** also needs a confirmed email address; a permission
 (`staff.view_parcels` …) is the [Staff API](#staff-api)'s rule: a member of staff with an authenticator app holding
 it, on the panel's session (or an API key), on the admin host only. **Shop open**: while
 `SHOP_OPEN=0` (before the launch) changing the cart, checkout and payment answer 403
 `{"detail": "The shop opens soon."}` except for staff; reading stays possible.
+
+<details markdown>
+<summary>Every endpoint: its method, path, who may call it and what it does (97 rows)</summary>
 
 | Method | Path | Who | What |
 |---|---|---|---|
@@ -151,6 +218,8 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | POST | `/api/hooks/support-mail/` | the forwarder, with its token in `X-Support-Mail-Token` | an email to the support address ([Support (staff)](#support-staff)); not in the OpenAPI schema |
 | any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
+</details>
+
 ## Authentication from the app
 
 The app uses JWT: a short-lived **access** token in every request (`Authorization: Bearer <access>`) and a
@@ -161,6 +230,53 @@ instead (with the `X-CSRFToken` header on POST, PUT, PATCH and DELETE).
 |---|---|---|
 | access | 15 minutes | `JWT_ACCESS_MINUTES` |
 | refresh | 30 days | `JWT_REFRESH_DAYS` |
+
+```mermaid
+sequenceDiagram
+    participant App as The app
+    participant H as /_allauth/app/v1/
+    participant API as /api/v1/
+    alt through allauth.headless (here a password and a second step)
+        App->>H: POST auth/login {email, password}
+        H-->>App: 401 mfa_authenticate pending (keep meta.session_token)
+        App->>H: POST auth/2fa/authenticate {code}, X-Session-Token
+        H-->>App: 200 signed in
+        App->>API: POST auth/exchange/, X-Session-Token
+    else legacy-compatible, an account without a second step
+        App->>API: POST auth/login/ {email, password}
+    end
+    API-->>App: 200 {access, refresh, user}
+    App->>API: every call with Authorization: Bearer and the access token
+    API-->>App: 401 token_not_valid once the access token has run out
+    App->>API: POST auth/token/refresh/ {refresh}
+    API-->>App: 200 a new access and a new refresh token,<br/>the old refresh token refused from then on
+    App->>H: at log-out, DELETE auth/session (the headless session)
+    App->>API: POST auth/logout/ {refresh}
+```
+
+*The app's tokens: obtained once, sent with every call, refreshed one at a time, ended at log-out.*
+
+```mermaid
+sequenceDiagram
+    participant B as The browser
+    participant H as /_allauth/browser/v1/
+    participant API as /api/v1/
+    participant S as The website's server
+    B->>H: GET auth/session
+    H-->>B: 401 not signed in, and the csrftoken cookie
+    B->>H: POST auth/login {email, password}, X-CSRFToken
+    opt a second step is due (staff, an authenticator app)
+        H-->>B: 401 mfa_authenticate pending
+        B->>H: POST auth/2fa/authenticate {code}, X-CSRFToken
+    end
+    H-->>B: 200 signed in, the session cookie
+    Note over B,H: a code by email or SMS, a passkey and Google go the same way:<br/>a 401 naming the step due, then 200
+    B->>API: every call with the session cookie, and X-CSRFToken on a change
+    S->>H: GET auth/session with the visitor's cookie, X-Internal-Token
+    H-->>S: 200 the signed-in user, for the page it renders
+```
+
+*The website's sign-in: allauth.headless's browser client on the same origin, then API v1 with the same cookie.*
 
 **Sign up** with the same fields and rules as the website's form: class (10 or 12), board (an id from `boards/`),
 date of birth, and the consent box (`consent: true`) for everyone; under 18 also a parent's or guardian's name and
@@ -1378,6 +1494,7 @@ curl -X POST https://admin.examleaf.in/api/v1/staff/orders/EL-2026-000123/refund
 # 202 {"id": 31, "action": "order.refund", "status": "pending", "amount": "1710.00",
 #      "rule": "A refund of ₹1,710.00 is above the limit of ₹1,000.", "warnings": [], ...}
 ```
+
 ## Connections (staff)
 
 `/api/v1/staff/connections/…` (code: `integrations/api.py` and `integrations/connections.py`; the model and the
@@ -1444,6 +1561,7 @@ registry: what the site sends by SMS, email and (Phase D) WhatsApp, as registere
 `ops.sms` sends a kind with the approved SMS template's `msg91_id` when there is one, the environment's
 `MSG91_TEMPLATE_<KIND>` otherwise, and writes its `last_used_at`. Each night an approved SMS template unused for 75
 days (DLT deactivates one at 90) and an approved template whose yearly self-certification is due open inbox items.
+
 ## Content (staff)
 
 `/api/v1/staff/content/…` (code: `content/staff_api.py`; the workflow: [content/README.md](content/README.md)) is the
@@ -1506,6 +1624,7 @@ into reports of category `item_analysis`, once per item and not again within 30 
 `content.tasks.purge_spam` (04:10) deletes spam reports after 30 days; `content.tasks.check_legal_deposits` (07:00)
 keeps one inbox item per published book whose deposits are not all made, due `CONTENT_LEGAL_DEPOSIT_DAYS` after its
 publication.
+
 ## Support (staff)
 
 `/api/v1/staff/support/…` (code: `support/api.py`; the app: [support/README.md](support/README.md)) is the Support
@@ -1771,6 +1890,9 @@ audit event (`catalogue.product_created`, `catalogue.product_changed` with the f
 shipping rates: who, when, the change request's reason). Money is in rupees as decimal strings; a refusal is `400
 {"field": ["…"]}` or `{"non_field_errors": ["…"]}`.
 
+<details markdown>
+<summary>The Catalogue module's endpoints: method, path, permission and what each does (26 rows)</summary>
+
 | Method | Path (under `/api/v1/staff/catalogue/`) | Permission | What |
 |---|---|---|---|
 | GET | `products/` (`?q=&kind=&category=&collection=&published=&stock=out\|low\|in_stock&tax_problem=&incomplete=`) | `shop.view_product` | the list with its chips: `tax_problem` (`""` when the GST agrees with the master today), `courier_problem` (`""` when the courier can be quoted), `stock_state`, `available`; `q` finds a title's words, a slug or an ISBN's digits |
@@ -1800,6 +1922,8 @@ shipping rates: who, when, the change request's reason). Money is in rupees as d
 | GET | `summary/`, `options/` | `shop.view_product` | the module's home (`incomplete`, `tax_problems`, `low_stock`, `out_of_stock`, `stock_alerts`, `approvals`, `prior_price_applies`); the forms' choices |
 | POST | `import/` (multipart `file`, a CSV in the admin's export format, 2 MB and 2,000 rows at most) | `shop.import_product` (ADMIN) | the file kept and its dry run started: 202 the job (`product_import`, `dry_run`), whose `result` counts `created`, `updated`, `unchanged`, `errors`, `prices_waiting` and lists each row that changes something |
 
+</details>
+
 The import's apply is `POST jobs/` `{"kind": "product_import", "params": {"file": "<the dry run's file>",
 "dry_run_job": <its id>}}`: the same person's finished dry run of the same bytes, within 24 hours, once. Each row goes
 through the rules above in its own transaction (a price through `product.price`, a new product made at its MRP);
@@ -1827,6 +1951,7 @@ curl -X PATCH https://admin.examleaf.in/api/v1/staff/catalogue/products/physics-
 
 The storefront's product (`GET /api/v1/products/…`, [Store catalogue](#store-catalogue)) gains `prior_price`; the
 cart's coupon (`POST cart/coupon/`) takes a school's single-use code as it takes a coupon's code.
+
 ## Course (staff)
 
 `/api/v1/staff/course/…` (code: `learn/staff_api.py`, its rules in `learn/course.py` and `learn/codes.py`; the app:
@@ -1904,6 +2029,7 @@ clip's video and HLS files with them; `learn.tasks.purge_code_files` (hourly) de
 hours; `insights.tasks.code_fraud_rules` (hourly) runs the book codes' fraud rules (failed codes per account, address
 and device, a spike, resale, a shared photo, a run redeemed before it was dispatched), each signal an inbox item of
 kind `fraud_signal` and the urgent ones emailed to `INSIGHTS_ALERT_EMAILS` within the hour.
+
 ## Customers (staff)
 
 `/api/v1/staff/users/…` (code: `staff/customers_api.py` for the endpoints, `staff/customers.py` for the rules; the
@@ -1996,6 +2122,31 @@ minutes.
 `/api/v1/staff/…` is the Admin Control Panel's (`staff/api.py`; the model, the approvals and the audit log:
 [staff/README.md](staff/README.md)). The panel draws what it answers and decides nothing: every call is checked again.
 
+```mermaid
+flowchart TB
+    call["A call to /api/v1/staff/…, the shipping<br/>desk's endpoints or the insights'"] --> host{"On the admin host?"}
+    host -->|no| notfound["404 Not found"]
+    host -->|yes| who{"A member of staff's session,<br/>or an API key?"}
+    who -->|neither| unauthenticated["401 not_authenticated<br/>(a customer's session: 403)"]
+    who -->|the session| limits{"Within its idle limit<br/>and its 8 hours?"}
+    limits -->|no| ended["401 session_idle<br/>or session_expired"]
+    limits -->|yes| factor{"An authenticator app<br/>or a passkey?"}
+    factor -->|no| setup["403 mfa_setup_required"]
+    factor -->|yes| permission{"Holds the permission<br/>this action names?"}
+    who -->|an API key, to read| permission
+    permission -->|no| denied["403 permission_denied"]
+    permission -->|yes| stepup{"High or critical: re-authenticated<br/>in the last 5 minutes?"}
+    stepup -->|no| reauthenticate["403 reauthentication_required"]
+    stepup -->|"yes, or not needed"| scope{"The object within<br/>the person's scope?"}
+    scope -->|no| hidden["404, never a 403"]
+    scope -->|yes| runs["The action runs"]
+    runs --> event["Its audit event: a change,<br/>a sensitive read"]
+    setup --> fail["authz_fail in the audit log"]
+    denied --> fail
+```
+
+*The checks a staff call passes, in the order the code makes them.*
+
 - **Where.** On the admin host only (`ADMIN_HOSTS`, `admin.examleaf.in`): on any other host every path here is
   `404 {"detail": "Not found."}`, signed in or not. Empty in development: every host.
 - **Who.** A member of staff on the panel's own session (same origin, the session cookie and `X-CSRFToken` on POST,
@@ -2044,6 +2195,9 @@ minutes.
   `bulk_rows` a change request (`job.run`) waits for an approver first.
 - **Personal data is masked** (`ra•••@example.com`, `••••••2345`, `203.0.113.x`); opening a customer and revealing a
   detail are recorded (`sensitive_read`).
+
+<details markdown>
+<summary>The staff API's own endpoints: method, path, permission and what each does (72 rows)</summary>
 
 | Method | Path (under `/api/v1/staff/`) | Permission | What |
 |---|---|---|---|
@@ -2120,6 +2274,8 @@ minutes.
 | GET | `system/hardening/` | `staff.view_system` | the admin host's checks, each `ok` (null: not testable here), `detail` and `fix` |
 | GET | `system/scripts/` | `staff.view_scriptinventory` | the checkout's and the console's sign-in's scripts: each page's last check and the scripts seen (src or inline, SHA-256, first and last seen, `current`) |
 
+</details>
+
 **The manifest** (`session/`, `Cache-Control: no-store`). Keep it in memory, never in `localStorage`; fetch it again after
 any 403 and whenever `manifest_version` changes. `user.is_superuser` true is a break-glass account (no roles, every
 permission, no limits, the shortest idle limit; every event of its session is marked): show it a banner.
@@ -2167,6 +2323,29 @@ null: the job's own failure), the first 1,000; `result` sums them up (`{"rows": 
 only, valid 5 minutes (read the job again for a new one); the file is kept a week. Each step is an audit event
 (`job.requested`, `job.started`, `job.done`, `job.failed`, `job.cancelled`, `job.stopped`, `job.result_downloaded`).
 
+```mermaid
+sequenceDiagram
+    participant M as The maker
+    participant CR as change-requests/
+    participant C as The checker
+    M->>CR: POST {action, target, payload, reason}, Idempotency-Key
+    alt within the maker's limits
+        CR-->>M: 201 approved by the rule and run at once
+    else above them
+        CR-->>M: 202 pending: the payload stored with its SHA-256,<br/>the rule, the checker's permission
+        CR->>C: an approval in the inbox, due when the request expires
+        C->>CR: GET {id}: the payload and payload_sha256
+        C->>CR: POST {id}/approve/ {payload_sha256}, re-authenticated
+        Note over C,CR: 403 to the person the change is about, and to the maker<br/>unless an owner overrides with a reason. Another hash: 400
+        CR-->>C: 200 approved
+        M->>CR: POST {id}/execute/, re-authenticated (the maker or a checker)
+        Note over M,CR: the stored payload's hash and the action's preconditions<br/>checked again, then the payload run once
+        CR-->>M: 200 executed with its result, or 400 failed with the reason
+    end
+```
+
+*A change request: the checker approves the payload they read, by its hash, and only the stored payload runs.*
+
 **A refund** above the maker's limit waits for finance; the approver sends back the hash of the payload they read, and
 the stored payload runs:
 
@@ -2210,7 +2389,139 @@ run lists `erase` (what goes, with counts), `keep` (what stays, why, until when)
 needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere. A key only reads:
 every POST, PUT, PATCH and DELETE with one is `403` (the inbox and saved views, a person's own, are refused it too).
 
-### Every staff endpoint and field
+**Every endpoint and field** of the staff API, generated from the code (its permission, query, body and answers,
+and every field of what it takes and gives), is the last section: [Every staff endpoint and
+field](#every-staff-endpoint-and-field).
+
+## Errors
+
+DRF's standard format, always JSON:
+
+| Status | Body |
+|---|---|
+| 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
+| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again); a staff session ended: `"code": "session_idle"` or `"session_expired"` (log in again) |
+| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`); `"code": "reauthentication_required"` (re-authenticate, then send it again), `"mfa_setup_required"` (staff: set up a second factor), `"passkey_required"` (staff of OWNER, ADMIN or FINANCE: add a passkey on the website's `/account/security/` first), `"impersonating"` (a payment, password or account change while staff are logged in as the customer) |
+| 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` (also anything under `staff/` on a host other than the admin host) |
+| 405, 406, 415 | `{"detail": "..."}` |
+| 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
+| 429 | `{"detail": "..."}`: DRF's limits say "Request was throttled. Expected available in 38 seconds." and carry a `Retry-After` header; allauth's (codes, password reset, wrong passwords) have their own text and no `Retry-After`; allauth.headless answers `{"status": 429}` |
+| 500 | `{"detail": "Server error."}`; reported to Sentry, with the request ID in `X-Request-ID` (the site's own pages show an error page) |
+| 503 | `{"detail": "The payment service could not be reached."}` (or "Online payment is not set up yet."), from `orders/<number>/payment/`: try again; `{"detail": "The courier could not be reached: try again in a few minutes."}` from `shipping/` (staff) |
+
+## Rate limits
+
+Counted in the cache (Redis in production), per client address for anonymous requests and per user once signed in:
+
+<details markdown>
+<summary>Every limit: what it counts, its default and its setting (31 rows)</summary>
+
+| Scope | Default | Setting |
+|---|---|---|
+| anonymous | 200 a minute | `API_THROTTLE_ANON` |
+| signed in | 600 a minute | `API_THROTTLE_USER` |
+| log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export and its summary, deletion | 30 a minute | `API_THROTTLE_AUTH` |
+| guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
+| starting and confirming payments (`orders/<number>/payment/…`, `orders/t/<token>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
+| coupon codes tried (`POST cart/coupon/`), per user (a visitor: per client address) | 10 an hour | `API_THROTTLE_COUPON` |
+| book codes tried (`POST learn/redeem/`), per user (`learn_redeem`) and per client address (`learn_redeem_address`) | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
+| quiz answers (`POST learn/quiz/<id>/attempt/`), per user (`learn_quiz`) | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
+| guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
+| checkout (`POST orders/`, accounts' and visitors'), per client address, the website's included | 10 in 10 minutes | fixed |
+| a visitor's coupon codes (`POST cart/coupon/`), per client address, the website's cart page included | 10 an hour | fixed |
+| reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
+| back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
+| quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
+| mistakes reported (`POST reports/`), per client address, the website's included | 5 an hour and 20 a day | fixed |
+| the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
+| MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
+| ERPNext's webhook (`POST /api/hooks/erp-events/`), per client address | 600 a minute | `API_THROTTLE_ERP_EVENTS` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| searches for a person (`GET staff/users/`, `staff/orders/`, `staff/support/tickets/`, `staff/finance/payments/`, `staff/course/entitlements/?q=`, `staff/course/learners/<id>/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<id>/reveal/`, `staff/data-requests/<id>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| exports (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, `staff/tax/gstr1/`, `staff/data-requests/<id>/export/`, a print run's codes `staff/course/codes/batches/`, `staff/finance/settlements/fetch/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`, `staff/catalogue/import/`) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| book codes looked up (`staff/course/codes/lookup/` and `staff/support/tickets/<number>/book-code/`: one budget) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
+| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
+| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; staff orders, refunds (a bank one marked paid too), offline payments and quotes made into orders; products, coupons and offers made or changed; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
+| new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
+| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
+| a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
+
+</details>
+
+The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
+let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
+allauth.headless (`/_allauth/`) has allauth's limits only, the website's (`ACCOUNT_RATE_LIMITS` and the per-account
+ones below): its answers over them are 429 too.
+
+A whole classroom often shares one address: raise the limits rather than lower them (above all
+`API_THROTTLE_LEARN_REDEEM_ADDRESS` before a teacher has a class redeem their codes together). django-axes still locks an
+account for 15 minutes after 10 failed log-ins from one address, through the API too.
+
+The website's limits, counted together with it:
+
+- **log-in:** after 5 failed log-ins of one account in 5 minutes, or 10 failed log-ins in a minute from one client
+  address (whatever the accounts), even the right password gets 400 "Too many failed login attempts. Try again later."
+  until the window has passed;
+- **password reset:** 5 emails a minute per email address and 20 requests a minute per client address
+  (`auth/password/reset/` answers 429 above them);
+- **codes by email** (sign-up, log-in): 3 log-in codes an hour per address and 30 an hour per client address; an address
+  gets a confirmation code at most every 10 seconds, 5 an hour and 10 a day (429 above them);
+- **codes by SMS** (`auth/phone/code/`): 3 an hour per number and 30 an hour per client address (429 above it); a texted
+  code is tried 3 times and lasts 3 minutes. Whatever the kind, one number gets at most 5 SMS an hour and 10 a day and
+  one account 20 a day, and the day's `SMS_DAILY_CAP` is shared out between log-in codes (70 %), order updates (30 %)
+  and parents' links (10 %). A code over a limit is not sent: 429
+  `{"detail": "Too many messages have gone to this number: try again tomorrow, or log in with your email."}`. The caps
+  are counted in the database, so also while Redis is down;
+- **tries of a code** (every emailed or texted code): 3 per code and 15 minutes, counted in the cache so that requests
+  sent together cannot get more, and 60 an hour per client address (a classroom shares that one); over them
+  `400 {"code": ["Too many tries for this code: ask for a new one."]}`;
+- **passwords of a signed-in user** (`auth/password/change/`, `me/export/`, `me/deletion/`): after 5 wrong ones in an
+  hour every refresh token of the user is revoked (the app must log in again once the access token expires) and these
+  answer 429 until the hour is over;
+- **attempts:** at most 20 new attempts of one paper a day (400 with the reason); notes at most 2,000 characters. While
+  a parent's consent is awaited (`PARENTAL_CONSENT_MODE=verified`, a student under 18) no attempt can be saved (400).
+
+## CORS
+
+None is needed by the app, the website or a web frontend served from the site's own origin (the Next.js frontend: Caddy
+in production, its proxy in development). A web client on another origin must be listed in `CORS_ALLOWED_ORIGINS`;
+only `/api/` answers CORS requests, without cookies (send the access token; a visitor's cart: `X-Cart-Token`). allauth.headless's browser client is for
+the site's own origin: `/_allauth/` answers no CORS request; an app client needs none (no browser).
+
+## Versioning
+
+The version is in the path (`/api/v1/`). Within v1, changes only add: new endpoints, new fields in answers, new
+optional parameters; clients must ignore fields they do not know. Removing or renaming a field, changing a type or a
+meaning, or a new required parameter makes a v2, served beside v1 until the app versions that use v1 are retired (at
+least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_settings.py` lists the versions served.
+
+## Operations
+
+- Refresh tokens and their blacklist are kept in the database; `api.tasks.flush_expired_tokens` (celery beat, 04:30; the
+  entry was made by the migration `api/migrations/0001_flush_expired_tokens_daily.py` and is editable in the admin under
+  Periodic tasks) deletes the expired ones.
+- The tokens are signed with `JWT_SIGNING_KEY`, or `SECRET_KEY` while it is unset: rotating it logs every app out.
+- There is no health endpoint under `/api/` (it was open to anyone); the uptime monitor uses `/health/`.
+- Tests: `api/tests.py`, `api/test_phone.py` and `api/test_security.py` (sign-up rules, codes, tokens, gated solutions,
+  attempts, data rights, query counts, limits, body size, CORS, schema validity), `shop/test_api.py` (products, cart,
+  addresses, checkout, payment and a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery,
+  lookup and its limit), `shop/test_catalogue.py` and `shop/test_offers.py` (categories, collections, attributes and their
+  filters, digital products, offers in the cart's answer), `shop/test_security.py` (order links, test and live mode,
+  limits, refunds) and `learn/test_api.py` (locks and free previews, signed links, progress, quiz, cards, plan, codes
+  and their limits, devices, reminders), `api/test_headless.py` (allauth.headless: codes by email and SMS to the JWT
+  pair, a mobile number added with its code, the second step and staff without an authenticator, a passkey's
+  challenge, Google listed only with its keys,
+  sign-up with the student details, the website's links in emails), `api/test_contract.py` (config, legal pages,
+  teacher access, a parent's link, SMS updates, the contact form), `shop/test_api_contract.py` (reviews, back in
+  stock, quotations, the order's link, shipping) and `shop/test_api_guest.py` (a visitor's cart by session and CSRF or
+  by `X-Cart-Token`, coupons, checkout, payment, cancel and PDFs by the link, the cart joining the account's at log-in). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema; the
+  operations are tagged by area (`api/schema.py`).
+
+## Every staff endpoint and field
 
 Generated from the OpenAPI schema and the views' own permission maps (`manage.py staff_api_reference`; a test fails
 when this differs from the code). Paths are under `/api/v1/`: the staff API's, the shipping app's staff endpoints
@@ -3488,131 +3799,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **WebhookInfo**: `provider` ConnectionProviderEnum (required); `url` string (required); `auth` WebhookAuthEnum (required); `header` string (required); `token` string (required); `rotated_at` date-time (required, null); `previous_valid_until` date-time (required, null); `rotatable` boolean (required); `events_kept` boolean (required); `states` object (required); `last_event_at` date-time (required, null); `silence_hours` integer (required); `silent` boolean (required)
 <!-- /staff-api-reference -->
 
-## Errors
+## Related documents
 
-DRF's standard format, always JSON:
-
-| Status | Body |
-|---|---|
-| 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
-| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again); a staff session ended: `"code": "session_idle"` or `"session_expired"` (log in again) |
-| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`); `"code": "reauthentication_required"` (re-authenticate, then send it again), `"mfa_setup_required"` (staff: set up a second factor), `"passkey_required"` (staff of OWNER, ADMIN or FINANCE: add a passkey on the website's `/account/security/` first), `"impersonating"` (a payment, password or account change while staff are logged in as the customer) |
-| 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` (also anything under `staff/` on a host other than the admin host) |
-| 405, 406, 415 | `{"detail": "..."}` |
-| 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
-| 429 | `{"detail": "..."}`: DRF's limits say "Request was throttled. Expected available in 38 seconds." and carry a `Retry-After` header; allauth's (codes, password reset, wrong passwords) have their own text and no `Retry-After`; allauth.headless answers `{"status": 429}` |
-| 500 | `{"detail": "Server error."}`; reported to Sentry, with the request ID in `X-Request-ID` (the site's own pages show an error page) |
-| 503 | `{"detail": "The payment service could not be reached."}` (or "Online payment is not set up yet."), from `orders/<number>/payment/`: try again; `{"detail": "The courier could not be reached: try again in a few minutes."}` from `shipping/` (staff) |
-
-## Rate limits
-
-Counted in the cache (Redis in production), per client address for anonymous requests and per user once signed in:
-
-| Scope | Default | Setting |
-|---|---|---|
-| anonymous | 200 a minute | `API_THROTTLE_ANON` |
-| signed in | 600 a minute | `API_THROTTLE_USER` |
-| log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export and its summary, deletion | 30 a minute | `API_THROTTLE_AUTH` |
-| guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
-| starting and confirming payments (`orders/<number>/payment/…`, `orders/t/<token>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
-| coupon codes tried (`POST cart/coupon/`), per user (a visitor: per client address) | 10 an hour | `API_THROTTLE_COUPON` |
-| book codes tried (`POST learn/redeem/`), per user (`learn_redeem`) and per client address (`learn_redeem_address`) | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
-| quiz answers (`POST learn/quiz/<id>/attempt/`), per user (`learn_quiz`) | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
-| guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
-| checkout (`POST orders/`, accounts' and visitors'), per client address, the website's included | 10 in 10 minutes | fixed |
-| a visitor's coupon codes (`POST cart/coupon/`), per client address, the website's cart page included | 10 an hour | fixed |
-| reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
-| back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
-| quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
-| mistakes reported (`POST reports/`), per client address, the website's included | 5 an hour and 20 a day | fixed |
-| the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
-| MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
-| ERPNext's webhook (`POST /api/hooks/erp-events/`), per client address | 600 a minute | `API_THROTTLE_ERP_EVENTS` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| searches for a person (`GET staff/users/`, `staff/orders/`, `staff/support/tickets/`, `staff/finance/payments/`, `staff/course/entitlements/?q=`, `staff/course/learners/<id>/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<id>/reveal/`, `staff/data-requests/<id>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| exports (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, `staff/tax/gstr1/`, `staff/data-requests/<id>/export/`, a print run's codes `staff/course/codes/batches/`, `staff/finance/settlements/fetch/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| bulk actions started (`staff/jobs/` of kind `bulk_action`, `staff/catalogue/import/`) | 20 an hour | `STAFF_THROTTLE_BULK` |
-| book codes looked up (`staff/course/codes/lookup/` and `staff/support/tickets/<number>/book-code/`: one budget) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
-| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
-| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; refunds, offline payments, staff orders, prices, coupons and offers; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
-| the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
-| new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
-| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
-| a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
-| searches that cost a query: customers (`GET staff/users/`), orders, Finance's payments, the support queue and a ticket's book-code lookup, a person searched for among the course's entitlements (`?q=`), a learner's page | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's, a ticket's, a nominee's or a bank refund's payee details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<user>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| exports and the files made as jobs (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, the GSTR-1 file, a day of settlements fetched) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| bulk actions started (`staff/jobs/` of kind `bulk_action`, and the catalogue's import) | 20 an hour | `STAFF_THROTTLE_BULK` |
-| book codes looked up (`POST staff/course/codes/lookup/`) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; staff orders, refunds (a bank one marked paid too), offline payments and quotes made into orders; products, coupons and offers made or changed; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
-
-The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
-let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
-allauth.headless (`/_allauth/`) has allauth's limits only, the website's (`ACCOUNT_RATE_LIMITS` and the per-account
-ones below): its answers over them are 429 too.
-
-A whole classroom often shares one address: raise the limits rather than lower them (above all
-`API_THROTTLE_LEARN_REDEEM_ADDRESS` before a teacher has a class redeem their codes together). django-axes still locks an
-account for 15 minutes after 10 failed log-ins from one address, through the API too.
-
-The website's limits, counted together with it:
-
-- **log-in:** after 5 failed log-ins of one account in 5 minutes, or 10 failed log-ins in a minute from one client
-  address (whatever the accounts), even the right password gets 400 "Too many failed login attempts. Try again later."
-  until the window has passed;
-- **password reset:** 5 emails a minute per email address and 20 requests a minute per client address
-  (`auth/password/reset/` answers 429 above them);
-- **codes by email** (sign-up, log-in): 3 log-in codes an hour per address and 30 an hour per client address; an address
-  gets a confirmation code at most every 10 seconds, 5 an hour and 10 a day (429 above them);
-- **codes by SMS** (`auth/phone/code/`): 3 an hour per number and 30 an hour per client address (429 above it); a texted
-  code is tried 3 times and lasts 3 minutes. Whatever the kind, one number gets at most 5 SMS an hour and 10 a day and
-  one account 20 a day, and the day's `SMS_DAILY_CAP` is shared out between log-in codes (70 %), order updates (30 %)
-  and parents' links (10 %). A code over a limit is not sent: 429
-  `{"detail": "Too many messages have gone to this number: try again tomorrow, or log in with your email."}`. The caps
-  are counted in the database, so also while Redis is down;
-- **tries of a code** (every emailed or texted code): 3 per code and 15 minutes, counted in the cache so that requests
-  sent together cannot get more, and 60 an hour per client address (a classroom shares that one); over them
-  `400 {"code": ["Too many tries for this code: ask for a new one."]}`;
-- **passwords of a signed-in user** (`auth/password/change/`, `me/export/`, `me/deletion/`): after 5 wrong ones in an
-  hour every refresh token of the user is revoked (the app must log in again once the access token expires) and these
-  answer 429 until the hour is over;
-- **attempts:** at most 20 new attempts of one paper a day (400 with the reason); notes at most 2,000 characters. While
-  a parent's consent is awaited (`PARENTAL_CONSENT_MODE=verified`, a student under 18) no attempt can be saved (400).
-
-## CORS
-
-None is needed by the app, the website or a web frontend served from the site's own origin (the Next.js frontend: Caddy
-in production, its proxy in development). A web client on another origin must be listed in `CORS_ALLOWED_ORIGINS`;
-only `/api/` answers CORS requests, without cookies (send the access token; a visitor's cart: `X-Cart-Token`). allauth.headless's browser client is for
-the site's own origin: `/_allauth/` answers no CORS request; an app client needs none (no browser).
-
-## Versioning
-
-The version is in the path (`/api/v1/`). Within v1, changes only add: new endpoints, new fields in answers, new
-optional parameters; clients must ignore fields they do not know. Removing or renaming a field, changing a type or a
-meaning, or a new required parameter makes a v2, served beside v1 until the app versions that use v1 are retired (at
-least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_settings.py` lists the versions served.
-
-## Operations
-
-- Refresh tokens and their blacklist are kept in the database; `api.tasks.flush_expired_tokens` (celery beat, 04:30; the
-  entry was made by the migration `api/migrations/0001_flush_expired_tokens_daily.py` and is editable in the admin under
-  Periodic tasks) deletes the expired ones.
-- The tokens are signed with `JWT_SIGNING_KEY`, or `SECRET_KEY` while it is unset: rotating it logs every app out.
-- There is no health endpoint under `/api/` (it was open to anyone); the uptime monitor uses `/health/`.
-- Tests: `api/tests.py`, `api/test_phone.py` and `api/test_security.py` (sign-up rules, codes, tokens, gated solutions,
-  attempts, data rights, query counts, limits, body size, CORS, schema validity), `shop/test_api.py` (products, cart,
-  addresses, checkout, payment and a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery,
-  lookup and its limit), `shop/test_catalogue.py` and `shop/test_offers.py` (categories, collections, attributes and their
-  filters, digital products, offers in the cart's answer), `shop/test_security.py` (order links, test and live mode,
-  limits, refunds) and `learn/test_api.py` (locks and free previews, signed links, progress, quiz, cards, plan, codes
-  and their limits, devices, reminders), `api/test_headless.py` (allauth.headless: codes by email and SMS to the JWT
-  pair, a mobile number added with its code, the second step and staff without an authenticator, a passkey's
-  challenge, Google listed only with its keys,
-  sign-up with the student details, the website's links in emails), `api/test_contract.py` (config, legal pages,
-  teacher access, a parent's link, SMS updates, the contact form), `shop/test_api_contract.py` (reviews, back in
-  stock, quotations, the order's link, shipping) and `shop/test_api_guest.py` (a visitor's cart by session and CSRF or
-  by `X-Cart-Token`, coupons, checkout, payment, cancel and PDFs by the link, the cart joining the account's at log-in). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema; the
-  operations are tagged by area (`api/schema.py`).
+- [The backend](README.md): its apps, the admin, the webhooks and the background tasks behind this API
+- [The staff app](staff/README.md): roles, permissions, scopes, approvals and the audit log behind the staff API
+- [The ERPNext sync](erp/README.md): the outbox, the pull and the reconciliation behind `staff/erp/` and its webhook
+- [Integrations](integrations/README.md): the connections' keys, webhooks, calls and dead letters
+- [The staff console](../examleaf-admin/README.md): the panel, which calls the staff API
+- [The website](../examleaf-frontend/README.md): the Next.js frontend, which calls API v1 and allauth.headless
+- [Security review of Phase B's authorization](../docs/security/phase-b-authorization-review.md): what was checked of the staff API, and what changed
+- [Documentation map](../docs/README.md): every other document, by audience

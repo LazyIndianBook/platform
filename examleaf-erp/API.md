@@ -1,9 +1,61 @@
 # examleaf_erp API: the platform's way into ERPNext
 
-The contract between the platform's Django `erp` app (its outbox relay and its pull) and ERPNext. Twelve whitelisted
+![Component](../docs/assets/badges/component-erpnext.svg) ![ERPNext](../docs/assets/badges/stack-erpnext.svg) ![Status](../docs/assets/badges/status-merged.svg) ![Audience](../docs/assets/badges/audience-developers.svg)
+
+The contract between the platform's Django `erp` app (its outbox relay and its pull) and ERPNext: twelve whitelisted
 methods of the `examleaf_erp` app (`apps/examleaf_erp/examleaf_erp/api.py`, plumbing in `sync.py`), and six webhooks
-back. Everything below was run against ERPNext v16.50.0 with India Compliance v16.10.0 (`compose/`, `./dev.sh test`:
-58 tests). Research behind it: `docs/research/2026-10-09-admin-control-panel/research-erpnext.md` 5.1 to 5.8.
+back. It is for whoever changes either side of the sync; everything below was run against ERPNext v16.50.0 with India
+Compliance v16.10.0 (`compose/`, `./dev.sh test`: 58 tests). The research behind it is
+`docs/research/2026-10-09-admin-control-panel/research-erpnext.md` 5.1 to 5.8.
+
+> [!NOTE]
+> **At a glance**
+> - Every call is a `POST` to `/api/method/examleaf_erp.api.<method>` as the EL Sync user (`Authorization: token
+>   <api_key>:<api_secret>`), and the method's answer comes inside Frappe's `{"message": …}`.
+> - The eight mutating methods take `examleaf_ref` and `idempotency_key`: the same key and body replay the first answer,
+>   the same reference under a new key answers a short duplicate.
+> - Unknown fields are refused, which also keeps personal data out: a shipping address is a city, a district, a state
+>   and a PIN.
+> - One transaction per call, kept in the ExamLeaf Sync Log; retry 5xx and 429 with the same key, never a 4xx unchanged.
+> - The webhooks are doorbells: re-read on every ring, and keep the 15-minute `get_changes_since` pull.
+
+## Contents
+
+- [The calls, as the platform makes them](#the-calls-as-the-platform-makes-them)
+- [Contract deviations](#contract-deviations)
+- [Calling it](#calling-it)
+- [Errors](#errors)
+- [Methods](#methods)
+- [Webhooks (ERPNext to the platform)](#webhooks-erpnext-to-the-platform)
+- [Related documents](#related-documents)
+
+## The calls, as the platform makes them
+
+```mermaid
+sequenceDiagram
+    participant P as The platform (examleaf-web/erp)
+    participant E as ERPNext (examleaf_erp)
+    P->>E: ping, when staff test the connection
+    E-->>P: 200 {name, versions}
+    loop the relay: each outbox row in its aggregate's order, with examleaf_ref and idempotency_key
+        P->>E: upsert_item, upsert_bundle (a product)
+        P->>E: create_sales_invoice, create_payment_entry, create_delivery_note (an order)
+        P->>E: create_credit_note, then create_payment_entry for its refund
+        P->>E: record_settlement (a COD remittance, a Razorpay settlement)
+        E-->>P: 200 {ok, name, duplicate, examleaf_ref, log}, or a refusal with its code
+    end
+    E->>P: POST /api/hooks/erp-events/, X-Frappe-Webhook-Signature (a doorbell)
+    P-->>E: 200 at once
+    P->>E: get_stock, or GET /api/resource/ for a B2B document
+    loop every 15 minutes, each doctype from its cursor, while has_more
+        P->>E: get_changes_since {doctype, modified_after, after_name}
+        E-->>P: {rows, has_more, next}
+    end
+    P->>E: daily_totals {date}, at 03:30 for the day before
+    E-->>P: the day's invoices, credit notes, payments, settlements and copies shipped
+```
+
+*The sync API as `examleaf-web/erp` calls it: the relay's writes, a doorbell's re-read, the pull, the nightly totals.*
 
 ## Contract deviations
 
@@ -139,7 +191,8 @@ Fields marked * are required. Mutating methods all take `examleaf_ref`* and `ide
 ### ping
 
 No fields. Answers `{name: <site>, user, time, versions: {frappe, erpnext, india_compliance, examleaf_erp, ...}}`.
-The readiness check of the relay, and the smoke test after an upgrade.
+The platform's connection test (its connections page, and the Django admin's), and the smoke test after an
+upgrade (`UPGRADE.md`).
 
 ### upsert_item: a `shop.Product` as an Item
 
@@ -364,3 +417,12 @@ X-Frappe-Webhook-Signature: base64(HMAC-SHA256(examleaf_webhook_secret, raw body
   Sales Invoice) and keep the 15-minute `get_changes_since` pull, which catches what a lost ring missed. Stock Ledger
   Entry rings once per movement, so debounce before pulling.
 - Answer 2xx quickly; anything else counts as a failed attempt.
+
+## Related documents
+
+- [ExamLeaf ERP](README.md): the stack, the site's config, the sync user, the app's doctypes and hooks
+- [The ERPNext sync](../examleaf-web/erp/README.md): the caller: its outbox, the relay, the pull and the reconciliation
+- [The shadow run](../examleaf-web/erp/SHADOW-RUN.md): these calls against a real ERPNext, step by step
+- [ERPNext sync (staff)](../examleaf-web/API.md#erpnext-sync-staff): the panel's view of the sync and ERPNext's webhook
+- [Upgrades](UPGRADE.md): the smoke test of this API after an upgrade
+- [Documentation map](../docs/README.md): every other document, by audience
