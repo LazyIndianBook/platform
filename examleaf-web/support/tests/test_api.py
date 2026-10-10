@@ -47,7 +47,8 @@ def paid_order(email="rahul@example.com", price="1500.00", user=None):
     return Order.objects.get(pk=order.pk)
 
 
-def test_the_queue_sorts_by_the_next_legal_clock_and_filters(commit):
+def test_the_queue_sorts_by_the_next_legal_clock_and_filters(commit, settings):
+    settings.SMS_ENABLED = False  # the phone ticket's acknowledgement waits at any hour (by SMS it goes from 08:00)
     support = make_staff(roles.SUPPORT)
     now = timezone.now()
     with commit():
