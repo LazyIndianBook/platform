@@ -115,6 +115,18 @@ recipe a panel page replaced names the page and keeps the shell only as the brea
 (`docs/decisions.md`: what waits for the owner, the CA and the lawyer, and the setting that carries each answer),
 DEPLOYMENT.md's settings by module, and the READMEs, the handover and API.md brought in step with the code.
 
+**At the integration.** The modules were merged one by one onto `phase-b` with both sides of every shared file kept and
+a merge migration plus a union migration per module (the permissions and kinds). What the merges and the reviews then
+found was fixed on the merged head: the Course module's batch and revision locks name their own rows (PostgreSQL
+refuses a lock over a nullable join); every email's Message-ID names the site's host (a process's first email waited
+on a slow name lookup); the invitation's emailed link now opens a console page that makes the account; the website
+shows the panel's maintenance banner; the two codes reports use one word for one thing (`void` is a code voided before
+use, `revoked` access taken back) and both follow `INSIGHTS_MIN_CELL`; a return's photographs go with the order's
+details; a content import without git stands the folder's fingerprint in for the commit; the product imports' files
+of dry runs never applied are purged; a dependency report whose audit did not run is refused; the support mailbox
+hook's limit is the edge's. The deployment carried every setting, task and file through compose, the chart and CI
+(DEPLOYMENT.md section 26; `.github/workflows/ci.yml` now runs the console's checks and a weekly strict audit).
+
 ## Phase B, Finance (9 October 2026)
 
 FINANCE kept the money from the Django admin, Razorpay's Dashboard and a monthly CSV match: the fees were not in the
