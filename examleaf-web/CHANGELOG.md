@@ -1,10 +1,104 @@
 # Changelog
 
-What changed in the ExamLeaf web platform, newest first, by phase. The phases numbered 4 to 9 and the redesign were
-built on 8 October 2026 and the Admin Control Panel's on 9 and 10 October; the commits are in `git log` (phase 4:
-abffe6f and e5abda5; phase 5 A and B with the redesign's stage 1: f8e4e5f; phase 6 D and E: 4e30e59; the redesign's
-stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the tests are those of `pytest` at
-the end of the phase, and for a Phase B module those of its branch when it was merged.
+![Component](../docs/assets/badges/component-platform.svg) ![Phase B](../docs/assets/badges/phase-b-merged.svg) ![Backend tests](../docs/assets/badges/tests-backend.svg) ![Console](../docs/assets/badges/tests-console.svg) ![Website](../docs/assets/badges/tests-website.svg)
+
+This is what changed in the ExamLeaf web platform, newest first, by phase, for whoever needs to know when a part came
+and what the tests were at each merge. The phases numbered 4 to 9 and the redesign were built on 8 October 2026 and
+the Admin Control Panel's on 9 and 10 October; the commits are in `git log` (phase 4: 5daef33 and b318a59; phase 5 A
+and B with the redesign's stage 1: 06aeec5; phase 6 D and E: 72eacd8; the redesign's stage 2 so far: 80e8217; the
+books repository, where they were made before the split, has them as abffe6f, e5abda5, f8e4e5f, 4e30e59 and
+ba0b9dd). Details of each feature are in README.md; the numbers of the tests are those of `pytest` at the end of the
+phase, and for a Phase B module those of its branch when it was merged.
+
+> [!NOTE]
+> **At a glance**
+> - Phases 0 to 9 were built on 8 October 2026, the Answer Script redesign and Phase A on 9 October, and Phase B on
+>   9 and 10 October; the table below has each phase in a line.
+> - On the head merged into `main`: 2,510 backend tests passed on SQLite and 2,522 on PostgreSQL 17, the console's
+>   355 unit tests and 43 Playwright journeys, the website's 230 unit tests and 47 journeys.
+> - The entries below are kept as they were written, each with the counts of its own merge.
+
+<details markdown>
+<summary>Contents: every entry, newest first (47)</summary>
+
+- [Phase B: the panel's own modules (9 October 2026)](#phase-b-the-panels-own-modules-9-october-2026)
+- [Phase B, security review (10 October 2026)](#phase-b-security-review-10-october-2026)
+- [Phase B, Finance (9 October 2026)](#phase-b-finance-9-october-2026)
+- [Phase B, ERPNext in shadow mode (10 October 2026)](#phase-b-erpnext-in-shadow-mode-10-october-2026)
+- [Phase B, Home and reports (9 October 2026)](#phase-b-home-and-reports-9-october-2026)
+- [Phase B, Catalogue (9 October 2026)](#phase-b-catalogue-9-october-2026)
+- [Phase B, Course (9 October 2026)](#phase-b-course-9-october-2026)
+- [Phase B, Customers (9 October 2026)](#phase-b-customers-9-october-2026)
+- [Phase B, Tax (9 October 2026)](#phase-b-tax-9-october-2026)
+- [Phase B, Legal and privacy (9 October 2026)](#phase-b-legal-and-privacy-9-october-2026)
+- [Phase B, Orders (9 October 2026)](#phase-b-orders-9-october-2026)
+- [Phase B, Staff, settings and integrations, system (9 October 2026)](#phase-b-staff-settings-and-integrations-system-9-october-2026)
+- [Phase B, Content (9 October 2026)](#phase-b-content-9-october-2026)
+- [Phase B, Support (9 October 2026)](#phase-b-support-9-october-2026)
+- [The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)](#the-staff-console-on-the-staff-api-as-built-and-the-websites-side-of-an-impersonation-9-october-2026)
+- [Resilience: nothing waits without a limit (9 October 2026)](#resilience-nothing-waits-without-a-limit-9-october-2026)
+- [The Admin Control Panel's backend, the rest of Phase A (9 October 2026)](#the-admin-control-panels-backend-the-rest-of-phase-a-9-october-2026)
+- [The ERPNext sync: the erp app (9 October 2026)](#the-erpnext-sync-the-erp-app-9-october-2026)
+- [Admin Control Panel, Phase A (9 October 2026, in progress)](#admin-control-panel-phase-a-9-october-2026-in-progress)
+- [The Admin Control Panel's backend (9 October 2026)](#the-admin-control-panels-backend-9-october-2026)
+- [Insights: the Admin Control Panel's predictive jobs (9 October 2026)](#insights-the-admin-control-panels-predictive-jobs-9-october-2026)
+- [Couriers: the integrations framework and the shipping app (9 October 2026)](#couriers-the-integrations-framework-and-the-shipping-app-9-october-2026)
+- [The Answer Script redesign (9 October 2026)](#the-answer-script-redesign-9-october-2026)
+- [Phase 8F review fixes (8 October 2026)](#phase-8f-review-fixes-8-october-2026)
+- [Phase 9: repository split (8 October 2026)](#phase-9-repository-split-8-october-2026)
+- [Phase 8E learning dashboard (8 October 2026)](#phase-8e-learning-dashboard-8-october-2026)
+- [Phase 8: Django pages removed (8 October 2026)](#phase-8-django-pages-removed-8-october-2026)
+- [Phase 8 backend, account part (8 October 2026)](#phase-8-backend-account-part-8-october-2026)
+- [Phase 8 backend, second part (8 October 2026)](#phase-8-backend-second-part-8-october-2026)
+- [Phase 8 backend (8 October 2026)](#phase-8-backend-8-october-2026)
+- [Phase 7 journeys (8 October 2026)](#phase-7-journeys-8-october-2026)
+- [Phase 7 security (8 October 2026)](#phase-7-security-8-october-2026)
+- [QA pass of phases 5 and 6: every new flow walked (8 October 2026)](#qa-pass-of-phases-5-and-6-every-new-flow-walked-8-october-2026)
+- [Phase 7: API contract (8 October 2026)](#phase-7-api-contract-8-october-2026)
+- [Website redesign (8 October 2026): stage 1 done, stage 2 in progress](#website-redesign-8-october-2026-stage-1-done-stage-2-in-progress)
+- [Phase 6 E: store flexibility (8 October 2026)](#phase-6-e-store-flexibility-8-october-2026)
+- [Phase 6 D: revision course (8 October 2026)](#phase-6-d-revision-course-8-october-2026)
+- [Phase 5 B: storage, media, shop and web platform (8 October 2026)](#phase-5-b-storage-media-shop-and-web-platform-8-october-2026)
+- [Phase 5 A: sign-in and communications (8 October 2026)](#phase-5-a-sign-in-and-communications-8-october-2026)
+- [Phase 4 security, shop (8 October 2026)](#phase-4-security-shop-8-october-2026)
+- [Phase 4 security, accounts, API and operations (8 October 2026)](#phase-4-security-accounts-api-and-operations-8-october-2026)
+- [Phase 4: QA pass (8 October 2026)](#phase-4-qa-pass-8-october-2026)
+- [Phase 3b: shop on the API, credit notes, privacy of the shop (8 October 2026)](#phase-3b-shop-on-the-api-credit-notes-privacy-of-the-shop-8-october-2026)
+- [Phase 3: REST API v1 (8 October 2026)](#phase-3-rest-api-v1-8-october-2026)
+- [Phase 2: the shop (8 October 2026)](#phase-2-the-shop-8-october-2026)
+- [Phase 1: production (8 October 2026)](#phase-1-production-8-october-2026)
+- [Phase 0: the site (8 October 2026)](#phase-0-the-site-8-october-2026)
+
+</details>
+
+## The phases
+
+| Phase | Date | What it delivered | Backend tests at its merge |
+|---|---|---|---|
+| [Phase B](#phase-b-the-panels-own-modules-9-october-2026) | 9 and 10 October 2026 | the panel's own modules, their security review and the integration onto `main` | 2,510 on the merged head (1,888 when the last module joined) |
+| [Phase A](#the-staff-console-on-the-staff-api-as-built-and-the-websites-side-of-an-impersonation-9-october-2026) | 9 October 2026 | the panel's foundations: the staff app, couriers, the insights, the ERPNext sync, resilience, the console | 1,030 on its final head |
+| [The Answer Script redesign](#the-answer-script-redesign-9-october-2026) | 9 October 2026 | the website restyled, the course's pages behind `WEB_COURSE` | 422 |
+| [Phase 9](#phase-9-repository-split-8-october-2026) | 8 October 2026 | the platform's own repository, the papers' parser vendored | 412 |
+| [Phase 8](#phase-8f-review-fixes-8-october-2026) | 8 October 2026 | the Next.js website and its API, Django's pages removed, the learning dashboard, the review's fixes | 422 (at 8F) |
+| [Phase 7](#phase-7-journeys-8-october-2026) | 8 October 2026 | the API contract, the QA pass of phases 5 and 6, the security fixes, the journeys | 453 |
+| [Phase 6](#phase-6-e-store-flexibility-8-october-2026) | 8 October 2026 | the revision course (D) and the store's flexibility (E) | 61 more (D 35, E 26); no total recorded |
+| [Phase 5](#phase-5-b-storage-media-shop-and-web-platform-8-october-2026) | 8 October 2026 | sign-in and communications (A), storage, media and the shop (B), the redesign's stage 1 | 53 more (A 32, B 21); no total recorded |
+| [Phase 4](#phase-4-security-shop-8-october-2026) | 8 October 2026 | the QA pass of every flow and the security review's fixes | 227 |
+| [Phases 3 and 3b](#phase-3b-shop-on-the-api-credit-notes-privacy-of-the-shop-8-october-2026) | 8 October 2026 | REST API v1, then the shop on the API and credit notes | 128 (at 3b) |
+| [Phase 2](#phase-2-the-shop-8-october-2026) | 8 October 2026 | the shop: the cart, Razorpay and cash on delivery, orders, GST invoices | not recorded |
+| [Phase 1](#phase-1-production-8-october-2026) | 8 October 2026 | production: PostgreSQL, Celery, roles, DPDP self-service, the Docker stack | not recorded |
+| [Phase 0](#phase-0-the-site-8-october-2026) | 8 October 2026 | the site: the papers, the solutions behind each QR code, accounts with parental consent | 33 |
+
+```mermaid
+timeline
+    title The phases, from the table above
+    8 October 2026 : Phases 0 to 3b, the site, production, the shop, the API : Phase 4, QA and security : Phases 5 and 6, sign-in, media, the course, the store : Phase 7, the contract and the journeys : Phase 8, the Next.js website : Phase 9, the platform's own repository
+    9 October 2026 : The Answer Script redesign : Phase A, the panel's foundations
+    10 October 2026 : Phase B, the panel's own modules, merged on main
+```
+
+*Phase B was built from the evening of 9 October and merged on 10 October; the backend's count at each merge is in
+the table.*
 
 ## Phase B: the panel's own modules (9 October 2026)
 
