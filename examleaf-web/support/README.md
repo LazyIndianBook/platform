@@ -1,13 +1,49 @@
 # support: tickets and their legal clocks
 
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![E-Commerce Rules: 1 January 2027](../../docs/assets/badges/law-ecommerce.svg) ![DPDP Rules: 13 May 2027](../../docs/assets/badges/law-dpdp.svg)
+
 A small helpdesk of our own (plan 5.14; 10.1: Frappe Helpdesk is not installed), behind the Admin Control Panel's
 Support module and the website's "My requests": every complaint or question becomes a **ticket** with a number the
-customer can quote (`SR-2026-000123`), the deadlines the law sets counted from when it came, the conversation (email
-in and out, calls and WhatsApp messages recorded, internal notes), and the actions support takes on the customer's
-orders and course from the ticket itself. The research behind it is
-`../docs/research/2026-10-09-admin-control-panel/research-lms-crm-cms.md` sections 4.1 to 4.9, `research-commerce-gst.md`
-6 and `research-rbac-security.md` 4.6. The rules live here; the panel draws what the API answers. The endpoints are in
+customer can quote (`SR-2026-000123`), the deadlines the law sets counted from when it came, the conversation (email in
+and out, calls and WhatsApp messages recorded, internal notes), and the actions support takes on the customer's orders
+and course from the ticket itself. The research behind it is
+[research-lms-crm-cms.md](../../docs/research/2026-10-09-admin-control-panel/research-lms-crm-cms.md) sections 4.1 to
+4.9, [research-commerce-gst.md](../../docs/research/2026-10-09-admin-control-panel/research-commerce-gst.md) 6 and
+[research-rbac-security.md](../../docs/research/2026-10-09-admin-control-panel/research-rbac-security.md) 4.6. The rules
+live here, for the developers who change them; the panel draws what the API answers. The endpoints are in
 [API.md](../API.md) "Support (staff)" and "My requests".
+
+> [!NOTE]
+> **At a glance**
+> - Every complaint or question is a ticket numbered `SR-YYYY-NNNNNN` (India's calendar year, gapless), from the form,
+>   email, phone, WhatsApp or the National Consumer Helpline.
+> - The legal clocks run from the moment it was received, in calendar time, never paused: acknowledge within 48 hours,
+>   redress within one calendar month, and the NCH, privacy-request and IT Rules clocks where they apply.
+> - Every 15 minutes `watch_clocks` opens an inbox item at three quarters of a running clock and flags a breach once
+>   at its due time.
+> - The acknowledgement goes by itself once the ticket is committed: by email, else by SMS when only a mobile number
+>   is known, held between 21:00 and 08:00.
+> - The requester's email address and mobile number are encrypted at rest and shown masked; opening a ticket is a
+>   `sensitive_read`.
+
+## Contents
+
+- [The files](#the-files)
+- [The model](#the-model)
+- [The legal clocks](#the-legal-clocks)
+- [Where tickets come from](#where-tickets-come-from)
+- [The acknowledgement](#the-acknowledgement)
+- [Statuses](#statuses)
+- [Actions from a ticket](#actions-from-a-ticket)
+- [Saved replies](#saved-replies)
+- [Who sees what](#who-sees-what)
+- [The grievance register](#the-grievance-register)
+- [Erasure, test mode](#erasure-test-mode)
+- [Settings](#settings)
+- [Not built yet](#not-built-yet)
+- [Related documents](#related-documents)
+
+## The files
 
 | File | What |
 |---|---|
@@ -79,6 +115,23 @@ a second run finds the flags and does nothing.
   purged with its messages, files and raw mail after 30 days by the nightly task; the numbers purged are in the audit
   log (`support.spam_purged`), so the series' gaps are explained. Out of spam, it is acknowledged then.
 
+```mermaid
+flowchart TB
+    form["The contact form or My requests: /api/v1/contact/, /api/v1/me/tickets/"] --> create
+    panel["The panel: staff log a call, a WhatsApp message, an NCH complaint or a letter"] --> create
+    mailbox["The support address, forwarded to POST /api/hooks/support-mail/ with its token"] --> kept["The raw body kept once per SHA-256: an InboundEvent"]
+    kept --> guard{"mail.guard: our own mail, an auto-reply, a bounce, bulk mail, a flood?"}
+    guard -->|yes| dropped["Dropped: the event says why"]
+    guard -->|no| thread{"mail.thread: a ticket it answers?"}
+    thread -->|no| create["A new ticket: SR-YYYY-NNNNNN, its clocks from received_at"]
+    thread -->|"an open one"| joins["The message joins it: waiting on the customer becomes open, a resolved one is reopened"]
+    thread -->|"a closed one"| followup["A follow-up ticket, with a note saying which"]
+    followup --> create
+    create --> ack["The acknowledgement goes by itself: email, else SMS held until 08:00 at night"]
+```
+
+*How a message reaches a ticket: by the website's form, by the support mailbox's hook, or by a person in the panel.*
+
 ## The acknowledgement
 
 Sent by itself once the ticket is committed (`services.acknowledge`, under the ticket's row lock: once): by email
@@ -104,6 +157,39 @@ suppression list) with the number in the subject, Reply-To the support address a
 Resolving or closing asks for the category, the resolution and what the category needs (`services.CLOSING`, the
 ticket's `closing_fields`): the order of an order or payment ticket, the paper of a content error, the data request
 of a privacy request; each missing one is a field error. A resolution past `due_at` is a breach.
+
+```mermaid
+stateDiagram-v2
+    state "waiting on the customer" as waiting_customer
+    state "waiting on a third party" as waiting_third_party
+    state "Running: the legal clocks run and are never paused" as running {
+        new --> open
+        open --> waiting_customer
+        waiting_customer --> open
+        open --> waiting_third_party
+        waiting_third_party --> open
+        waiting_customer --> waiting_third_party
+        waiting_third_party --> waiting_customer
+    }
+
+    [*] --> new: received
+    running --> resolved: the clocks stop
+    running --> closed
+    running --> spam: quarantined
+    spam --> open: not spam
+    spam --> [*]: purged after 30 days
+    resolved --> closed: by staff, or by itself after 4 days
+    resolved --> open: reopened
+    closed --> open: reopened
+    closed --> [*]
+    note left of new
+        From the day it was received:
+        acknowledge within 48 hours
+        resolve within one calendar month
+    end note
+```
+
+*A ticket's statuses and its two main clocks; the inbox hears at three quarters of a clock, and a breach is flagged once.*
 
 ## Actions from a ticket
 
@@ -185,3 +271,16 @@ and the forwarder (RUNBOOK.md "Support").
 Customer satisfaction scores (CSAT: plan 5.14, later), WhatsApp messages in (logged by hand until the WhatsApp
 Business API is connected), the help centre, and answering from the website ("My requests" lists and asks; the answers
 come by email).
+
+## Related documents
+
+- [staff/README.md](../staff/README.md): the rules every staff endpoint keeps, the approvals behind a refund, and "Jobs"
+  for `grievance_export`
+- [shop/README.md](../shop/README.md): the refund a ticket asks for, and the order's returns
+- [ops/README.md](../ops/README.md): the SMS limits and the template behind `ticket_ack`
+- [integrations/README.md](../integrations/README.md): the `support_mail` account, its webhook token and the encryption
+  of the requesters' details
+- [API.md](../API.md): "Support (staff)" and "My requests"
+- [RUNBOOK.md](../RUNBOOK.md): "Support", working the queue, logging a call, the mailbox, spam, the grievance register
+- [DEPLOYMENT.md](../DEPLOYMENT.md): the "Support" settings and the mailbox's forwarder
+- [SUPPORT.md](../../docs/guides/roles/SUPPORT.md): the role's page (the queue, replies, refunds within the limit)

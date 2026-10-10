@@ -1,10 +1,73 @@
 # integrations
 
-The shared framework for every connection to a service others run for ExamLeaf: Shiprocket now (the `shipping`
-app), and Razorpay, MSG91, SES, the storage and ERPNext when the admin panel manages them. It implements
-`docs/research/2026-10-09-admin-control-panel/research-integrations.md` sections 3.3 (credentials), 3.10
-(reliability, logs, test mode) and 5.2 (what the connections page shows). Razorpay keeps its own webhook record
-(`shop.WebhookEvent`, `shop/payments.py`); nothing here touches it.
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![for: operators](../../docs/assets/badges/audience-operators.svg)
+
+The shared framework for every connection to a service others run for ExamLeaf: Shiprocket now (the `shipping` app), and
+Razorpay, MSG91, SES, the storage and ERPNext when the admin panel manages them. It implements
+[research-integrations.md](../../docs/research/2026-10-09-admin-control-panel/research-integrations.md) sections 3.3
+(credentials), 3.10 (reliability, logs, test mode) and 5.2 (what the connections page shows), for the developers who add
+a provider and the operators who keep its keys. Razorpay keeps its own webhook record (`shop.WebhookEvent`,
+`shop/payments.py`); nothing here touches it.
+
+> [!NOTE]
+> **At a glance**
+> - An `IntegrationAccount` is one provider in one mode (`test` or `live`), at most one enabled per provider; its
+>   credentials and tokens are encrypted with `INTEGRATION_KEYS` and never shown whole.
+> - Every request goes through `client.py`: logged (`IntegrationCall`, redacted) and counted by the account's circuit
+>   breaker, which opens after 5 failures within 5 minutes and lets one trial call through after 5 more.
+> - A task that calls a provider is retried on `IntegrationUnavailable` 8 times (60 seconds doubling to an hour, about
+>   four hours) and then written to the dead-letter list, to be replayed once or discarded with a reason.
+> - A webhook's token is the current one or, for 24 hours after a rotation, the previous one, compared in constant
+>   time; a wrong one is kept as a rejected event without its body.
+> - Razorpay's and MSG91's keys come from the environment until the panel holds some; Shiprocket's and ERPNext's are
+>   the panel's alone.
+
+## Contents
+
+- [How the framework fits together](#how-the-framework-fits-together)
+- [The model](#the-model)
+- [Precedence: the environment's keys, then the panel's](#precedence-the-environments-keys-then-the-panels)
+- [The connections page](#the-connections-page)
+- [Adding a provider](#adding-a-provider)
+- [Operations](#operations)
+- [Related documents](#related-documents)
+
+## How the framework fits together
+
+An account is the hub: its keys are what a call is made with, its circuit decides whether the call is made at all, and
+its webhook token decides who may call back. The call log, the inbound events and the dead letters are its records of
+what happened, kept `INTEGRATIONS_RETENTION_DAYS` (90) days, the dead letters once dealt with.
+
+```mermaid
+flowchart TB
+    staff["Staff: hold the circuit open, reset it, replace the keys"] --> account
+    rotate["New webhook token: shown once"] --> account
+    account["IntegrationAccount: one enabled per provider and mode; credentials and tokens encrypted"]
+
+    subgraph outbound ["A call to the provider"]
+        task["A task on IntegrationTask, or a request"] --> circuit{"The circuit"}
+        circuit -->|"open: calls wait"| wait["CircuitOpen: the task is queued again, no try counted"]
+        circuit -->|"closed, or the one trial call"| request["client.py: 5 s to connect, 20 s to read"]
+        request --> calllog["IntegrationCall: the request, redacted"]
+        request -->|"answered 2xx"| ok["The circuit closes, the failures are forgotten"]
+        request -->|"no answer, 429, 5xx"| failure["Counted: 5 within 5 minutes open the circuit"]
+        request -->|"refused: 4xx, or inside a 2xx"| refusal["The provider is up, so the circuit closes; no retry"]
+        failure --> retry["Retried 8 times, 60 s doubling to an hour"]
+        retry -->|"gives up"| dead["IntegrationFailure: replayed once, or discarded with a reason"]
+        refusal --> dead
+    end
+
+    subgraph inbound ["A webhook from the provider"]
+        hook{"The token in the header"} -->|"the current one, or the previous for 24 hours"| event["InboundEvent: the raw body, once per SHA-256"]
+        hook -->|"wrong or missing"| rejected["403: kept as rejected, without its body"]
+        event --> processing["The processing task; a failure marks the event failed, replayable"]
+    end
+
+    account -.->|"circuit state"| circuit
+    account -.->|"webhook token, the previous one 24 hours after a rotation"| hook
+```
+
+*A call goes through the account's circuit and is logged; a webhook is let in by the account's token, the previous one still good for 24 hours after a rotation.*
 
 ## The model
 
@@ -36,9 +99,12 @@ opens, `integration_recovered` when it closes.
 wait (`CircuitOpen`), logs each request, counts it for the circuit, and turns a failure into
 `IntegrationUnavailable` (try again later; on a 429 or 503 its `retry_after`, the seconds the provider's
 `Retry-After` asks for), `IntegrationRejected` (the provider answered and refused, also inside a 2xx for providers that
-do that: `body_error()`) or `IntegrationAuthFailed` (401, 403). **Never call a provider inside
-`transaction.atomic()`**: a failure would roll back its own log line and the breaker's count with the caller's
-changes. Claim the row instead (`shipping.models.ShipmentDetail.claim`), and save each step's result as it comes.
+do that: `body_error()`) or `IntegrationAuthFailed` (401, 403).
+
+> [!WARNING]
+> **Never call a provider inside `transaction.atomic()`**: a failure would roll back its own log line and the
+> breaker's count with the caller's changes. Claim the row instead (`shipping.models.ShipmentDetail.claim`), and save
+> each step's result as it comes.
 
 **Tasks** (`tasks.py`): `@shared_task(base=IntegrationTask, bind=True)`. Arguments are ids, never personal data. A
 task is retried on `IntegrationUnavailable` after 60 seconds doubling to an hour, jittered, 8 times (about four hours:
@@ -130,3 +196,17 @@ emailed) and read by FINANCE and AUDITOR (`integrations.view_integrationaccount`
 - **Retention.** `integrations.tasks.purge_old_records` at 04:45 deletes the call log, the inbound events and the
   dead letters dealt with older than `INTEGRATIONS_RETENTION_DAYS` (90); `manage.py integrations_retention` does it
   by hand.
+
+## Related documents
+
+- [shipping/README.md](../shipping/README.md): the first provider on the framework, with its carriers, webhook and tasks
+- [ops/README.md](../ops/README.md): MSG91's delivery reports, SES's tracking webhook and the template registry
+- [shop/README.md](../shop/README.md): "Finance", Razorpay's settlements read through the client
+- [staff/README.md](../staff/README.md): the staff inbox the signals feed, and the permissions that read the connections
+- [API.md](../API.md): "Connections (staff)", the connections page's endpoints
+- [RUNBOOK.md](../RUNBOOK.md): "Connections", "Couriers and integrations" and "Secrets and key rotation" (the keys and
+  the webhook tokens)
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 22 (Shiprocket and the integration keys) and section 25 (the panel's
+  connections)
+- [research-integrations.md](../../docs/research/2026-10-09-admin-control-panel/research-integrations.md): sections 3.3,
+  3.10 and 5.2, the research behind the framework

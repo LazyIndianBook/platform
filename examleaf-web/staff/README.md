@@ -1,9 +1,50 @@
 # staff: the Admin Control Panel's backend
 
-The rules behind every button of the panel (`../docs/examleaf-admin-control-panel-plan.md`, its research in
-`../docs/research/2026-10-09-admin-control-panel/research-rbac-security.md`): who may do what to which objects, what
-needs a second person, what was done by whom, and the registers the data-protection law asks for. The panel draws
-what this API answers and decides nothing itself. The endpoints are in [API.md](../API.md) "Staff API".
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![for: operators](../../docs/assets/badges/audience-operators.svg) ![DPDP Rules: 13 May 2027](../../docs/assets/badges/law-dpdp.svg)
+
+The rules behind every button of the panel (the [plan](../../docs/examleaf-admin-control-panel-plan.md), its research in
+[research-rbac-security.md](../../docs/research/2026-10-09-admin-control-panel/research-rbac-security.md)): who may do
+what to which objects, what needs a second person, what was done by whom, and the registers the data-protection law asks
+for. The panel draws what this API answers and decides nothing itself. The endpoints are in [API.md](../API.md) "Staff
+API". Developers read it to add a permission, a role or an approval, and operators for the audit log, the sessions and
+the jobs.
+
+> [!NOTE]
+> **At a glance**
+> - A request is allowed only if all five hold, and anything else is refused: an active member of staff with an
+>   authenticator app or a passkey (or an API key), the permission the endpoint names, the object in scope, the role's
+>   limits, and the conditions the permission's risk sets.
+> - Above a role's limit an action becomes a `ChangeRequest` that waits for a second person: the maker never approves,
+>   the checker sends back the payload's SHA-256, and a request expires after 24 hours.
+> - The audit log is append-only and hash-chained in two chains (the money events apart), verified nightly at 02:00
+>   and copied off the server daily at 06:00.
+> - A staff session ends after its idle limit (15 minutes for OWNER, ADMIN, FINANCE and PACKER, 30 for the others) and
+>   8 hours after the log-in; a break-glass account's after 2.
+> - Background work started from the panel runs as a `Job`, with its progress, each failed row's error and a result
+>   file kept a week; above the starter's limit it waits for ADMIN.
+> - The data-protection registers live here: data requests and their clocks (48 hours, a month, and 90 days from 13
+>   May 2027), the breach register, the processors, legal holds and the erasure ledger.
+
+## Contents
+
+- [The files](#the-files)
+- [The model](#the-model)
+- [Adding a permission](#adding-a-permission)
+- [Adding a role](#adding-a-role)
+- [Approvals (maker-checker)](#approvals-maker-checker)
+- [The audit log](#the-audit-log)
+- [Sessions](#sessions)
+- [Notes and policies](#notes-and-policies)
+- [Jobs](#jobs)
+- [Data protection](#data-protection)
+- [Legal and privacy](#legal-and-privacy)
+- [Phase B: people, sessions and the system](#phase-b-people-sessions-and-the-system)
+- [Phase B: customers](#phase-b-customers)
+- [The jobs](#the-jobs)
+- [Not built yet](#not-built-yet)
+- [Related documents](#related-documents)
+
+## The files
 
 | File | What |
 |---|---|
@@ -26,7 +67,7 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `middleware.py` | the staff's endpoints and the Django admin on the admin host only (404 elsewhere), `authz_fail` for every refusal of the staff's endpoints, refused webhooks to the inbox, a website session as a customer: its end, its limits, its requests audited |
 | `signals.py` | the audit log and the inbox fed from the rest of the site |
 | `tasks.py`, `management/commands/` | the beat tasks and `run_job`; `verify_audit_chain`, `purge_audit`, `staff_api_reference` (API.md's generated reference), `load_dependency_report` (CI's report into the private storage) |
-| `tests/` | the authorization matrix and the rest (`pytest staff`) |
+| `tests/` | the authorisation matrix and the rest (`pytest staff`) |
 
 ## The model
 
@@ -125,6 +166,39 @@ Asked from a request (the panel, the admin), an action whose maker's permission 
 re-authentication in the last 5 minutes (`approvals.step_up`), whichever endpoint asks: cancelling an order paid online
 is its refund, and steps up as one. A job whose rows ask for an action as their starter (`shop.order_jobs.ASKS`: a
 bulk cancellation's refunds) steps it up when it starts; its dry run does not.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Maker as Maker (the panel)
+    participant API as The staff API (approvals.py)
+    participant Inbox as The inbox
+    actor Checker as Checker (the panel)
+    participant Audit as The audit log
+
+    Maker->>API: ask(action, target, payload, reason)
+    Note over API: Validates the payload, stores it with its SHA-256, applies the action's rule
+    API->>Audit: action.requested
+    alt Within the maker's limits
+        API->>API: Approved by the rule, executed at once
+        API->>Audit: action.approved, action.executed
+        API-->>Maker: The result
+    else Above them
+        API->>Inbox: An item for the holders of the checker's permission
+        API-->>Maker: Pending, for 24 hours
+        alt The checker approves
+            Checker->>API: approve(payload_sha256)
+            Note over API: Not the maker, nor the person it is about<br/>An owner may override with a reason, the owners are told<br/>The hash must be the stored one, and the request not expired
+            API->>Audit: action.approved
+            API->>API: execute(): the stored payload, checked again, in one transaction
+            API->>Audit: action.executed, or action.failed
+        else The checker rejects, or 24 hours pass
+            API->>Audit: action.rejected, or action.expired
+        end
+    end
+```
+
+*A maker-checker request from ask() to its execution; the checker approves the payload whose hash they read.*
 
 | Action | Maker | Checker | Waits when |
 |---|---|---|---|
@@ -273,53 +347,88 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `expire_access`. Every step is an audit event (`job.requested`, `job.started`, `job.done`, `job.failed`,
 `job.cancelled`, `job.stopped`, `job.result_downloaded`). To add a kind: a `Job.Kind`, its permission in
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
-`serializers.JobStartSerializer`. The customers' account actions (`user.suspend`, `user.unsuspend`, `user.end_sessions`, `user.resend_consent`: "Phase B:
+`serializers.JobStartSerializer`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: POST jobs/ (job.requested)
+    queued --> queued: above the starter's limit a job.run request waits for ADMIN
+    queued --> running: run_job takes it (job.started)
+    queued --> cancelled: its starter cancels it at once (job.cancelled)
+    running --> done: the runner finishes (job.done)
+    running --> failed: it raises, its starter lost the permission, or the time limit passes (job.failed)
+    running --> cancelled: its starter cancels it and it stops at the next row (job.stopped)
+    done --> [*]
+    failed --> [*]
+    cancelled --> [*]
+    note right of running
+        Progress is saved at most once a second
+        Each failed row's error is kept, the first 1,000
+    end note
+    note right of done
+        An export's file is linked to its starter for 5 minutes at a time
+        and deleted after a week
+    end note
+```
+
+*A background job from the panel: queued, running and one of three ends, every step an audit event.*
+
+Each module adds its own kinds of job, inbox items and permissions:
+
+The customers' account actions (`user.suspend`, `user.unsuspend`, `user.end_sessions`, `user.resend_consent`: "Phase B:
 customers") are `bulk_action`s, not a kind of their own.
-The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
-(`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
-`reconciliation` (a night's differences). The tax desk (`shop/README.md` "Tax") adds the kind `gstr1_export`
-(`staff.run_gstr1`, the `export_rows` limit; `{"month": "YYYY-MM", "months": 1 or 3}`, its file the GSTR-1 CSVs
-zipped) and two kinds of inbox item: `tax_threshold` (a turnover line crossed, or a count grown) and
-`credit_note_missing` (a refund past the credit notes' cut-off, or against a cancelled invoice).
-The Orders module (`shop/order_jobs.py`, `shop/README.md`) adds
-`orders_pack` and `orders_print` (`staff.pack_order`), `orders_cancel` (`shop.change_order`, 250 orders at most) and
-`orders_export` (`shop.export_order`, the `export_rows` limit; the others `bulk_rows`), with `targets` (order numbers)
-or `filters` (the list's, never a search) as their params, and three kinds of inbox item: `order_hold` (an order held:
-`shop.change_order`), `return_request` (due in 48 hours: `staff.handle_return`) and `bank_refund` (a transfer to make,
-due in `SHOP_BANK_REFUND_DAYS`: `staff.approve_refund`).
-The content module (`content/README.md`) adds the kind `content_import`
-(`staff.import_content`, high; no row limit and no approver: its own dry run comes first, and an apply names it) and
-three kinds of inbox item, each narrowed to its subject (`data.subject`): `review` (a draft waiting for a reviewer),
-`error_report` (a reported mistake to triage) and `legal_deposit` (a book's copies due at the libraries).
-Support (`support/README.md`) adds the kind `grievance_export`
-(`staff.export_grievances`, high; the `export_rows` limit; params `from` and `until`, the days received), the scope
-kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's legal clock three quarters gone,
-`ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
-colleague named in a note, assigned to them and done once they open the ticket) and the permissions
-`staff.handle_ticket` (medium) and `support.note_ticket`.
+
+The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load` (`erp.run_initial_load`, the `bulk_rows` limit) and
+two kinds of inbox item: `sync_failed` (a dead letter) and `reconciliation` (a night's differences).
+
+The tax desk (`shop/README.md` "Tax") adds the kind `gstr1_export` (`staff.run_gstr1`, the `export_rows` limit;
+`{"month": "YYYY-MM", "months": 1 or 3}`, its file the GSTR-1 CSVs zipped) and two kinds of inbox item: `tax_threshold`
+(a turnover line crossed, or a count grown) and `credit_note_missing` (a refund past the credit notes' cut-off, or
+against a cancelled invoice).
+
+The Orders module (`shop/order_jobs.py`, `shop/README.md`) adds `orders_pack` and `orders_print` (`staff.pack_order`),
+`orders_cancel` (`shop.change_order`, 250 orders at most) and `orders_export` (`shop.export_order`, the `export_rows`
+limit; the others `bulk_rows`), with `targets` (order numbers) or `filters` (the list's, never a search) as their
+params, and three kinds of inbox item: `order_hold` (an order held: `shop.change_order`), `return_request` (due in 48
+hours: `staff.handle_return`) and `bank_refund` (a transfer to make, due in `SHOP_BANK_REFUND_DAYS`:
+`staff.approve_refund`).
+
+The content module (`content/README.md`) adds the kind `content_import` (`staff.import_content`, high; no row limit and
+no approver: its own dry run comes first, and an apply names it) and three kinds of inbox item, each narrowed to its
+subject (`data.subject`): `review` (a draft waiting for a reviewer), `error_report` (a reported mistake to triage) and
+`legal_deposit` (a book's copies due at the libraries).
+
+Support (`support/README.md`) adds the kind `grievance_export` (`staff.export_grievances`, high; the `export_rows`
+limit; params `from` and `until`, the days received), the scope kind `ticket_category`, three kinds of inbox item
+(`ticket_due`: a ticket's legal clock three quarters gone, `ticket_breach`: past it, both for `staff.handle_ticket` and
+given to the ticket's assignee; `ticket_mention`: a colleague named in a note, assigned to them and done once they open
+the ticket) and the permissions `staff.handle_ticket` (medium) and `support.note_ticket`.
+
 Finance (`shop/README.md` "Finance") adds the kind `settlement_fetch` (`staff.reconcile_settlements`, medium; no row
 limit: one day; params `{"day": "YYYY-MM-DD"}`, from 2020 to today; its result the counts), the permission
 `staff.reconcile_settlements` (area Payments; FINANCE, with ADMIN and the owners) and two kinds of inbox item, both for
 `staff.reconcile_settlements`: `settlement` (a Razorpay settlement that does not match: done once it matches) and
 `b2b_payment` (a B2B invoice paid by link: done once its ERPNext entry is recorded).
-Home and Reports (`insights/README.md`) adds the kind `report_export` (`staff.export_report`, high: FINANCE, the auditor,
-ADMIN and the owners; the `export_rows` limit; params `{"report": "sales", "filters": {...}}`, validated by
+
+Home and Reports (`insights/README.md`) adds the kind `report_export` (`staff.export_report`, high: FINANCE, the
+auditor, ADMIN and the owners; the `export_rows` limit; params `{"report": "sales", "filters": {...}}`, validated by
 `insights.exports.clean_params` before anything is queued; the starter needs the report's own permissions too), its file
 a CSV with the filters and the member of staff's number at the end.
+
 The Catalogue module (`shop/catalogue_jobs.py`, `shop/README.md` "Catalogue") adds the kinds `coupon_codes`
 (`shop.add_couponcode`, the `bulk_rows` limit; `{"coupon", "count", "prefix", "note"}`, its file the school's CSV),
-`product_import` (`shop.import_product`, high; no row limit: its dry run comes first, started by
-`catalogue/import/`, and its apply names it, the same bytes within 24 hours) and `product_export`
-(`shop.export_product`, the `export_rows` limit; the list's `filters`), and the permissions `staff.change_price`,
-`staff.set_stock` and `staff.change_product_tax` (each medium): a product's prices, stock and tax each their own.
-The Course module (`learn/README.md`) adds the kind `code_batch` (`staff.make_book_codes`, high, the owners alerted;
-no row limit and no approver: `count` codes of one print run, `{"batch": <id>}` to make again a run whose job failed;
-its file, the codes once, is its starter's for 24 hours: `KEEP_FILES`, then `learn.tasks.purge_code_files` deletes
-it), the bulk actions above, one kind of inbox item, `fraud_signal` (a fraud rule's signal on book codes or orders,
-for `staff.acknowledge_signal`, closed when the signal is acknowledged), the `review` kind's reuse for a revision
-waiting (for `staff.publish_course`) and `failed_job`'s for a clip that failed or a scheduled publish that waits, and
-the permissions `staff.publish_course` (medium), `staff.make_book_codes` (high) and `staff.void_book_codes`
-(critical).
+`product_import` (`shop.import_product`, high; no row limit: its dry run comes first, started by `catalogue/import/`,
+and its apply names it, the same bytes within 24 hours) and `product_export` (`shop.export_product`, the `export_rows`
+limit; the list's `filters`), and the permissions `staff.change_price`, `staff.set_stock` and `staff.change_product_tax`
+(each medium): a product's prices, stock and tax each their own.
+
+The Course module (`learn/README.md`) adds the kind `code_batch` (`staff.make_book_codes`, high, the owners alerted; no
+row limit and no approver: `count` codes of one print run, `{"batch": <id>}` to make again a run whose job failed; its
+file, the codes once, is its starter's for 24 hours: `KEEP_FILES`, then `learn.tasks.purge_code_files` deletes it), the
+bulk actions above, one kind of inbox item, `fraud_signal` (a fraud rule's signal on book codes or orders, for
+`staff.acknowledge_signal`, closed when the signal is acknowledged), the `review` kind's reuse for a revision waiting
+(for `staff.publish_course`) and `failed_job`'s for a clip that failed or a scheduled publish that waits, and the
+permissions `staff.publish_course` (medium), `staff.make_book_codes` (high) and `staff.void_book_codes` (critical).
 
 ## Data protection
 
@@ -430,6 +539,7 @@ What each role finds there: SUPPORT the cockpit's clocks, the requests, the hold
 confirmed by phone; FINANCE the holds (to put and release: chargebacks and disputes over money); CONTENT_EDITOR the
 policy versions (to publish); ADMIN and OWNER everything, with the self-audit and the processors' tasks; AUDITOR reads
 everything.
+
 ## Phase B: people, sessions and the system
 
 The People, Settings and System modules' backend (plan 5.17, 5.18 and 5.19; research-rbac-security 1.8, 2.9, 3.5,
@@ -614,3 +724,16 @@ changing a customer's email address on their behalf ("Phase B: customers" says w
 the policies due are acknowledged (the manifest says which; the console decides). The panel (`examleaf-admin`), the
 modules' endpoints and bulk jobs, and the website's page that takes an impersonation token, with its banner
 (`examleaf-frontend`), are built.
+
+## Related documents
+
+- [shop/README.md](../shop/README.md): the orders', tax, finance and catalogue actions that the approvals table names
+- [support/README.md](../support/README.md): the tickets, their clocks, and the grievance register job
+- [integrations/README.md](../integrations/README.md): the connections page and the keys the panel replaces
+- [API.md](../API.md): "Staff API", with the generated reference of every endpoint
+- [RUNBOOK.md](../RUNBOOK.md): "Staff accounts", "Break-glass accounts", "Data requests and privacy" and the inbox
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 23, "Staff and the audit log", with the database role and the copy off the
+  server
+- [docs/guides/roles](../../docs/guides/roles/README.md): one page for each role, and the roles by module
+- [phase-b-authorization-review.md](../../docs/security/phase-b-authorization-review.md): what was checked, found and
+  changed in Phase B's authorisation

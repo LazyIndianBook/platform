@@ -1,11 +1,36 @@
 # shipping
 
-Parcels and couriers: booking with a courier through Shiprocket, or sending by hand (India Post and any courier
-without an API), the parcel's timeline from the courier's webhook and a polling sweep, what it means for the order and
-the customer, and the money (charges, COD remittances, weight disputes). It implements
-`docs/research/2026-10-09-admin-control-panel/research-integrations.md` section 3 on the `integrations` framework
-(`integrations/README.md`). The order keeps its own state machine (`shop/models.py`): the shipping app only calls its
-existing transitions, ship and deliver.
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![for: operators](../../docs/assets/badges/audience-operators.svg)
+
+Parcels and couriers: booking with a courier through Shiprocket, or sending by hand (India Post and any courier without
+an API), the parcel's timeline from the courier's webhook and a polling sweep, what it means for the order and the
+customer, and the money (charges, COD remittances, weight disputes). It implements
+[research-integrations.md](../../docs/research/2026-10-09-admin-control-panel/research-integrations.md) section 3 on the
+`integrations` framework ([integrations/README.md](../integrations/README.md)), for the developers who change it and the
+operators who run it. The order keeps its own state machine (`shop/models.py`): the shipping app only calls its existing
+transitions, ship and deliver.
+
+> [!NOTE]
+> **At a glance**
+> - A parcel is `shop.Shipment`; its courier side is `ShipmentDetail`, one to one, with a carrier of `manual` or
+>   `shiprocket` (a double in test mode: Shiprocket has no sandbox).
+> - A status only moves forward, and four are final: delivered, returned, lost or damaged, cancelled.
+> - The order changes only through its existing transitions: shipped at the first scan that says the parcel has left,
+>   delivered once a delivery is confirmed.
+> - The webhook `POST /api/hooks/parcel-events/` is unsigned: a token in `x-api-key` lets it in, a claim of delivered,
+>   returned or lost is read again at the carrier first, and a poll every 2 hours is the net under it.
+> - SMS about a parcel go only to accounts that asked for them, never from 21:00 to 08:00 India time (held, and sent
+>   at 08:00 only if still true).
+> - Nothing talks to a carrier inside a transaction: a parcel is claimed instead, and each step's result is saved as
+>   it comes.
+
+## Contents
+
+- [The model](#the-model)
+- [Carriers](#carriers)
+- [The flows (`services.py`)](#the-flows-servicespy)
+- [Operations](#operations)
+- [Related documents](#related-documents)
 
 ## The model
 
@@ -30,12 +55,51 @@ problem) → in transit → out for delivery (or a failed attempt, either way) �
 → returned is a branch of its own; lost or damaged at any point; cancelled only before pickup. Delivered, returned,
 lost and cancelled are final.
 
+```mermaid
+stateDiagram-v2
+    state "pickup problem" as pickup_problem
+    state "in transit" as in_transit
+    state "out for delivery" as out_for_delivery
+    state "delivery failed" as delivery_failed
+    state "partly delivered" as partial
+    state "returning to us" as returning
+    state "lost or damaged" as lost_or_damaged
+
+    [*] --> booked: Shiprocket books it
+    booked --> pickup_problem
+    pickup_problem --> booked: either way
+    booked --> in_transit
+    pickup_problem --> in_transit
+    booked --> cancelled: before pickup only
+    pickup_problem --> cancelled
+    in_transit --> out_for_delivery
+    out_for_delivery --> delivery_failed
+    delivery_failed --> out_for_delivery: either way
+    out_for_delivery --> partial
+    out_for_delivery --> delivered
+    partial --> delivered
+    delivery_failed --> returning
+    returning --> returned
+    in_transit --> returning
+    in_transit --> lost_or_damaged
+    note right of lost_or_damaged
+        from any status that is not final
+    end note
+    delivered --> [*]
+    returned --> [*]
+    lost_or_damaged --> [*]
+    cancelled --> [*]
+```
+
+*A parcel's status (`shipping/status.py`): it only moves forward, a loss or a return can follow any status that is not final, and the four final ones are never left.*
+
 **What a status means** (`services.effects`): the first status that says the parcel has left ships the order (its
-existing transition: the customer's "on its way" email, a COD order's bill); delivered (read again at the carrier
-when a webhook says so) delivers it (the COD payment captured, the email) and expects the COD remittance; a pickup
-problem, a failed delivery (24 hours to act), a return, a loss and a partial delivery open exceptions. The order has
-no "returned" state and its state machine has no way from shipped to cancelled: a COD parcel that comes back leaves
-the order shipped, with a note and an RTO exception that says to cancel it (the founder's decision, research 6.1).
+existing transition: the customer's "on its way" email, a COD order's bill); delivered (read again at the carrier when a
+webhook says so) delivers it (the COD payment captured, the email) and expects the COD remittance; a pickup problem, a
+failed delivery (24 hours to act), a return, a loss and a partial delivery open exceptions. The order has no "returned"
+state: a COD parcel that comes back leaves the order shipped, with a note and an RTO exception that says to cancel it
+(the founder's decision, research 6.1), and staff then cancel it with the Orders module's `cancel_returned`, the one way
+its state machine goes from shipped to cancelled ([shop/README.md](../shop/README.md) "The rules").
 
 **Telling the customer** (`messages.py`, through the shop's own emails and SMS): shipped (email and SMS: courier, AWB,
 the order's page), out for delivery (SMS, COD only: keep ₹X ready), delivered (email and SMS, as when staff mark it),
@@ -73,6 +137,44 @@ cash to collect is not the order's total) → `fetch_label` (task) → `schedule
 `open_exception`, `resolve_exception`, `survey_pins`, `sync_pickup_locations`. None holds a transaction while it talks
 to a carrier.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Staff as Staff (the panel)
+    participant EL as ExamLeaf (shipping)
+    participant SR as Shiprocket
+    actor Customer
+
+    Staff->>EL: Quote for an order
+    EL->>SR: Rates, with a 3-second timeout
+    EL-->>Staff: The top three couriers, and India Post if prepaid
+    Staff->>EL: Book a packed order with one of them
+    EL->>SR: book_shipment: our order id, then the AWB
+    SR-->>EL: The AWB: status booked
+    EL->>SR: fetch_label: the PDF, kept with us
+    Staff->>EL: Schedule the pickup, make the manifest
+    EL->>SR: Pickup, manifest
+    SR-)EL: Webhook parcel-events, token in x-api-key
+    Note over EL,SR: Kept once and answered 200, then the scans applied<br/>(a poll every 2 hours is the net under it)
+    EL-)Customer: First scan that says it left: order shipped, email and SMS
+    alt Delivered
+        SR-)EL: Delivered, read again at Shiprocket first
+        EL-)Customer: Order delivered: email and SMS
+        Note over EL,SR: A COD order's remittance is expected
+    else Delivery failed
+        SR-)EL: Delivery failed
+        EL-)Customer: Email and SMS with the order's link
+        Staff->>EL: An NDR action within 24 hours
+        EL->>SR: Re-attempt, return or fake-attempt dispute
+    else Returning, then returned
+        SR-)EL: Returning, then returned
+        EL-)Customer: Email: the parcel is coming back
+        Note over Staff,EL: An RTO exception: the packing room checks the parcel<br/>Staff cancel a COD order, or reship or refund a prepaid one
+    end
+```
+
+*A parcel from the quote to its delivery or return, with Shiprocket's scans arriving by the webhook or the poll.*
+
 **Webhook**: `POST /api/hooks/parcel-events/` (no "shiprocket", "kartrocket", "sr" or "kr" in it): the token in
 `x-api-key` compared in constant time with the enabled account's current one, or its previous one for 24 hours; none,
 a wrong one or none set: 403. The raw body is kept once (`InboundEvent`), answered 200, processed by
@@ -107,3 +209,16 @@ is resolved or dismissed, by staff or by the parcel's news (`exceptions_closed`)
 - **By hand**: `shipping_poll_tracking`, `shipping_sync_statement [--days 7]`, `shipping_check_cod`,
   `shipping_check_discrepancies`, `shipping_survey_pins [PIN ...] [--limit N]` do what their tasks do.
 - **RUNBOOK.md**: a circuit open, dead letters, COD overdue, weight disputes, a parcel that stopped moving.
+
+## Related documents
+
+- [integrations/README.md](../integrations/README.md): the framework this app runs on, with its client, circuit and
+  webhook tokens
+- [shop/README.md](../shop/README.md): the order's state machine, `cancel_returned` and the returns
+- [ops/README.md](../ops/README.md): the SMS limits and the DLT templates behind the customer's news
+- [insights/README.md](../insights/README.md): the delivery times and the return risk that the parcels feed
+- [API.md](../API.md): "Shipping (staff)", the parcels' endpoints
+- [RUNBOOK.md](../RUNBOOK.md): "Couriers and integrations", a circuit open, dead letters, COD overdue, weight disputes
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 22 (Shiprocket, India Post and the integration keys)
+- [research-integrations.md](../../docs/research/2026-10-09-admin-control-panel/research-integrations.md): section 3,
+  the research behind the app
