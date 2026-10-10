@@ -584,9 +584,9 @@ def deliver(shipment):
 
 def returned(shipment):
     """Back with us (RTO): the packing room checks it and puts it back in stock (or marks it damaged), and staff decide
-    for the order: a cash-on-delivery order would be cancelled, but the order's state machine has no way from shipped
-    to cancelled (and no "returned" state: a decision for the founder, research 6.1), so it stays shipped with a note;
-    a prepaid one is sent again or refunded (the refund action of the order)."""
+    for the order: a cash-on-delivery order is cancelled (Order.cancel_returned, the staff Cancel action: the parcel
+    came back, nothing was collected), a prepaid one is sent again or refunded (the refund action of the order).
+    Here the order stays shipped with a note and an open RTO exception until staff decide."""
     order = shipment.order
     action = "cancel the order (nothing was collected)" if order.is_cod else "reship or refund"
     exception = open_exception(

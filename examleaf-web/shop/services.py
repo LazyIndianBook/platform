@@ -105,14 +105,15 @@ HTML_EMAILS = {"confirmation", "shipped", "payment_link"}  # with the order's li
 
 
 def sms_wanted(order, kind):
-    """Whether this news goes by SMS too: a kind with an SMS (ops.sms.ORDER_SMS) whose DLT template is registered, to
-    an account with a confirmed mobile number that asked for order updates by SMS."""
-    from ops.sms import ORDER_SMS
+    """Whether this news goes by SMS too: a kind with an SMS (ops.sms.ORDER_SMS) whose DLT template is registered (the
+    template registry's approved one, else the environment's: ops.sms.template_id), to an account with a confirmed
+    mobile number that asked for order updates by SMS."""
+    from ops.sms import ORDER_SMS, template_id
 
     user = order.user
     if kind not in ORDER_SMS or not (user and user.login_phone_verified and user.sms_updates):
         return False
-    return settings.SMS_BACKEND != "msg91" or bool(settings.MSG91_TEMPLATES.get(ORDER_SMS[kind]))
+    return settings.SMS_BACKEND != "msg91" or bool(template_id(ORDER_SMS[kind]))
 
 
 def notify(order, kind, sms=True, **context):

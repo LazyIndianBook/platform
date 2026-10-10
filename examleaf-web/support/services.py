@@ -304,10 +304,11 @@ def queue_acknowledgement(ticket_id):
 
 
 def sms_ready():
-    """Whether an acknowledgement can go by SMS: SMS on, and on MSG91 the DLT template of `ticket_ack` registered."""
-    return settings.SMS_ENABLED and (
-        settings.SMS_BACKEND != "msg91" or bool(settings.MSG91_TEMPLATES.get("ticket_ack"))
-    )
+    """Whether an acknowledgement can go by SMS: SMS on, and on MSG91 the DLT template of `ticket_ack` registered (the
+    template registry's approved one, else the environment's: ops.sms.template_id)."""
+    from ops.sms import template_id
+
+    return settings.SMS_ENABLED and (settings.SMS_BACKEND != "msg91" or bool(template_id("ticket_ack")))
 
 
 def complaint_as_recorded(ticket):

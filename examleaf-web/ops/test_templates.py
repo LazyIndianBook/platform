@@ -53,6 +53,25 @@ def test_ops_sms_sends_with_the_registrys_template_and_writes_its_last_use(setti
     assert SmsLog.objects.get().provider_id == "req-1"
 
 
+def test_an_order_or_a_ticket_goes_by_sms_on_the_registrys_template_alone(settings):
+    """shop.services.sms_wanted and support.services.sms_ready read the registry first (ops.sms.template_id), so an
+    approved template the environment never named is enough, as ops/README.md and DEPLOYMENT.md say."""
+    from types import SimpleNamespace
+
+    from shop.services import sms_wanted
+    from support.services import sms_ready
+
+    settings.SMS_ENABLED, settings.SMS_BACKEND = True, "msg91"
+    settings.MSG91_TEMPLATES = {
+        k: v for k, v in settings.MSG91_TEMPLATES.items() if k not in ("order_shipped", "ticket_ack")
+    }
+    order = SimpleNamespace(user=SimpleNamespace(login_phone_verified=True, sms_updates=True))
+    assert not sms_wanted(order, "shipped") and not sms_ready()  # the environment names neither
+    approved("order_shipped")
+    approved("ticket_ack")
+    assert sms_wanted(order, "shipped") and sms_ready()  # the registry's approved templates, the environment silent
+
+
 def test_marketing_reads_the_registry_and_only_admin_changes_it():
     template = approved()
     assert signed_in(make_staff(roles.MARKETING)).get(TEMPLATES).json()[0]["id"] == template.pk
