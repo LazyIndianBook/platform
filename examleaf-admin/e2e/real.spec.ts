@@ -308,12 +308,14 @@ test("the invited colleague accepts the link, signs in and is sent to set up two
   await page.locator("#password").fill(colleague.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Set up two-step sign-in first" })).toBeVisible();
-  await page.goto(`/invite/${token}/`); // the link works once
-  await page.getByLabel("Your name").fill(colleague.name);
-  await page.getByLabel("Choose a password").fill(colleague.password);
-  await page.getByRole("button", { name: "Accept and create the account" }).click();
-  await expect(page.getByText(/This invitation is not valid/)).toBeVisible();
   await page.context().close();
+  const again = await open(browser); // the link works once: opened again, signed out, it says so
+  await again.goto(`/invite/${token}/`);
+  await again.getByLabel("Your name").fill(colleague.name);
+  await again.getByLabel("Choose a password").fill(colleague.password);
+  await again.getByRole("button", { name: "Accept and create the account" }).click();
+  await expect(again.getByText(/This invitation is not valid/)).toBeVisible();
+  await again.context().close();
 });
 
 test("OWNER: finds the customer and reveals their address (audited), acknowledges their request, changes a setting", async ({
