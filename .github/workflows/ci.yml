@@ -39,7 +39,7 @@ jobs:
       LEARN_CODE_SECRET: ci-only-book-code-secret-not-for-production
       DATABASE_URL: postgres://examleaf:examleaf@localhost:5432/examleaf
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -59,7 +59,7 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Build the image
         run: docker build --tag examleaf-web:ci examleaf-web
       - name: Django and WeasyPrint load in the image
@@ -78,7 +78,7 @@ jobs:
       run:
         working-directory: examleaf-web
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
@@ -123,7 +123,7 @@ jobs:
       LEARN_CODE_SECRET: ci-only-book-code-secret-not-for-production
       DJANGO_PYTHON: python
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -168,7 +168,7 @@ jobs:
       run:
         working-directory: examleaf-admin
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -188,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
