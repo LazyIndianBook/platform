@@ -232,8 +232,8 @@ recorded the book of a run and the voided codes; they are filled now. The Course
 (`GET course/codes/report/`, the console's `/course/report/`; `learn/README.md` "The codes report", for whoever reads
 the print runs, `learn.view_codebatch`) is worked out when asked, run by run: its "sold" counts the run's own window
 (until the next run of the book, a bundle holding it included), its "revoked" is the access a code opened that
-staff took back, its "void" is what this report calls "revoked", and its districts follow a fixed 10 rather than
-the setting.
+staff took back, its "void" is the codes voided before use (this report's "void" too), and its districts follow
+`INSIGHTS_MIN_CELL` as this report does.
 
 **The minimum cell** (`cells.py`, the settings `INSIGHTS_MIN_CELL` (10: districts, PIN codes, states, cohorts, searches)
 and `INSIGHTS_MIN_CELL_CLASS` (5: a chapter's or a class's learners); neither below 5, `insights.E001`): a cell standing

@@ -171,6 +171,19 @@ export const en = {
       staff_google_break_glass:
         "A break-glass account signs in with its password and its own second factor, not Google.",
     } as Record<string, string>,
+    // an invitation's link (/invite/<token>/): the account made, then sign in and the second step
+    acceptTitle: "Accept your invitation",
+    acceptLead:
+      "You were invited to join ExamLeaf's staff. Choose the name the console shows and a password; the link proves your email address.",
+    acceptName: "Your name",
+    acceptPassword: "Choose a password",
+    acceptPasswordHelp: "At least 12 characters; a sentence you will remember works well.",
+    acceptButton: "Accept and create the account",
+    acceptSignedIn: "Already have an account with this address? Sign in first, then open the link again.",
+    acceptedTitle: "Welcome to the console",
+    acceptedNext:
+      "Sign in with your email address and the password you chose; the first thing to do is to set up two-step sign-in.",
+    acceptedSignIn: "Sign in",
     inactiveTitle: "This account is switched off",
     inactiveText:
       "A switched-off account cannot sign in to the console. If you think this is a mistake, ask the owner or an admin.",
@@ -625,7 +638,7 @@ export const en = {
     mfaOff: "Not set up",
     invite: "Invite a staff member",
     inviteTitle: "Invite a staff member",
-    inviteText: "They get an email with a link that works once, for 72 hours. Privileged roles need an approval.",
+    inviteText: "They get an email with a link that works once, for 7 days. Privileged roles need an approval.",
     inviteEmail: "Their work email address",
     inviteRole: "Role",
     inviteSend: "Send the invitation",
@@ -1099,7 +1112,7 @@ export const en = {
     reconciled: (order: string, paid: boolean | null) =>
       paid === null ? `${order}: Razorpay could not say.` : paid ? `${order} is paid.` : `${order} is not paid.`,
     maintenance: "Maintenance mode",
-    maintenanceOn: "On: visitors see the banner and changes are closed. The console stays open.",
+    maintenanceOn: "On: the website shows the banner at the top of every page. The console stays open.",
     maintenanceOff: "Off: the site is open.",
     banner: "Banner shown to visitors",
     turnOn: "Turn maintenance mode on",
@@ -4111,7 +4124,7 @@ export const en = {
     },
     codes: {
       title: "Book codes",
-      lead: "The codes printed in the books: how many were printed, sold, activated and revoked by print run, and where they were redeemed.",
+      lead: "The codes printed in the books: how many were printed, sold, activated and voided by print run, and where they were redeemed.",
       batchFilter: "Print run",
       everyBatch: "Every print run",
       notRecorded: "Not recorded yet",
@@ -4124,7 +4137,7 @@ export const en = {
       sold: "Sold",
       activated: "Activated",
       activated7: "Last 7 days",
-      revoked: "Revoked",
+      void: "Void",
       rate: "Activation rate",
       districts: "By district",
       districtsOf: (batch: string) => `Districts of ${batch}`,

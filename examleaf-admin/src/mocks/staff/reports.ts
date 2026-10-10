@@ -527,9 +527,9 @@ function place(context: ReportsContext, kit: ReportsKit): Response {
 // ---- Book codes ----
 
 const BATCHES = [
-  { batch: "PHY-2027-1", printed: 5000, sold: 4200, activated: 1850, recent: 140, revoked: 12 },
-  { batch: "CHE-2027-1", printed: 3000, sold: null, activated: 640, recent: 55, revoked: null },
-  { batch: "MAT-2027-1", printed: 2000, sold: 1900, activated: 90, recent: 31, revoked: 0 },
+  { batch: "PHY-2027-1", printed: 5000, sold: 4200, activated: 1850, recent: 140, void: 12 },
+  { batch: "CHE-2027-1", printed: 3000, sold: null, activated: 640, recent: 55, void: null },
+  { batch: "MAT-2027-1", printed: 2000, sold: 1900, activated: 90, recent: 31, void: 0 },
 ];
 const DISTRICTS = [
   ["Kamrup Metro", 410, 38],
@@ -566,7 +566,7 @@ function codes(context: ReportsContext, kit: ReportsKit): Response {
       sold: each.sold,
       activated: each.activated,
       activated_7d: each.recent,
-      revoked: each.revoked,
+      void: each.void,
       activation_rate: (each.activated / each.printed).toFixed(4),
     })),
   };

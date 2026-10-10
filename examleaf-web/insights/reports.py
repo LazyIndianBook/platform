@@ -382,12 +382,14 @@ CODES_COLUMNS = [
     ),
     column("activated", "Activated", "Codes a student has redeemed."),
     column("activated_7d", "Last 7 days", "Codes redeemed in the last 7 days."),
-    column("revoked", "Revoked", "Codes voided before use, once the course module can void them; empty until then."),
+    column(
+        "void", "Void", "Codes voided before use (a leaked code, a run gone astray), as the Course module records them."
+    ),
     column("activation_rate", "Activation rate", "Activated divided by printed."),
 ]
 CODES_WORDS = (
     "Book codes by print run: how many were printed, redeemed and (when the course module records them) sold and "
-    "revoked, and the share redeemed; and the districts the redemptions came from, worked out each night from the "
+    "voided, and the share redeemed; and the districts the redemptions came from, worked out each night from the "
     "redeemer's last order of the subject. A district with fewer than {k} redemptions is not shown."
 )
 
@@ -444,7 +446,7 @@ def codes(user, params):
             "sold": None if sold is None else sold.get(row["batch"]),
             "activated": row["activated"],
             "activated_7d": row["recent"],
-            "revoked": None if revoked is None else revoked.get(row["batch"], 0),
+            "void": None if revoked is None else revoked.get(row["batch"], 0),
             "activation_rate": share(row["activated"], row["printed"]),
         }
         for row in found

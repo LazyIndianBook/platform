@@ -28,7 +28,6 @@ from .services import make_codes
 
 PRINTER_FILE_HOURS = 24  # the printer's file: its starter's to download this long after the job, then deleted
 MAX_CODES = 100_000  # at a time, as make_book_codes
-MIN_CELL = 10  # the codes report's districts: a cell under it is "fewer than 10" (plan 5.16)
 REPORT_BATCHES = 200  # the newest print runs in the report
 CODE_SIGNALS = [  # insights' fraud rules about book codes (FraudSignal.Kind)
     "codes_failed_account",
@@ -390,16 +389,19 @@ def districts(redeemed):
 
 
 def district_cells(counts):
-    """A batch's districts as cells: each of MIN_CELL redemptions or more by name; the others together as "other
-    districts", hidden (null) while fewer than MIN_CELL."""
+    """A batch's districts as cells: each of INSIGHTS_MIN_CELL redemptions or more by name (insights.cells.minimum,
+    the reports' own line); the others together as "other districts", hidden (null) while fewer than that."""
+    from insights.cells import minimum
+
+    least = minimum()
     cells, other = [], 0
     for name, count in sorted(counts.items(), key=lambda pair: (-pair[1], pair[0])):
-        if count >= MIN_CELL:
+        if count >= least:
             cells.append({"district": name, "activated": count, "hidden": False})
         else:
             other += count
     if other:
-        hidden = other < MIN_CELL
+        hidden = other < least
         cells.append({"district": "other districts", "activated": None if hidden else other, "hidden": hidden})
     return cells
 

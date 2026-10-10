@@ -15209,7 +15209,7 @@
         "/api/v1/staff/course/codes/report/": {
             "get": {
                 "operationId": "staff_course_codes_report_retrieve",
-                "description": "The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by\ndistrict with the cells under 10 hidden (\"fewer than 10\"). Computed when asked; the newest 200 print runs.",
+                "description": "The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by\ndistrict with the cells under INSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs.",
                 "tags": [
                     "course (staff)"
                 ],
@@ -39695,7 +39695,7 @@
                     "activated": {
                         "type": "integer",
                         "nullable": true,
-                        "description": "null: fewer than 10 (hidden)"
+                        "description": "null: fewer than the minimum, INSIGHTS_MIN_CELL (hidden)"
                     },
                     "hidden": {
                         "type": "boolean"
@@ -59004,10 +59004,10 @@
                     "activated_7d": {
                         "type": "integer"
                     },
-                    "revoked": {
+                    "void": {
                         "type": "integer",
                         "nullable": true,
-                        "description": "null until the course module can void codes"
+                        "description": "codes voided before use; null without the course module"
                     },
                     "activation_rate": {
                         "type": "string",
@@ -59022,8 +59022,8 @@
                     "activation_rate",
                     "batch",
                     "printed",
-                    "revoked",
-                    "sold"
+                    "sold",
+                    "void"
                 ]
             },
             "ReportColumn": {

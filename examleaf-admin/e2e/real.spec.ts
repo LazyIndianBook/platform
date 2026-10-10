@@ -55,6 +55,7 @@ import {
   seedFinanceWorld,
   seedCourse,
   seedRealWorld,
+  inviteToken,
   seedTicket,
   type Staff,
 } from "./django";
@@ -141,7 +142,16 @@ test.afterAll(() => {
     () => {
       if (people) deleteCustomersWorld(people);
     },
-    () => deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]),
+    () =>
+      deleteStaff([
+        owner.email,
+        support.email,
+        sales.email,
+        finance.email,
+        editor.email,
+        reviewer.email,
+        staffFor("INVITED").email,
+      ]),
   ]) {
     try {
       step();
@@ -278,6 +288,31 @@ test("OWNER: invites a colleague; a privileged invitation waits for someone else
   });
   expect(refused.status()).toBe(403);
   expect(await refused.json()).toMatchObject({ detail: "Another person approves it: the maker never does." });
+  await page.context().close();
+});
+
+test("the invited colleague accepts the link, signs in and is sent to set up two-step sign-in first", async ({
+  browser,
+}) => {
+  const colleague = staffFor("INVITED");
+  const token = inviteToken(colleague.email, "SUPPORT", owner.email);
+  const page = await open(browser);
+  await page.goto(`/invite/${token}/`);
+  await expect(page.getByRole("heading", { name: "Accept your invitation" })).toBeVisible();
+  await page.getByLabel("Your name").fill(colleague.name);
+  await page.getByLabel("Choose a password").fill(colleague.password);
+  await page.getByRole("button", { name: "Accept and create the account" }).click();
+  await expect(page.getByRole("heading", { name: "Welcome to the console" })).toBeVisible();
+  await page.getByRole("link", { name: "Sign in" }).click();
+  await page.getByLabel("Email address").fill(colleague.email);
+  await page.locator("#password").fill(colleague.password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Set up two-step sign-in first" })).toBeVisible();
+  await page.goto(`/invite/${token}/`); // the link works once
+  await page.getByLabel("Your name").fill(colleague.name);
+  await page.getByLabel("Choose a password").fill(colleague.password);
+  await page.getByRole("button", { name: "Accept and create the account" }).click();
+  await expect(page.getByText(/This invitation is not valid/)).toBeVisible();
   await page.context().close();
 });
 

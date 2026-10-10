@@ -53,7 +53,7 @@ The panel draws what the staff API answers and decides nothing itself; every rul
   report, `GET reports/codes/` (the console's `/reports/codes/`, `insights/README.md` "Home and Reports"), and both
   stay. Theirs is by print run too, with the last 7 days and the districts as the nightly job counted them (its
   minimum is the setting `INSIGHTS_MIN_CELL`); its "sold" is the book's copies sold in all, every run of it together,
-  and its "revoked" is the codes voided before use, which this report calls "void". Its "sold" and "revoked"
+  and its "void" is the codes voided before use, as here (its "revoked" column was renamed at the merge). Its "sold" and "void"
   columns were empty until this module recorded the book of a run (`CodeBatch.product`) and the voided codes
   (`BookCode.voided_at`); they are filled now.
 - **Fraud rules** (`insights/jobs/fraud.py`, hourly): failed codes per account, address and device, a spike, one

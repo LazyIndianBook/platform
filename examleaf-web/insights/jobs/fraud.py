@@ -8,7 +8,8 @@ run of the book codes' rules (insights.tasks.code_fraud_rules).
   batch not yet dispatched (a leak: learn.CodeBatch.dispatched_at); one account redeeming many codes (resale); one
   code tried by several accounts (a photo of a code shared).
 - Shop: several accounts sharing a phone number or an address on cash-on-delivery or coupon orders.
-- Not yet, for want of data: repeated COD refusals (no parcel outcome: the shipping app is to record it)."""
+- Not yet, for want of data: repeated COD refusals (the shipping app records each parcel's outcome; the rule waits
+  for a season of them)."""
 
 import logging
 import re

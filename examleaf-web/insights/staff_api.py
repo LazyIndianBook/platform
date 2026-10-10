@@ -136,7 +136,9 @@ class ReportCodesRowSerializer(serializers.Serializer):
     sold = serializers.IntegerField(allow_null=True, help_text="null until the course module records a batch's book")
     activated = serializers.IntegerField()
     activated_7d = serializers.IntegerField()
-    revoked = serializers.IntegerField(allow_null=True, help_text="null until the course module can void codes")
+    void = serializers.IntegerField(
+        allow_null=True, help_text="codes voided before use; null without the course module"
+    )
     activation_rate = share(allow_null=True)
 
 

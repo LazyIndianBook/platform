@@ -121,6 +121,7 @@ const PAGES = [
   "/support/replies/",
   "/support/export/",
   // Phase B: Finance
+  "/invite/mock-token-1/",
   "/finance/",
   "/finance/?document=EL/2026-27/00123",
   "/finance/payments/",

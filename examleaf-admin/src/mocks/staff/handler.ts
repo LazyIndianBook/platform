@@ -3014,6 +3014,22 @@ const KIT: Kit = {
 const REPORTS_KIT: ReportsKit = { json, invalid, notFound, refuse, record, startJob, visibleJob };
 
 /** The mock's one entry: refuses outside `next dev` with STAFF_API_MOCK=1. */
+/** POST invites/accept/ (staff.api.InviteAcceptView): a token's rules as the API has them, the welcome when they hold;
+ *  a token starting with "used" was used, revoked or expired. Nothing is kept: the mock has no invited accounts. */
+async function acceptInvitation(request: Request): Promise<Response> {
+  const body = ((await request.json().catch(() => null)) ?? {}) as Body;
+  const token = text(body.token);
+  if (!token) return invalid({ token: ["This field is required."] });
+  if (token.startsWith("used"))
+    return invalid({ token: ["This invitation is not valid: it was used, revoked or expired."] });
+  const name = text(body.full_name);
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!name || !password) return invalid({ full_name: ["Give your name and a password."] });
+  if (password.length < 12)
+    return invalid({ password: ["This password is too short. It must contain at least 12 characters."] });
+  return json(200, { detail: "Welcome. Log in, then set up an authenticator app or a passkey." });
+}
+
 export async function handleMock(request: Request): Promise<Response> {
   if (process.env.STAFF_API_MOCK !== "1") throw new Error(OFF);
   const url = new URL(request.url);
@@ -3022,6 +3038,8 @@ export async function handleMock(request: Request): Promise<Response> {
     .replace(/^\/api\/v1\/insights\//, "insights/") // the insights' own lists, which the reports draw
     .split("/")
     .filter(Boolean);
+  // the one staff call for someone not staff yet: an invitation's link accepted (invites/accept/), signed out
+  if (parts[0] === "invites" && parts[1] === "accept" && request.method === "POST") return acceptInvitation(request);
   const who = await signedIn(request);
   if (who instanceof Response) return who;
   if (request.method !== "GET" && request.method !== "HEAD" && !csrfOk(request))

@@ -11,6 +11,7 @@ import { ConfigProvider } from "@/components/providers/config-provider";
 import { RouteFocus } from "@/components/providers/route-focus";
 import { ServiceWorker } from "@/components/providers/service-worker";
 import { ImpersonationBanner, ImpersonationProvider } from "@/components/site/impersonation";
+import { MaintenanceBanner } from "@/components/site/maintenance-banner";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { Toaster } from "@/components/ui/toaster";
@@ -65,6 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <ConfigProvider value={config}>
           <ImpersonationProvider value={impersonation}>
+            <MaintenanceBanner maintenance={config?.maintenance} />
             <ImpersonationBanner />
             <SiteHeader signedIn={Boolean(user)} cartCount={cartCount} />
             <main id="main" tabIndex={-1} className="flex flex-col">

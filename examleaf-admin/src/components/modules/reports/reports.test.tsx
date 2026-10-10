@@ -373,7 +373,7 @@ describe("book codes", () => {
         sold: 4200,
         activated: 1850,
         activated_7d: 140,
-        revoked: 12,
+        void: 12,
         activation_rate: "0.3700",
       },
       {
@@ -382,7 +382,7 @@ describe("book codes", () => {
         sold: null,
         activated: 640,
         activated_7d: 55,
-        revoked: null,
+        void: null,
         activation_rate: "0.2133",
       },
     ],
@@ -392,7 +392,7 @@ describe("book codes", () => {
   it("shows the rate as a percent, and what the course has not recorded as 'not recorded yet', never zero", () => {
     render(<CodesTables report={report({})} />);
     const chemistry = screen.getByRole("row", { name: /CHE-2027-1/ });
-    expect(within(chemistry).getAllByText("Not recorded yet")).toHaveLength(2); // sold and revoked, for a screen reader
+    expect(within(chemistry).getAllByText("Not recorded yet")).toHaveLength(2); // sold and void, for a screen reader
     expect(chemistry).toHaveTextContent("21.3%");
     expect(screen.getByRole("row", { name: /PHY-2027-1/ })).toHaveTextContent("4,200");
   });

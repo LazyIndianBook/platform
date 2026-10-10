@@ -380,6 +380,18 @@ export const revokeApiKey = (id: number) =>
 
 export type Person = Schemas["Person"];
 export type StaffInvite = Schemas["StaffInvite"];
+/** An invitation's link (/invite/[token]/): signed out, the name and password make the account; signed in with the
+ *  invited address, the role is given. The token is the credential (the one staff call for someone not staff yet). */
+export async function acceptInvite(token: string, full_name: string, password: string): Promise<{ detail: string }> {
+  // not through send(): a 401 here means "sign in first, then open the link again", not a session that ended
+  const { data, error, response } = await api.POST("/api/v1/staff/invites/accept/", {
+    ...init(undefined),
+    body: { token, full_name, password },
+  });
+  if (!response.ok)
+    throw toApiError(response.status, error && typeof error === "object" ? error : null, response.headers);
+  return data as { detail: string };
+}
 export type AccessRow = Schemas["AccessRow"];
 export type Role = Schemas["RoleEnum"];
 export type ScopeKind = Schemas["ScopeKindEnum"];

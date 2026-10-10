@@ -29,6 +29,7 @@ from rest_framework.routers import SimpleRouter
 from accounts.models import User
 from api.schema import AutoSchema
 from content.models import ErrorReport, Subject
+from insights.cells import minimum
 from insights.models import FraudSignal, ItemStat
 from staff import audit
 from staff.api import Cursor, StaffView
@@ -1711,7 +1712,9 @@ class CodeLookupView(CourseView, generics.GenericAPIView):
 
 class CourseReportCellSerializer(serializers.Serializer):
     district = serializers.CharField()
-    activated = serializers.IntegerField(allow_null=True, help_text="null: fewer than 10 (hidden)")
+    activated = serializers.IntegerField(
+        allow_null=True, help_text="null: fewer than the minimum, INSIGHTS_MIN_CELL (hidden)"
+    )
     hidden = serializers.BooleanField()
 
 
@@ -1754,14 +1757,15 @@ DEFINITIONS = {
     "void": "Codes voided: they open nothing.",
     "activation_rate": "Activated ÷ printed.",
     "districts": "Where codes were redeemed: the redeemer's last order of the subject before the code, by its PIN "
-    "code; a code from a book bought in a shop has none (unknown). A district with fewer than 10 is counted in "
-    "other districts, itself hidden while fewer than 10.",
+    "code; a code from a book bought in a shop has none (unknown). A district with fewer than INSIGHTS_MIN_CELL is "
+    "counted in other districts, itself hidden while fewer than that.",
 }
 
 
 class CodesReportView(CourseView, generics.GenericAPIView):
     """The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by
-    district with the cells under 10 hidden ("fewer than 10"). Computed when asked; the newest 200 print runs."""
+    district with the cells under
+    INSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs."""
 
     permissions = {"GET": "learn.view_codebatch"}
     serializer_class = CourseReportSerializer
@@ -1771,7 +1775,7 @@ class CodesReportView(CourseView, generics.GenericAPIView):
     @extend_schema(responses=CourseReportSerializer)
     def get(self, request, *args, **kwargs):
         rows = codes.report(request.user)
-        body = {"computed_at": timezone.now(), "min_cell": codes.MIN_CELL, "definitions": DEFINITIONS,
+        body = {"computed_at": timezone.now(), "min_cell": minimum(), "definitions": DEFINITIONS,
                 "totals": codes.totals(rows), "rows": rows}  # fmt: skip
         return Response(CourseReportSerializer(body).data)
 

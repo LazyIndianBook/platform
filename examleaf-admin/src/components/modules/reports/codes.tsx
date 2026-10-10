@@ -1,6 +1,6 @@
 // Book codes (GET reports/codes/): per print run (batch) how many codes were printed, sold, activated in all and in
-// the last 7 days, and revoked, and the share activated; and the districts the redemptions came from, worked out each
-// night from the redeemer's last order, a district under the minimum shown as "fewer than 10". Sold and revoked are
+// the last 7 days, and voided, and the share activated; and the districts the redemptions came from, worked out each
+// night from the redeemer's last order, a district under the minimum shown as "fewer than 10". Sold and void are
 // the course module's to record: until it does they are empty, and the page says so, not zero.
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
@@ -53,8 +53,8 @@ export function CodesTables({ report }: { report: CodesReport }) {
               <TableHead numeric title={hover.activated_7d}>
                 {words.activated7}
               </TableHead>
-              <TableHead numeric title={hover.revoked}>
-                {words.revoked}
+              <TableHead numeric title={hover.void}>
+                {words.void}
               </TableHead>
               <TableHead numeric title={hover.activation_rate}>
                 {words.rate}
@@ -69,7 +69,7 @@ export function CodesTables({ report }: { report: CodesReport }) {
                 <TableCell numeric>{row.sold === null ? <Missing /> : count(row.sold)}</TableCell>
                 <TableCell numeric>{count(row.activated)}</TableCell>
                 <TableCell numeric>{count(row.activated_7d)}</TableCell>
-                <TableCell numeric>{row.revoked === null ? <Missing /> : count(row.revoked)}</TableCell>
+                <TableCell numeric>{row.void === null ? <Missing /> : count(row.void)}</TableCell>
                 <TableCell numeric>
                   <Measure value={row.activation_rate} max={1}>
                     {percent(row.activation_rate, 1)}

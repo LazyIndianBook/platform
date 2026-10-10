@@ -282,8 +282,8 @@ def test_codes_by_batch_with_the_activation_rate_and_districts_under_the_minimum
     assert rows["PHY-2027-1"]["activation_rate"] == "0.4000" and rows["PHY-2027-2"]["activation_rate"] == "0.0000"
     # the Course module records the print run's title (its sales: none here) and the voided code; a run it never
     # recorded has no title, so no "sold" (not zero: unknown)
-    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["revoked"]) == (0, 1)
-    assert (rows["PHY-2027-2"]["sold"], rows["PHY-2027-2"]["revoked"]) == (None, 0)
+    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["void"]) == (0, 1)
+    assert (rows["PHY-2027-2"]["sold"], rows["PHY-2027-2"]["void"]) == (None, 0)
     districts = {row["district"]: row for row in answer["districts"]}
     assert districts["Kamrup Metro"]["redeemed"] == 14 and districts["Kamrup Metro"]["hidden"] is False  # 12 + 2
     assert (districts["Jorhat"]["hidden"], districts["Jorhat"]["under"], districts["Jorhat"]["redeemed"]) == (
@@ -311,7 +311,7 @@ def test_codes_record_nothing_of_the_course_module_when_it_is_not_there(batches,
     monkeypatch.setattr(reports, "model", without_course)
     monkeypatch.setattr(reports, "field", without_void)
     rows = {row["batch"]: row for row in get("codes/", role=roles.OWNER)["rows"]}
-    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["revoked"]) == (None, None)
+    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["void"]) == (None, None)
 
 
 def test_codes_are_the_persons_subjects_only(batches, physics):

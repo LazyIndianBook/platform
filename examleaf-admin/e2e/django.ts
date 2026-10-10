@@ -397,6 +397,19 @@ print(json.dumps({"child": child.pk, "childName": "Real E2E Child", "guest": ${p
   );
 }
 
+/** A fresh invitation's token: send_invite emails the link, the console mail backend prints it, and the shell's
+ *  output carries it (the database keeps the token's digest alone). */
+export function inviteToken(email: string, role: string, by: string): string {
+  const out = shell(`
+from accounts.models import User
+from staff.services import send_invite
+send_invite(${py(email)}, ${py(role)}, by=User.objects.get(email=${py(by)}))
+`);
+  const found = /\/invite\/([A-Za-z0-9_-]+)\//.exec(out);
+  if (!found) throw new Error("The invitation's email carried no link.");
+  return found[1];
+}
+
 /** Deletes what seedCatalogue made (its versions stay: the history keeps them). */
 export function deleteCatalogue(world: CatalogueWorld) {
   shell(`

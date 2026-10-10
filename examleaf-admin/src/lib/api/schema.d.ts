@@ -4812,7 +4812,7 @@ export interface paths {
         };
         /**
          * @description The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by
-         *     district with the cells under 10 hidden ("fewer than 10"). Computed when asked; the newest 200 print runs.
+         *     district with the cells under INSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs.
          */
         get: operations["staff_course_codes_report_retrieve"];
         put?: never;
@@ -13194,7 +13194,7 @@ export interface components {
         };
         CourseReportCell: {
             district: string;
-            /** @description null: fewer than 10 (hidden) */
+            /** @description null: fewer than the minimum, INSIGHTS_MIN_CELL (hidden) */
             activated: number | null;
             hidden: boolean;
         };
@@ -20241,8 +20241,8 @@ export interface components {
             sold: number | null;
             activated: number;
             activated_7d: number;
-            /** @description null until the course module can void codes */
-            revoked: number | null;
+            /** @description codes voided before use; null without the course module */
+            void: number | null;
             /** Format: decimal */
             activation_rate: string | null;
         };

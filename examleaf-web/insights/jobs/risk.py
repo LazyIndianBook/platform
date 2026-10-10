@@ -31,7 +31,7 @@ ACTIONS = {
 
 @dataclass
 class RtoHistory:
-    """What the shipping app will know from its parcels' outcomes (delivered, returned to origin); zeros until then."""
+    """What the shipping app knows from its parcels' outcomes (delivered, returned to origin): history_for reads it."""
 
     pin_parcels: int = 0  # COD parcels to the order's PIN code (delivered or returned: their outcome known)
     pin_returned: int = 0

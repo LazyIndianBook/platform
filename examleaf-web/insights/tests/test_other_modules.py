@@ -183,4 +183,4 @@ def test_codes_sold_are_the_live_copies_of_the_title_the_batch_is_printed_in(set
     rows = {row["batch"]: row for row in reports.codes(UserFactory(is_staff=True, is_superuser=True), {})["rows"]}
     assert (rows["PHY-1"]["sold"], rows["PHY-2"]["sold"]) == (5, 5)  # the title's copies, all its batches together
     assert rows["OLD-1"]["sold"] is None  # no title recorded: not zero, not known
-    assert (rows["PHY-1"]["revoked"], rows["PHY-2"]["revoked"]) == (1, 0)  # the Course module's void marker, by batch
+    assert (rows["PHY-1"]["void"], rows["PHY-2"]["void"]) == (1, 0)  # the Course module's void marker, by batch
