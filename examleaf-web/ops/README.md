@@ -16,7 +16,7 @@ must carry before it is sent and how a delivery report reaches its row.
 > - `MessageTemplate` is the registry of what is registered with DLT and MSG91, one row per event, channel and
 >   language, never deleted; an approved SMS template's MSG91 id is what is sent.
 > - Each night `check_templates` (03:50) opens an inbox item for an approved SMS template unused for 75 days (DLT
->   deactivates one at 90) or whose yearly self-certification is due.
+>   deactivates one at 90) and for an approved template whose yearly self-certification is due.
 > - SES's tracking webhook is verified (SNS signature, certificate, topic) before anymail reads it; a hard bounce or a
 >   complaint puts the address on the suppression list.
 
@@ -65,7 +65,7 @@ flowchart TB
     sent -.->|"delivery report"| report["SmsLog: delivered, pending, failed or rejected"]
 ```
 
-*The path of an order's news. A one-time code skips the consent and the quiet hours, as the user asked for it; the support acknowledgement and a parent's consent link keep the quiet hours.*
+*The path of an order's news; a one-time code skips the consent and the quiet hours, the support acknowledgement and a parent's consent link keep them.*
 
 ## The template registry
 
