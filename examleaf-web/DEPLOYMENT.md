@@ -1,18 +1,135 @@
-# First deployment
+# Deployment
+
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Django 6.1, Python 3.14](../docs/assets/badges/stack-django.svg)
+![PostgreSQL 17](../docs/assets/badges/stack-postgres.svg)
+![Phase B: merged](../docs/assets/badges/phase-b-merged.svg)
+![For operators](../docs/assets/badges/audience-operators.svg)
+
+How to put the ExamLeaf platform on a server and keep it there: the first deployment in order (sections 1 to 12),
+then every setting, the accounts to open and what each part of the platform needs. The whole stack runs on one Linux
+server with Docker; the Kubernetes chart in `deploy/kubernetes/` is the same stack translated. Operators read it from
+the top once, then come back to the settings and to section 26 at each upgrade.
+
+> [!NOTE]
+> **At a glance**
+> - A 2 vCPU / 4 GB machine is plenty to start: e.g. Hetzner CX22, a DigitalOcean 4 GB droplet, or an Indian provider
+>   (E2E Networks, AWS or Azure in Mumbai) if the data should stay in India, as the Privacy Policy draft says
+>   ("servers in [India]": fill in what you choose).
+> - Open the accounts first: some take days or weeks, the DLT registration for SMS 1 to 2 weeks (sections 1 and 15).
+> - Ten settings come first (section 13): without `INTEGRATION_KEYS` or `LEARN_CODE_SECRET` a server does not start.
+> - Only Caddy publishes ports (80 and 443); PostgreSQL and Redis are reachable only inside the compose network.
+> - Phase B adds steps only a person can do, before the release and in the panel once it is up: section 26.
+
+## Contents
+
+- [The stack](#the-stack): what runs, on one server and on Kubernetes
+- [First deployment checklist](#first-deployment-checklist): sections 1 to 12, in order
+- [1. Accounts you need](#1-accounts-you-need)
+- [2. DNS](#2-dns)
+- [3. The server](#3-the-server)
+- [4. Code and settings](#4-code-and-settings)
+- [5. Start](#5-start)
+- [6. Content and the first admin](#6-content-and-the-first-admin)
+- [7. Check](#7-check)
+- [8. QR codes for print](#8-qr-codes-for-print)
+- [9. Backups](#9-backups)
+- [10. Logs](#10-logs)
+- [11. Updates](#11-updates)
+- [12. Shop: Razorpay](#12-shop-razorpay)
+- [13. Settings](#13-settings): every setting, the ten to set first above the rest
+- [14. Security settings](#14-security-settings)
+- [15. Accounts to open](#15-accounts-to-open): every account and service, with the steps for each
+- [16. Sign-in, SMS and email: what is on and what is off](#16-sign-in-sms-and-email-what-is-on-and-what-is-off)
+- [17. Storage, media and the web platform](#17-storage-media-and-the-web-platform): storage, pictures and the web app
+- [18. Revision course](#18-revision-course)
+- [19. Store: categories, offers, staff orders and digital products](#19-store-categories-offers-staff-orders-and-digital-products)
+- [20. Frontends: allauth.headless and the API contract](#20-frontends-allauthheadless-and-the-api-contract): the
+  frontends' sign-in and API contract
+- [21. Insights (the predictive jobs)](#21-insights-the-predictive-jobs)
+- [22. Shipping: Shiprocket, India Post and the integration keys](#22-shipping-shiprocket-india-post-and-the-integration-keys)
+- [23. Staff and the audit log](#23-staff-and-the-audit-log)
+- [24. ERPNext](#24-erpnext)
+- [25. Staff, settings and integrations, system (Phase B)](#25-staff-settings-and-integrations-system-phase-b): the
+  staff, settings and integrations, and system pages
+- [26. Phase B: what a first deployment, or an upgrade to it, adds](#26-phase-b-what-a-first-deployment-or-an-upgrade-to-it-adds):
+  a checklist, the periodic tasks and the files
+- [27. Phase B settings by module](#27-phase-b-settings-by-module)
+- [Related documents](#related-documents)
+
+## The stack
 
 The whole stack runs on one Linux server with Docker: PostgreSQL 17, two Redis 7 (the Celery queue and the cache), the
 Django backend (gunicorn: the API, sign-in, the admin), the website (`frontend`, the Next.js server of
 `../examleaf-frontend/`), the Celery worker, a second worker for the revision course's videos, beat, and Caddy, which
-serves https, renews the certificate by itself and sends Django's paths to `web` and every other path to the website. A 2 vCPU / 4 GB machine is plenty to start: e.g. Hetzner CX22, a
-DigitalOcean 4 GB droplet, or an Indian provider (E2E Networks, AWS or Azure in Mumbai) if the data should stay in
-India, as the Privacy Policy draft says ("servers in [India]": fill in what you choose).
+serves https, renews the certificate by itself and sends Django's paths to `web` and every other path to the website.
 
-Sections 1 to 12 are the first deployment, in order. After them: 13 every setting, 14 security, 15 the accounts to open
-(with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
-18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
-(the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log, 24 ERPNext, 25 the
-staff, settings and integrations, and system pages (Phase B), 26 what the rest of Phase B adds to a first deployment
-or an upgrade: a checklist, the periodic tasks and the files, 27 Phase B's settings by module.
+```mermaid
+flowchart LR
+    outside["Browsers, the app,<br/>the providers' webhooks"] -->|"80 and 443"| caddy
+    subgraph server["One server: docker compose"]
+        caddy["caddy<br/>https, Let's Encrypt"]
+        caddy -->|"Django's paths"| web["web<br/>gunicorn: the API, sign-in, the admin"]
+        caddy -->|"every other path"| frontend["frontend<br/>the website, Next.js"]
+        caddy -->|"admin.domain, with the profile admin"| admin["admin<br/>the staff console"]
+        frontend -->|"server-side calls"| web
+        admin -->|"server-side calls"| web
+        web --> db[("db<br/>PostgreSQL 17")]
+        web --> cache[("redis-cache<br/>256 MB, the least used evicted")]
+        web -->|"tasks"| queue[("redis<br/>the queue, never evicts")]
+        beat["beat"] --> queue
+        queue --> worker["worker<br/>the default queue"]
+        queue --> media["media-worker<br/>the clips, one at a time"]
+        worker --> db
+        media --> db
+        web --> files[("the media volume,<br/>or the buckets")]
+        worker --> files
+        media --> files
+    end
+```
+
+*The compose deployment: only Caddy is reached from outside; `web` waits for the database and both Redis, the rest for `web`.*
+
+On Kubernetes the chart (`deploy/kubernetes/README.md`, "What runs where") runs the same processes as Deployments
+behind Traefik's Ingresses, with PostgreSQL through the CloudNativePG operator and, when switched on, ERPNext beside
+them:
+
+```mermaid
+flowchart LR
+    outside["Browsers, the app,<br/>the providers' webhooks"] --> ingress["Traefik Ingresses<br/>certificates from cert-manager"]
+    subgraph cluster["The cluster: release examleaf"]
+        ingress -->|"Django's paths"| web["examleaf-web<br/>its init container migrates"]
+        ingress -->|"every other path"| frontend["examleaf-frontend"]
+        ingress -->|"admin.domain"| admin["examleaf-admin"]
+        web --> db[("examleaf-db<br/>CloudNativePG, PostgreSQL 17,<br/>PgBouncer in front with values-ha.yaml")]
+        web --> redis[("examleaf-redis-queue,<br/>examleaf-redis-cache")]
+        beat["examleaf-beat<br/>one pod"] --> redis
+        redis --> worker["examleaf-worker"]
+        redis --> media["examleaf-media-worker"]
+        worker --> db
+        worker -->|"the outbox, in the cluster"| erp["ERPNext<br/>with erpnext.enabled"]
+        erp -->|"webhooks to web's Service, plain http"| web
+    end
+    db -.->|"continuous backup"| bucket[("a bucket")]
+```
+
+*The chart's topology at the level this document uses it: the Ingresses, the pods, the database and ERPNext.*
+
+## First deployment checklist
+
+- [ ] [1. Accounts you need](#1-accounts-you-need): the slow ones opened first
+- [ ] [2. DNS](#2-dns): the `A` (and `AAAA`) record pointing at the server, before Caddy's first start
+- [ ] [3. The server](#3-the-server): a user with an SSH key, unattended upgrades, the firewall, Docker
+- [ ] [4. Code and settings](#4-code-and-settings): both repositories cloned with their deploy keys, `.env` filled in
+- [ ] [5. Start](#5-start): every service healthy or running
+- [ ] [6. Content and the first admin](#6-content-and-the-first-admin): the papers imported, the first admin, the legal
+      pages' placeholders filled in
+- [ ] [7. Check](#7-check): `/health/` with its token, `check --deploy`, a test email and student, the uptime monitor
+- [ ] [8. QR codes for print](#8-qr-codes-for-print): only once `SITE_URL` is final
+- [ ] [9. Backups](#9-backups): the crontab entry, the bucket and its lifecycle rule, the age key, one restore tried
+- [ ] [10. Logs](#10-logs): how long they last on the server, and their copy off it
+- [ ] [11. Updates](#11-updates): how a release goes on, read before the first
+- [ ] [12. Shop: Razorpay](#12-shop-razorpay): test mode first, then its going-live checklist
 
 ## 1. Accounts you need
 
@@ -32,25 +149,64 @@ works once the name points at the server and ports 80 and 443 are open.
 
 As root on a fresh Ubuntu 24.04:
 
-```sh
-adduser examleaf && usermod -aG sudo examleaf   # sudo asks for the password you set; then log in as examleaf with an SSH key
-apt update && apt install -y unattended-upgrades ufw git
-ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw enable
-curl -fsSL https://get.docker.com | sh && usermod -aG docker examleaf   # Docker Engine and the compose plugin
-```
+1. The user (sudo asks for the password you set; then log in as `examleaf` with an SSH key):
+
+   ```sh
+   adduser examleaf && usermod -aG sudo examleaf
+   ```
+
+2. Unattended upgrades, the firewall and git:
+
+   ```sh
+   apt update && apt install -y unattended-upgrades ufw git
+   ```
+
+3. The firewall: SSH, and ports 80 and 443:
+
+   ```sh
+   ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw allow 443/udp && ufw enable
+   ```
+
+4. Docker Engine and the compose plugin:
+
+   ```sh
+   curl -fsSL https://get.docker.com | sh && usermod -aG docker examleaf
+   ```
 
 Docker publishes ports past ufw; only Caddy publishes any (80, 443). PostgreSQL and Redis are reachable only inside
 the compose network.
 
 ## 4. Code and settings
 
-```sh
-sudo mkdir -p /srv/examleaf /srv/books && sudo chown examleaf: /srv/examleaf /srv/books
-git clone git@github.com:LazyIndianBook/platform.git /srv/examleaf          # this repository (deploy key 1)
-git clone git@github-books:LazyIndianBook/Class-12-Assam.git /srv/books    # the papers (deploy key 2, below)
-cd /srv/examleaf/examleaf-web
-cp .env.example .env && chmod 600 .env
-```
+1. The two folders:
+
+   ```sh
+   sudo mkdir -p /srv/examleaf /srv/books && sudo chown examleaf: /srv/examleaf /srv/books
+   ```
+
+2. This repository (deploy key 1):
+
+   ```sh
+   git clone git@github.com:LazyIndianBook/platform.git /srv/examleaf
+   ```
+
+3. The papers (deploy key 2, below):
+
+   ```sh
+   git clone git@github-books:LazyIndianBook/Class-12-Assam.git /srv/books
+   ```
+
+4. The stack's folder, where the `docker compose` commands of this document run:
+
+   ```sh
+   cd /srv/examleaf/examleaf-web
+   ```
+
+5. The settings, readable by their owner only:
+
+   ```sh
+   cp .env.example .env && chmod 600 .env
+   ```
 
 **The papers.** The questions and solutions are not in this repository: they live in the private books repository
 `LazyIndianBook/Class-12-Assam`, and `import_papers` reads a copy of it on the server. Make the keys before the two
@@ -69,8 +225,18 @@ Host github-books
 ```
 
 Without git access to the books, copy the files the import reads from a checkout instead (the same folders, so the
-rest is unchanged): `tar czf papers.tgz production/{physics,chemistry,mathematics,biology}/{papers_md,format.json,orders,pyq}`
-there, then `scp papers.tgz examleaf@<server>:/srv/books/ && ssh examleaf@<server> tar xzf /srv/books/papers.tgz -C /srv/books`.
+rest is unchanged). In the checkout:
+
+```sh
+tar czf papers.tgz production/{physics,chemistry,mathematics,biology}/{papers_md,format.json,orders,pyq}
+```
+
+Then to the server:
+
+```sh
+scp papers.tgz examleaf@<server>:/srv/books/ && ssh examleaf@<server> tar xzf /srv/books/papers.tgz -C /srv/books
+```
+
 Either way `.env` gets `BOOK_SOURCE=/srv/books`: compose mounts its `production/` read-only at `/book/production`
 and sets `PAPERS_ROOT=/book`, so the command is `docker compose exec web python manage.py import_papers --all`
 (outside compose: `manage.py import_papers --all --root /srv/books`).
@@ -86,6 +252,7 @@ DOMAIN=examleaf.in
 POSTGRES_PASSWORD=<python3 -c "import secrets; print(secrets.token_hex(24))">
 BOOK_SOURCE=/srv/books               # the books checkout (above), mounted read-only for import_papers
 HEALTH_CHECK_TOKEN=<python3 -c "import secrets; print(secrets.token_urlsafe(32))">   # the uptime monitor's (section 14)
+INTERNAL_API_TOKEN=<python3 -c "import secrets; print(secrets.token_urlsafe(32))">   # web's and the frontend's (section 13)
 EMAIL_BACKEND=anymail.backends.amazon_ses.EmailBackend   # Brevo for the first weeks: anymail.backends.brevo.EmailBackend
 SES_ACCESS_KEY_ID=...                # with Brevo: ANYMAIL_BREVO_API_KEY=... instead (section 15, "Email")
 SES_SECRET_ACCESS_KEY=...
@@ -99,24 +266,42 @@ BACKUP_BUCKET=examleaf-backups       # optional, with AWS_ACCESS_KEY_ID, AWS_SEC
 BACKUP_AGE_RECIPIENT=age1...         # with a bucket: the uploaded dumps are encrypted to this key (section 9)
 ```
 
-With `DEBUG=0` the site refuses to start while `SECRET_KEY` is the example's (`dev-…`) or shorter than 50 characters,
-and the web container stops at `migrate` (system checks `learn.E001` and `support.E001`) while `LEARN_CODE_SECRET` or
-`INTEGRATION_KEYS` is empty; with `DEBUG=1` it refuses any `ALLOWED_HOSTS` but `localhost`, `127.0.0.1`, `[::1]` and
-`*.localhost`. `.env.example` ships `DEBUG=1`:
-a copy of it is a development file. Do not copy the `#` comments of the block above into `.env`: django-environ keeps
-them as part of the value, and a key followed by a comment is no longer a key. `ALLOWED_HOSTS` must include `DOMAIN`:
-the web container's health check sends it as the Host.
+> [!IMPORTANT]
+> **Set from the first start.** With `DEBUG=0` the web container stops at `migrate` (system checks `learn.E001` and
+> `support.E001`) while `LEARN_CODE_SECRET` or `INTEGRATION_KEYS` is empty: keep a copy of both with the other secrets.
+
+> [!WARNING]
+> Do not copy the `#` comments of the block above into `.env`: django-environ keeps them as part of the value, and a
+> key followed by a comment is no longer a key.
+
+With `DEBUG=0` the site refuses to start while `SECRET_KEY` is the example's (`dev-…`) or shorter than 50 characters;
+with `DEBUG=1` it refuses any `ALLOWED_HOSTS` but `localhost`, `127.0.0.1`, `[::1]` and `*.localhost`. `.env.example`
+ships `DEBUG=1`: a copy of it is a development file. `ALLOWED_HOSTS` must include `DOMAIN`: the web container's health
+check sends it as the Host. Compose refuses to start while `DOMAIN`, `POSTGRES_PASSWORD`, `HEALTH_CHECK_TOKEN` or
+`INTERNAL_API_TOKEN` is empty.
 
 `DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `PAPERS_ROOT` and the two `AWS_…_CHECKSUM_…` variables
-are set by docker-compose.yml.
+are set by docker-compose.yml, and `USE_X_FORWARDED_HOST` for `web`.
 
 ## 5. Start
 
-```sh
-docker compose up -d --build
-docker compose ps                     # db, redis, redis-cache, web, frontend healthy; worker, media-worker, beat, caddy running
-docker compose logs -f web caddy      # migrations, bootstrap_roles, gunicorn; Caddy obtaining the certificate
-```
+1. Build and start the stack:
+
+   ```sh
+   docker compose up -d --build
+   ```
+
+2. `db`, `redis`, `redis-cache`, `web` and `frontend` healthy; `worker`, `media-worker`, `beat` and `caddy` running:
+
+   ```sh
+   docker compose ps
+   ```
+
+3. The migrations, `bootstrap_roles` and gunicorn; Caddy obtaining the certificate:
+
+   ```sh
+   docker compose logs -f web caddy
+   ```
 
 The static files were collected (hashed, compressed) when the image was built. The web container runs `migrate` and
 `bootstrap_roles` on every start, in that order, then the readiness check
@@ -124,15 +309,26 @@ The static files were collected (hashed, compressed) when the image was built. T
 (`gunicorn.conf.py`); if the check fails the container stops, its log names the failing part, and Docker starts it
 again. The cache and the buckets are not waited for: the site runs without them, and `/health/` (section 7) reports
 them. To run them by hand:
-`docker compose exec web python manage.py migrate && docker compose exec web python manage.py bootstrap_roles`. Worker,
-media-worker and beat start once the web container is healthy (`/health/live/`: gunicorn answers).
+
+```sh
+docker compose exec web python manage.py migrate && docker compose exec web python manage.py bootstrap_roles
+```
+
+Worker, media-worker and beat start once the web container is healthy (`/health/live/`: gunicorn answers).
 
 ## 6. Content and the first admin
 
-```sh
-docker compose exec web python manage.py import_papers --all      # reads /srv/books (BOOK_SOURCE), mounted read-only
-docker compose exec web python manage.py createsuperuser
-```
+1. The papers, read from `/srv/books` (`BOOK_SOURCE`), mounted read-only:
+
+   ```sh
+   docker compose exec web python manage.py import_papers --all
+   ```
+
+2. The first admin:
+
+   ```sh
+   docker compose exec web python manage.py createsuperuser
+   ```
 
 Log in at `https://examleaf.in/admin/`: the admin's log-in is the site's (the emailed code confirms the address the
 first time), and every member of staff sets up an authenticator app (or a passkey) before anything else opens
@@ -144,12 +340,29 @@ panel's pages (the disclosures, the connections, the templates, the system page)
 
 ## 7. Check
 
-```sh
-curl -s -H 'Accept: application/json' -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/   # all "OK"
-curl -s -o /dev/null -w '%{http_code}\n' https://examleaf.in/health/     # 404: without the header nobody gets an answer
-docker compose exec web python manage.py check --deploy               # only security.W005 and security.W021 (with EMAIL_BACKEND set)
-docker compose exec web python manage.py sendtestemail you@example.com   # the email provider works
-```
+1. All "OK":
+
+   ```sh
+   curl -s -H 'Accept: application/json' -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/
+   ```
+
+2. 404: without the header nobody gets an answer:
+
+   ```sh
+   curl -s -o /dev/null -w '%{http_code}\n' https://examleaf.in/health/
+   ```
+
+3. Only `security.W005` and `security.W021` (with `EMAIL_BACKEND` set):
+
+   ```sh
+   docker compose exec web python manage.py check --deploy
+   ```
+
+4. The email provider works:
+
+   ```sh
+   docker compose exec web python manage.py sendtestemail you@example.com
+   ```
 
 Then register a test student from a phone, type the emailed code, open a paper's solutions, and delete the account from
 My account (the purge erases it seven days later). Point the uptime monitor at `/health/` with the header
@@ -160,7 +373,10 @@ is really gone). The other two are the probes': `/health/web/` (readiness: the d
 
 ## 8. QR codes for print
 
-Once `SITE_URL` is final (it is printed in the books and cannot be changed afterwards):
+> [!WARNING]
+> `SITE_URL` is printed in the books and cannot be changed afterwards: export the codes only once it is final.
+
+Once `SITE_URL` is final:
 
 ```sh
 docker compose exec web python manage.py export_qr --out /tmp/qr && docker compose cp web:/tmp/qr ./qr
@@ -175,13 +391,26 @@ Add to the `examleaf` user's crontab (`crontab -e`):
 ```
 
 It writes `backups/examleaf-YYYYMMDD-HHMMSS.dump` (readable by the owner only), keeps `BACKUP_KEEP_DAYS` (30) days and
-uploads each dump to `BACKUP_BUCKET` when set. Without a bucket the dumps stay on the same disk as the database: copy
-them elsewhere. Try a restore once (RUNBOOK.md) before relying on them. The `media` volume holds the invoice PDFs (tax
-records: keep them eight years) and, without buckets, the product pictures and the course's videos: back it up too, e.g.
-`docker run --rm -v examleaf-web_media:/m -v /srv/examleaf/examleaf-web/backups:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .`
-(the volume name is `docker volume ls`'s; `backup.sh` deletes only old `examleaf-*.dump*` files, so delete old
-`media-*.tgz` yourself); an invoice that is missing is made again by the daily clean-up, or by hand:
-`docker compose exec web python manage.py shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"`.
+uploads each dump to `BACKUP_BUCKET` when set.
+
+> [!WARNING]
+> Without a bucket the dumps stay on the same disk as the database: copy them elsewhere. Try a restore once
+> (RUNBOOK.md) before relying on them.
+
+The `media` volume holds the invoice PDFs (tax records: keep them eight years) and, without buckets, the product
+pictures and the course's videos: back it up too, for example (the volume name is `docker volume ls`'s):
+
+```sh
+docker run --rm -v examleaf-web_media:/m -v /srv/examleaf/examleaf-web/backups:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .
+```
+
+`backup.sh` deletes only old `examleaf-*.dump*` files, so delete old `media-*.tgz` yourself. An invoice that is
+missing is made again by the daily clean-up, or by hand:
+
+```sh
+docker compose exec web python manage.py shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"
+```
+
 With the buckets of section 17 the invoices, credit notes and quotations are in the private bucket instead, which these
 backups do not cover. Phase B's files are in the same place (section 26: the returns' photographs, the tickets'
 attachments, the dark-pattern audit's signed certificate, the legal-deposit proofs) and the database names them by
@@ -230,11 +459,23 @@ On Kubernetes the kubelet rotates a container's log at `containerLogMaxSize` (10
 
 ## 11. Updates
 
-```sh
-cd /srv/examleaf && git pull
-cd examleaf-web && docker compose up -d --build     # migrations and bootstrap_roles run on start
-git -C /srv/books pull && docker compose exec web python manage.py import_papers --all   # when papers changed
-```
+1. The new code:
+
+   ```sh
+   cd /srv/examleaf && git pull
+   ```
+
+2. The stack rebuilt and restarted (the migrations and `bootstrap_roles` run on start):
+
+   ```sh
+   cd examleaf-web && docker compose up -d --build
+   ```
+
+3. When the papers changed:
+
+   ```sh
+   git -C /srv/books pull && docker compose exec web python manage.py import_papers --all
+   ```
 
 Importing again is safe at any time: it changes only the questions and solutions whose Markdown changed (the rest are
 left alone, so the admin's history shows real edits), takes off the site the questions that left a paper (they stay in
@@ -321,16 +562,38 @@ the flows.
 ## 13. Settings
 
 Every environment variable the site, docker-compose.yml, the Dockerfile and `scripts/backup.sh` read, once, in the order
-a person sets up a server. They come from `.env` (copy `.env.example`: each is explained there too) or the real
-environment. "Required" means the site, the stack or the feature does not work without it; "no" means the default is
-fine. docker-compose.yml sets `DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `PAPERS_ROOT` and the two
-`AWS_…_CHECKSUM_…` variables for its containers; the rest come from `.env`, except that the media worker (`x-media-env`
-in docker-compose.yml) reads from `.env` only `SECRET_KEY`, `MEDIA_BUCKET`, `PUBLIC_MEDIA_BUCKET`,
+a person sets up a server. They come from `.env` (copy `.env.example`: each is explained there too, but
+`GUNICORN_CMD_ARGS` and `GUNICORN_WORKER_CONNECTIONS`) or the real environment. "Required" means the site, the stack or
+the feature does not work without it; "no" means the default is fine. docker-compose.yml sets `DATABASE_URL`,
+`CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `PAPERS_ROOT` and the two `AWS_…_CHECKSUM_…` variables for its
+containers, and `USE_X_FORWARDED_HOST` for `web`; the rest come from `.env`, except that the media worker
+(`x-media-env` in docker-compose.yml) reads from `.env` only `SECRET_KEY`, `MEDIA_BUCKET`, `PUBLIC_MEDIA_BUCKET`,
 `PUBLIC_MEDIA_DOMAIN`, the `S3_*` and `PUBLIC_S3_*` variables, `LEARN_PUBLIC_VIDEO`, `LEARN_MAX_UPLOAD_MB` and
 `LOG_LEVEL`: it has no `DEBUG`, `SITE_URL`, `CACHE_URL` or `SENTRY_DSN` and reports nothing to Sentry, so add to that
-list any variable its clip task comes to need. After a change: `docker compose up -d`.
+list any variable its clip task comes to need. After a change: `docker compose up -d`. The website's image is built
+with `DOMAIN`, `RAZORPAY_KEY_ID`, `TURNSTILE_SITE_KEY` and `PUBLIC_MEDIA_DOMAIN`, and the console's with `DOMAIN` and
+`ERP_URL`: after a change to one of those, `docker compose build frontend` (and
+`docker compose --profile admin build admin`) first.
+
+**The ten settings you set first** (section 4's `.env` block has them; each is in its table below):
+
+| Setting | Why it comes first |
+|---|---|
+| `DEBUG` | `0` on a server: `.env.example` ships `1`, under which the https redirect, secure cookies, HSTS and the enforced CSP are off |
+| `SECRET_KEY` | with `DEBUG=0` the site refuses to start while it begins `dev-` or is shorter than 50 characters |
+| `ALLOWED_HOSTS` | the host names the site answers to; it must include `DOMAIN`, which the web container's health check sends as the Host |
+| `SITE_URL` | the base of the QR codes and of the links in emails and SMS; printed in the books, so final before printing |
+| `DOMAIN` | the domain Caddy serves and gets its certificate for; compose refuses to start without it |
+| `POSTGRES_PASSWORD` | the compose PostgreSQL's password; compose refuses to start without it |
+| `HEALTH_CHECK_TOKEN` | the header Caddy asks of `/health/` callers; compose refuses every command while it is empty |
+| `INTERNAL_API_TOKEN` | the secret the frontend sends with its server-side calls to `web`; compose refuses to start without it |
+| `LEARN_CODE_SECRET` | the book codes' key: `migrate` stops without it (`learn.E001`); set once, never changed |
+| `INTEGRATION_KEYS` | the integration accounts' and the tickets' key: `migrate` stops without it (`support.E001`); a database backup is unreadable without it |
 
 ### Core
+
+<details>
+<summary>Core settings (14 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -347,9 +610,14 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `PARENTAL_CONSENT_MODE` | `declared` | no | `declared`: the parent ticks the sign-up box; `verified`: the parent also confirms by a link sent by email, or by SMS to an Indian mobile number when SMS are on (section 14; before May 2027) |
 | `WEB_COURSE` | `0` | no | 1: the revision course's pages on the website (`web_course` in `GET /api/v1/config/`); also a panel setting (Settings → "The revision course's pages on the website"), which wins once set |
 | `APP_LINK_ANDROID`, `APP_LINK_IOS` | empty | no | the app's Google Play and App Store addresses, drawn by the website's footer (`app_links` in `config/`; null while empty) |
-| `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy and the chart's ingress stop bodies over 10 MB (500 MB only on the clip and revision admin pages, for signed-in staff). The largest file the panel takes is 5 MiB (a return's photograph, the dark-pattern certificate, a legal-deposit proof, a parcel's photograph); a product picture and the catalogue's import file 2 MiB; the support mailbox's hook a whole email, up to `SUPPORT_MAIL_MAX_BYTES` |
+| `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy and the chart's ingress stop bodies over 10 MB (on the clip and revision admin pages Caddy allows 500 MB and the ingress streams them with no limit; Django takes that much only from signed-in staff). The largest file the panel takes is 5 MiB (a return's photograph, the dark-pattern certificate, a legal-deposit proof, a parcel's photograph); a product picture and the catalogue's import file 2 MiB; the support mailbox's hook a whole email, up to `SUPPORT_MAIL_MAX_BYTES` |
+
+</details>
 
 ### Database, cache and queue
+
+<details>
+<summary>Database, cache and queue settings (11 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -365,7 +633,12 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `CELERY_WORKER_MAX_TASKS_PER_CHILD` | `200` | no | a Celery process is replaced after this many tasks |
 | `CELERY_WORKER_MAX_MEMORY_PER_CHILD` | `307200` (KiB: 300 MB) | no | … or once it holds this much (WeasyPrint grows by about 1 MB an invoice); the worker's memory needs the main process (about 160 MB) and concurrency × this |
 
+</details>
+
 ### Proxy, https and the web server
+
+<details>
+<summary>Proxy, https and the web server settings (18 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -379,15 +652,21 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `WEB_CONCURRENCY` | `2` | no | gunicorn worker processes (about 2 x CPU cores + 1); `gunicorn.conf.py` reads it and the variables below |
 | `GUNICORN_THREADS` | `8` | no | requests at once in each process; half of them at most wait on Razorpay or MSG91 (the bulkhead, RESILIENCE.md); each holds a database connection |
 | `GUNICORN_TIMEOUT` | `60` | no | a process whose main loop is silent this long is killed and replaced (with threads it is no request's limit: their calls and statements have their own) |
-| `GUNICORN_GRACEFUL_TIMEOUT` | `30` | no | after SIGTERM the requests in progress may finish this long; keep Docker's stop (40 s) and the chart's grace (70 s) above it |
+| `GUNICORN_GRACEFUL_TIMEOUT` | `30` | no | after SIGTERM the requests in progress may finish this long; keep Docker's stop (40 s) and the chart's grace (75 s) above it |
 | `GUNICORN_KEEPALIVE` | `5` | no | seconds an idle connection from Caddy or the frontend stays open |
 | `GUNICORN_MAX_REQUESTS`, `GUNICORN_MAX_REQUESTS_JITTER` | `5000`, `2500` | no | a process is replaced after this many requests, each after a number of its own (smaller values restarted every process at once under load: RESILIENCE.md) |
-| `GUNICORN_WORKER_CONNECTIONS` | `1000` | no | connections a process takes at once; leave it (a cap starves kept-alive connections) |
+| `GUNICORN_WORKER_CONNECTIONS` | `1000` | no | connections a process takes at once; leave it (a cap starves kept-alive connections). Not in `.env.example` |
 | `GUNICORN_BIND` | `0.0.0.0:8000` | no | where gunicorn listens |
 | `GUNICORN_CMD_ARGS` | none | no | gunicorn's own variable: more arguments, which win over `gunicorn.conf.py`. Not in `.env.example` |
 | `SLOW_REQUEST_SECONDS` | `2` | no | a request slower than this is logged as a warning (`examleaf.requests`) |
+| `PAGES_UPSTREAM` | `frontend:3000` | no | compose only: where Caddy sends every path that is not Django's (the website's pages; the Caddyfile and `DJANGO_PREFIXES` in the frontend list Django's) |
+
+</details>
 
 ### Email
+
+<details>
+<summary>Email settings (8 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -395,28 +674,43 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `DEFAULT_FROM_EMAIL` | `ExamLeaf <noreply@localhost>` | required on a server | the sender of every email: `ExamLeaf <noreply@examleaf.in>`, on the verified sending domain |
 | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | none | with Amazon SES | the access key of the IAM user `examleaf-ses` (section 15); not the S3 or backup keys; the secret is required once the id is set |
 | `SES_REGION` | `ap-south-1` | no | SES's region (Mumbai) |
-| `SUPPORT_EMAIL` | empty: `SELLER_EMAIL` | recommended | the support address: the customer-care email the website shows (`support.email` in `config/`, and the disclosures' until the panel sets its own), the Reply-To of ticket emails, the address the support mailbox's forwarder takes (RUNBOOK.md "Support") and the contact form's copy (`SUPPORT_COPY_TO_EMAIL`); while neither it nor `SELLER_EMAIL` is set (or either is still a `[placeholder]`) the contact form answers that it is not set up |
+| `SUPPORT_EMAIL` | empty: `SELLER_EMAIL` | recommended | the support address: the customer-care email the website shows (`support.email` in `config/`, and the disclosures' until the panel sets its own), the Reply-To of ticket emails, the address the support mailbox's forwarder takes (RUNBOOK.md "Support") and the contact form's copy (`SUPPORT_COPY_TO_EMAIL`); while neither it nor `SELLER_EMAIL` is set (or the one in use is still a `[placeholder]`) the contact form answers that it is not set up |
 | `ANYMAIL_AMAZON_SES_CONFIGURATION_SET_NAME` | none | with SES bounce handling | `examleaf`: the SES configuration set whose events go to the webhook |
-| `ANYMAIL_WEBHOOK_SECRET` | none | with bounce handling | `user:password` (random letters and digits) that the provider puts in the webhook URL; empty: no `/anymail/` URLs at all, so no suppression list fills |
+| `ANYMAIL_WEBHOOK_SECRET` | none | with bounce handling | `user:password` (random letters and digits) that the provider puts in the webhook URL; empty: no `/anymail/` URLs, so no suppression list fills, except SES's tracking URL while `SES_SNS_TOPIC_ARN` is set (`ops/ses.py`) |
 | `ANYMAIL_BREVO_API_KEY` (or the provider's own `ANYMAIL_…` key) | none | with Brevo, Postmark … | the provider's API key; any variable starting `ANYMAIL_` is handed to django-anymail |
 
+</details>
+
 ### SMS
+
+<details>
+<summary>SMS settings (4 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `SMS_BACKEND` | `console` | for phone log-in and SMS | `msg91` sends SMS (section 15); `console` prints them, and on a server (`DEBUG=0`) turns phone log-in, order SMS and SMS consent links off. Any other value stops the site starting |
-| `MSG91_AUTHKEY` | none | with `msg91` (the site refuses to start without it) | MSG91 → API: create an authkey, with the server's IP whitelisted (section 15). Settings → Connections → MSG91 may hold it instead (section 25, item 7) |
+| `MSG91_AUTHKEY` | none | with `msg91` (the site refuses to start without it) | MSG91 → API: create an authkey, with the server's IP whitelisted (section 15). Once Settings → Connections → MSG91 holds a key, that one is sent instead (section 25, item 7); this variable stays set while `SMS_BACKEND=msg91` |
 | `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_ORDER_PLACED`, `MSG91_TEMPLATE_ORDER_SHIPPED`, `MSG91_TEMPLATE_ORDER_DELIVERED`, `MSG91_TEMPLATE_PARENT_CONSENT`, `MSG91_TEMPLATE_ORDER_ARRIVING`, `MSG91_TEMPLATE_ORDER_NOT_DELIVERED` | none | one for each kind of SMS wanted | the id MSG91 gives each registered DLT template (texts: RUNBOOK.md "SMS"); the last two are a courier's news (section 21), not sent while empty. An approved template of the panel's registry (Settings → Message templates) is used first; these ids are its fallback |
 | `SMS_DAILY_CAP` | `500` | no | SMS sent per day at most (India time), the last line behind the fixed limits per number, account and purpose; counted in the database (RUNBOOK.md "SMS") |
 
+</details>
+
 ### Sign-in providers and Turnstile
+
+<details>
+<summary>Sign-in providers and Turnstile settings (2 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | none | no | Google sign-in; offered only when both are set; from the OAuth client of section 15 |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | none | no | Cloudflare Turnstile on sign-up, code requests, the coupon and the quotation forms; on only when both are set; from the Turnstile widget of section 15 |
 
+</details>
+
 ### Razorpay and the shop
+
+<details>
+<summary>Razorpay and the shop settings (12 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -433,10 +727,15 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SHOP_LOW_STOCK` | `5` | no | each morning at 8 the SALES role is emailed the books with fewer copies (RUNBOOK.md "Stock, stock alerts and the low-stock email"); also the dashboard's "running out" |
 | `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN`, `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE` | `ExamLeaf LLP`, `[address], [city], Assam [PIN]`, empty, `AS`, `18`, `[email]`, `[phone]` | required before the shop opens | the seller printed on every invoice (the LLP's registered details; GSTIN empty: "not registered"); no invoice of the real series is numbered while a `[placeholder]` is left |
 
+</details>
+
 ### Tax
 
 The storefront's GST documents (`shop/tax.py`, `shop/README.md` "Tax"; the panel's Tax module). The HSN and SAC master
 and its dated rates live in the database (seeded by the migration, kept from the panel), not here.
+
+<details>
+<summary>Tax settings (4 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -445,16 +744,26 @@ and its dated rates live in the database (seeded by the migration, kept from the
 | `SHOP_HSN_DIGITS` | `4` | no | how many figures of an HSN or SAC code the documents and the GSTR-1 HSN summary carry: 4 up to ₹5 crore of turnover in the year before, 6 above (the threshold monitor warns at ₹4 crore); 4, 6 or 8 |
 | `SHOP_GST_QRMP` | `1` | no | the returns are quarterly under QRMP (GSTR-1 quarterly with the IFF, PMT-06 monthly, GSTR-3B on the 24th for Assam): the tax calendar's dates. The panel's Settings switch it (`staff.manage_settings`) |
 
+</details>
+
 ### Catalogue
 
 The panel's Catalogue module (`shop/staff_catalogue.py`, `shop/README.md` "Catalogue").
+
+<details>
+<summary>Catalogue settings (2 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `SHOP_PRIOR_PRICE_FROM` | `2027-01-01` | no | from this day a reduced price shows the lowest selling price of the 30 days before the reduction (the amended Consumer Protection (E-Commerce) Rules); before it the storefront's `prior_price` is null. A date, `YYYY-MM-DD` |
 | `SHOP_DARK_PATTERN_PHRASES` | `only fools=confirm_shaming,you will regret=confirm_shaming,don't miss=false_urgency,last chance=false_urgency,hurry=false_urgency,limited time=false_urgency` | no | the words refused in offer names, banners and coupon descriptions, each with the pattern it reads as (one of the 13 of `staff.models.DARK_PATTERNS`), as `phrase=pattern` pairs; `limited time` passes with a date beside it. The server refuses to start with an unknown pattern |
 
+</details>
+
 ### Integrations and shipping
+
+<details>
+<summary>Integrations and shipping settings (10 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -469,10 +778,15 @@ The panel's Catalogue module (`shop/staff_catalogue.py`, `shop/README.md` "Catal
 | `SHIPPING_SURVEY_BATCH` | `500` | no | North-East PINs whose couriers are asked each Sunday, the oldest answers first |
 | `API_THROTTLE_PARCEL_EVENTS` | `300/minute` | no | the couriers' webhook, per client address |
 
+</details>
+
 ### Buckets and media
 
 Set `MEDIA_BUCKET`, `PUBLIC_MEDIA_BUCKET` and `PUBLIC_MEDIA_DOMAIN` together or not at all (section 15, "Cloudflare R2",
 and section 17).
+
+<details>
+<summary>Buckets and media settings (7 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -482,9 +796,14 @@ and section 17).
 | `S3_REGION` | `auto` | no | R2: `auto`; AWS S3 Mumbai: `ap-south-1` |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | none | with buckets | an API token with Object Read & Write on the two buckets (R2 → Manage API tokens); not the `AWS_*` or `SES_*` keys |
 | `PUBLIC_S3_ENDPOINT_URL`, `PUBLIC_S3_REGION`, `PUBLIC_S3_ACCESS_KEY_ID`, `PUBLIC_S3_SECRET_ACCESS_KEY` | the `S3_*` values | no | the public bucket's own, when the private one is on AWS S3 Mumbai and the public one stays on R2 |
-| `AWS_REQUEST_CHECKSUM_CALCULATION`, `AWS_RESPONSE_CHECKSUM_VALIDATION` | `when_required` (compose sets both; `.env.example` ships them) | with R2 | boto3 sends checksums R2 refuses unless these are `when_required`; keep them when running outside Docker |
+| `AWS_REQUEST_CHECKSUM_CALCULATION`, `AWS_RESPONSE_CHECKSUM_VALIDATION` | botocore's `when_supported` (compose sets both to `when_required`; `.env.example` ships them) | with R2 | boto3 sends checksums R2 refuses unless these are `when_required`; keep them when running outside Docker |
+
+</details>
 
 ### Revision course and Firebase
+
+<details>
+<summary>Revision course and Firebase settings (6 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -495,7 +814,12 @@ and section 17).
 | `LEARN_CODE_SECRET` | none | required on a server | the key of the book codes' hashes: random, 50 characters or more, like `SECRET_KEY`; set it once, before the first print run, and never change it (printed codes would stop working); with `DEBUG=0` and no value `migrate` stops (check `learn.E001`), so the web container does not start, and `make_book_codes` refuses |
 | `FCM_SERVICE_ACCOUNT_JSON` | none | for the daily reminders | the Firebase service account's JSON on one line, or the path of the file inside the container (section 15, "Firebase"); empty: no reminders are sent |
 
+</details>
+
 ### REST API
+
+<details>
+<summary>REST API settings (7 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -507,7 +831,12 @@ and section 17).
 | `API_THROTTLE_IMPERSONATE` | `20/hour` | no | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address |
 | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS`, `API_THROTTLE_LEARN_QUIZ` | `5/hour`, `5/hour`, `600/hour` | no | book codes tried per user and per client address (raise the second before a teacher has a classroom redeem together), and quiz answers per user |
 
+</details>
+
 ### Logging and Sentry
+
+<details>
+<summary>Logging and Sentry settings (6 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -516,9 +845,14 @@ and section 17).
 | `SENTRY_DSN` | empty (off) | no | error reports, scrubbed of personal data (`examleaf/sentry.py`); the project's DSN from Sentry (section 15) |
 | `SENTRY_ENVIRONMENT` | `production` | no | Sentry's environment name |
 | `SENTRY_TRACES_SAMPLE_RATE` | `0` | no | share of requests traced (0 to 1) |
-| `RELEASE` | none | no | a version label (e.g. the git commit) for Sentry; also names the service worker's cache, which otherwise follows the static files' hashed names, and is kept as each insights forecast run's code version |
+| `RELEASE` | none | no | a version label (e.g. the git commit) for Sentry; also kept as each insights forecast run's code version (the website's service worker names its cache by its own build, `NEXT_PUBLIC_RELEASE`) |
+
+</details>
 
 ### Insights
+
+<details>
+<summary>Insights settings (3 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -526,10 +860,16 @@ and section 17).
 | `INSIGHTS_MIN_CELL`, `INSIGHTS_MIN_CELL_CLASS` | `10`, `5` | no | the smallest group a report may show: a state's, district's, PIN code's or cohort's cell under the first, a chapter's or a class's learners under the second, is hidden ("fewer than 10"); neither below 5, or the server will not start (`insights.E001`) |
 | `INSIGHTS_HASH_SALT` | `SECRET_KEY` | recommended | the key of the hashes the fraud rules count by (accounts, IP addresses, phone numbers, addresses, book codes): random, 50 characters or more, like `SECRET_KEY`; a new value (or a new `SECRET_KEY` while this is empty) starts the counts afresh |
 
+</details>
+
 ### Backups
 
-Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECIPIENT` straight from `.env`) and by
-`manage.py upload_backup` (the rest).
+Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECIPIENT` straight from `.env`), by
+`manage.py upload_backup` (the bucket and its keys) and by the site (the System page's backups and their hourly check:
+the bucket, `BACKUP_KEEP_DAYS` and `BACKUP_STALE_HOURS`).
+
+<details>
+<summary>Backups settings (6 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -540,9 +880,14 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `BACKUP_STALE_HOURS` | `26` | no | a source whose newest backup in the bucket is older opens an inbox item (`backup_stale`; section 25) |
 | `BACKUP_AGE_RECIPIENT` | none | recommended with a bucket | an age public key (`age1…`, from `age-keygen`; keep the private key off the server): the uploaded dumps are encrypted to it (section 9) |
 
+</details>
+
 ### Staff (the Admin Control Panel's backend)
 
 `staff/README.md`; section 23 for the audit log's database role, its copy and its retention.
+
+<details>
+<summary>Staff settings (25 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -572,10 +917,15 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `DEPENDENCY_REPORT_PATH` | `ops/dependency-report.json` | no | where `manage.py load_dependency_report` keeps CI's dependency report in the private storage |
 | `API_THROTTLE_SMS_EVENTS` | `300/minute` | no | MSG91's delivery reports, per client address |
 
+</details>
+
 ### ERPNext
 
 `erp/README.md`; section 24 for the account, the webhook and the order of the switches. Each switch is also a feature
 flag of the same name the panel can set (`staff/README.md`), which wins over the environment until set back to null.
+
+<details>
+<summary>ERPNext settings (11 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -589,20 +939,31 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 | `ERP_MODE` | `erpnext` | no | `fake`: an in-memory ERPNext (development only) |
 | `ERP_INSTANCE_PREFIX` | empty | no | goes before every idempotency key (`staging-`); it keeps two platforms' keys apart but not their references (`item:1`, `payment:1`: database ids), which would answer each other's on one site, so each platform sends to an ERPNext site of its own (`erp/SHADOW-RUN.md`) |
 | `API_THROTTLE_ERP_EVENTS` | `600/minute` | no | ERPNext's webhook, per client address |
+| `ERP_URL` | empty | no | compose's `admin` profile only: ERPNext's address, under which the console links to ERPNext's pages (its Desk), built into the console's image |
+
+</details>
 
 ### Content
 
 `content/README.md`.
 
+<details>
+<summary>Content settings (1 row)</summary>
+
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `CONTENT_LEGAL_DEPOSIT_DAYS` | `30` | no | days after a book's publication within which a copy is due at each of the four public libraries (the Delivery of Books and Newspapers (Public Libraries) Act; to be verified against the Act): the legal deposit inbox item's due date |
+
+</details>
 
 ### Support
 
 `support/README.md`; RUNBOOK.md "Support" for the support mailbox's forwarder. The tickets' requester details are
 encrypted with `INTEGRATION_KEYS` (Integrations and shipping): without them a server (`DEBUG` off) refuses to
 migrate (`support.E001`), so it does not start. The support address itself is `SUPPORT_EMAIL` (Email).
+
+<details>
+<summary>Support settings (6 rows)</summary>
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
@@ -612,6 +973,8 @@ migrate (`support.E001`), so it does not start. The support address itself is `S
 | `SUPPORT_MAIL_MAX_BYTES` | `10000000` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above): the same 10 MB (10,000,000 bytes) as Caddy's and the ingress's cap, which apply first |
 | `MSG91_TEMPLATE_TICKET_ACK` | none | for acknowledgements by SMS | the DLT template of `ticket_ack` ("ExamLeaf: we have your request {#var#}."): used only when a ticket has no email address; without it such a ticket's acknowledgement is noted by staff |
 | `API_THROTTLE_SUPPORT_MAIL`, `API_THROTTLE_SUPPORT_REQUEST` | `120/minute`, `10/hour` | no | the support mailbox's hook per client address; new requests from My requests per account |
+
+</details>
 
 ## 14. Security settings
 
@@ -800,7 +1163,8 @@ Brevo's free plan stops at 300 emails a day, and every sign-up and code is an em
    Complaint and Reject (not opens and clicks), a new SNS topic in `ap-south-1`. SNS → the topic → Create
    subscription: HTTPS, `https://<user>:<password>@examleaf.in/anymail/amazon_ses/tracking/`. Anymail confirms the
    subscription itself (the secret must be set first). The `/anymail/` URLs exist only while
-   `ANYMAIL_WEBHOOK_SECRET` is set: without it Anymail would accept events from anyone.
+   `ANYMAIL_WEBHOOK_SECRET` is set (SES's tracking URL also while `SES_SNS_TOPIC_ARN` restricts it to its topic,
+   section 25): without either, Anymail would accept events from anyone.
 7. Test: send a sign-up code to `bounce@simulator.amazonses.com`; Admin → Ops → Email suppressions shows it.
 
 Brevo or Postmark instead (the first weeks, say): their `EMAIL_BACKEND` and `ANYMAIL_…` key (`ANYMAIL_BREVO_API_KEY`),
@@ -868,9 +1232,17 @@ commit) label the reports. Only the server reports, and every event is scrubbed 
 1. Sign in (free) at data.gov.in and download the CSV of "All India Pincode Directory (till last month)":
    https://www.data.gov.in/resource/all-india-pincode-directory-till-last-month (about 16 MB, one row per post office;
    Government Open Data Licence – India).
-2. Load it: `docker compose cp pincodes.csv web:/tmp/pincodes.csv`, then
-   `docker compose exec web python manage.py import_pincodes /tmp/pincodes.csv` (it replaces the whole table and stops
-   on a state name it does not know: add the spelling to `ALIASES` in `shop/management/commands/import_pincodes.py`).
+2. Load it: the file into the container, then the import, which replaces the whole table and stops on a state name it
+   does not know (add the spelling to `ALIASES` in `shop/management/commands/import_pincodes.py`):
+
+   ```sh
+   docker compose cp pincodes.csv web:/tmp/pincodes.csv
+   ```
+
+   ```sh
+   docker compose exec web python manage.py import_pincodes /tmp/pincodes.csv
+   ```
+
 3. The address forms then fill in the district (when empty) and the state (when the PIN lies in one state) from the PIN
    code, and refuse a state that is not one of the PIN's (the state decides CGST + SGST or IGST). A PIN missing from the
    table is neither filled in nor checked.
@@ -889,7 +1261,7 @@ section 15):
 | Feature | Needs | Without it |
 |---|---|---|
 | Sign-up codes, password resets, order and notice emails | a real `EMAIL_BACKEND` | the console backend prints each mail in the web or worker log: nobody receives a code |
-| Bounce and complaint handling (the suppression list) | `ANYMAIL_WEBHOOK_SECRET` and the provider's webhook | no `/anymail/` URLs; the list stays empty (staff cannot add to it, only delete from it) |
+| Bounce and complaint handling (the suppression list) | `ANYMAIL_WEBHOOK_SECRET` (with SES, or `SES_SNS_TOPIC_ARN`) and the provider's webhook | no `/anymail/` URLs; the list stays empty (staff cannot add to it, only delete from it) |
 | Phone log-in, order SMS, SMS consent links | `SMS_BACKEND=msg91` with `MSG91_AUTHKEY` and the template ids (a `console` backend on a server turns all three off) | no phone pages, no SMS, `POST auth/phone/code/` answers 404, and a parent's consent link goes by email only |
 | Google sign-in | both `GOOGLE_*` | no Google button |
 | Passkeys | nothing to set: HTTPS, and `SITE_URL` the address students use | always on; without HTTPS they work in development only |
@@ -984,9 +1356,12 @@ but anyone with a link can watch); after switching, `manage.py reprocess_clips -
 **The staff player** (`/learn/preview/<clip>/`, the "Preview" link on a clip in the admin) uses hls.js from the site
 (`static/learn/hls.min.js`, 1.7.3, with its licence); with buckets it needs the CORS rule of section 17.
 
-**Book codes.** Set `LEARN_CODE_SECRET` before the first print run and never change it (a server does not start without
-it): the database keeps only a keyed hash of each code, and codes printed under one key work only with it. Keep a copy
-in the password manager with the other secrets. `make_book_codes` and the print run: RUNBOOK.md "Printing book codes".
+> [!WARNING]
+> **Book codes.** Set `LEARN_CODE_SECRET` before the first print run and never change it (a server does not start
+> without it): the database keeps only a keyed hash of each code, and codes printed under one key work only with it.
+
+Keep a copy of `LEARN_CODE_SECRET` in the password manager with the other secrets. `make_book_codes` and the print run:
+RUNBOOK.md "Printing book codes".
 
 **Push reminders.** Celery beat sends the daily reminder at 18:00 to students who turned it on in the app, only while
 `FCM_SERVICE_ACCOUNT_JSON` is set (section 15, "Firebase").
@@ -1085,9 +1460,10 @@ gives ADMIN the new permissions, as `bootstrap_roles` does at every start).
    without the coming season and the last one), and a **print cost** per title (cost and salvage per copy, copies on
    order, reprint lead time: no print-run advice without one). Forecasts start once a season of sales exists; the
    backtest, once two do.
-4. **Check** after a deploy: `dj insights_run all` prints one line per job ("nothing to work on" is right on a new
-   site), and `curl -H "Authorization: Bearer $STAFF_ACCESS" https://examleaf.in/api/v1/insights/forecasts/` answers
-   200 for staff (403 for anyone else).
+4. **Check** after a deploy: `docker compose exec web python manage.py insights_run all` prints one line per job
+   ("nothing to work on" is right on a new site), and
+   `curl -H "Authorization: Bearer $STAFF_ACCESS" https://examleaf.in/api/v1/insights/forecasts/` answers 200 for
+   staff (403 for anyone else).
 
 ## 22. Shipping: Shiprocket, India Post and the integration keys
 
@@ -1129,10 +1505,17 @@ cancels one real parcel.
 9. **SMS of a courier's news** (optional): register the two DLT templates of RUNBOOK.md "SMS" (`order_arriving`,
    `order_not_delivered`) and set `MSG91_TEMPLATE_ORDER_ARRIVING` and `MSG91_TEMPLATE_ORDER_NOT_DELIVERED`; without
    them those SMS are not sent (the emails are).
-10. **The live smoke test.** `docker compose exec web python manage.py shipping_smoke_test --yes`: books a prepaid
-    parcel to our own pickup address, assigns an AWB, fetches the label, cancels it before pickup and waits for the
-    freight's reversal in the statement, printing every step. It moves real money (the freight is debited, then given
-    back), and refuses to run with a test-mode account.
+10. **The live smoke test** books a prepaid parcel to our own pickup address, assigns an AWB, fetches the label,
+    cancels it before pickup and waits for the freight's reversal in the statement, printing every step:
+
+    ```sh
+    docker compose exec web python manage.py shipping_smoke_test --yes
+    ```
+
+> [!WARNING]
+> **The smoke test moves real money:** the freight is debited, then given back. It refuses to run with a test-mode
+> account.
+
 11. **Monitoring.** A second uptime monitor on `https://<domain>/health/integrations/` with the `X-Health-Token`
     header (section 7): it fails while Shiprocket has been unavailable for 30 minutes (the circuit open), or dead
     letters or failed webhooks wait for staff. `/health/` stays the site's own.
@@ -1188,7 +1571,11 @@ SALES_REP), with every app's permissions (`bootstrap_roles` does the same by han
 
    Then point `DATABASE_URL` of `web`, `worker`, `beat` and `media-worker` at `examleaf_app`, and run `migrate` (and
    `bootstrap_roles`, which only changes the role tables) as the owner instead of in the web container's start command:
-   `docker compose run --rm -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py migrate`.
+
+   ```sh
+   docker compose run --rm -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py migrate
+   ```
+
    After a migration that adds a table, `GRANT` it to `examleaf_app` if the default privileges did not; and if
    `staff_auditevent` is ever made again (`migrate staff zero`), run the `REVOKE` again: the default privileges give a
    new table every right.
@@ -1197,11 +1584,17 @@ SALES_REP), with every app's permissions (`bootstrap_roles` does the same by han
    compliance mode) as long as the money events are kept, eight years (a day's file holds both chains), keep the
    bucket's keys only on this server, and let a lifecycle rule delete `audit/` objects when the lock lets go. The files
    hold ids, client addresses and browsers, the audit's own minimum, and no other personal data.
-5. **Retention.** Monthly, as the owner role (on the host's crontab, beside `scripts/backup.sh`):
-   `docker compose exec -T -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py purge_audit`
-   deletes what is past `STAFF_AUDIT_RETENTION_DAYS` (two years) and, for refunds, payments and prices,
-   `STAFF_AUDIT_MONEY_RETENTION_FY` (eight financial years). `--dry-run` says what would go. The nightly
-   `verify_audit_chain` keeps checking what stays.
+5. **Retention.** Monthly, as the owner role (on the host's crontab, beside `scripts/backup.sh`), this deletes what is
+   past `STAFF_AUDIT_RETENTION_DAYS` (two years) and, for refunds, payments and prices,
+   `STAFF_AUDIT_MONEY_RETENTION_FY` (eight financial years). The nightly `verify_audit_chain` keeps checking what stays.
+
+   ```sh
+   docker compose exec -T -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py purge_audit
+   ```
+
+> [!CAUTION]
+> `purge_audit` deletes the audit events past their retention for good; `--dry-run` says what would go.
+
 6. **Clocks.** CERT-In's Directions ask every ICT system's clock to follow NIC's or NPL's NTP servers (samay1.nic.in,
    samay2.nic.in, time.nplindia.org) or a source traceable to them; a cloud provider's own time is accepted (CERT-In's
    FAQ, questions 40 to 43). The audit log's times, the 6-hour incident clock and the data requests' clocks depend on
@@ -1220,9 +1613,13 @@ The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../ex
 `migrate`, and beat runs its tasks. Everything is off until switched on, in this order:
 
 1. **The sync user in ERPNext.** On the ERPNext site (`examleaf-erp/README.md` "The sync user"): the bootstrap makes
-   `erp-sync@examleaf.in` with the EL Sync role only; `bench --site <site> execute
-   frappe.core.doctype.user.user.generate_keys --args "['erp-sync@examleaf.in']"` prints its `api_key` and
-   `api_secret` once. Set `examleaf_sync_user_restrict_ip` there to the platform's egress addresses.
+   `erp-sync@examleaf.in` with the EL Sync role only; this prints its `api_key` and `api_secret` once:
+
+   ```sh
+   bench --site <site> execute frappe.core.doctype.user.user.generate_keys --args "['erp-sync@examleaf.in']"
+   ```
+
+   Set `examleaf_sync_user_restrict_ip` there to the platform's egress addresses.
 2. **The integration account.** Settings → Connections → ERPNext → "Replace the keys" for the mode **Test** (the
    staging site, shadow mode, Phase B) or **Live** (production's), with the API key, the API secret, the address
    (`http://<erpnext service>:8080`: the in-cluster address of ERPNext's gunicorn service, which the platform reaches
@@ -1233,10 +1630,18 @@ The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../ex
    "Replace the credentials" with `{"api_key": …, "api_secret": …, "base_url": …, "site_name": …}`, "Test the
    connection").
 3. **The webhook secret.** The same page → Webhooks → "Rotate the token" (in the admin: the account's action "New
-   webhook token"): shown once. In ERPNext's site config:
-   `bench --site <site> set-config examleaf_webhook_secret '<it>'` and `examleaf_webhook_base
-   'http://<platform web service>:8000/api/hooks/erp-events/'` (inside the cluster: Caddy is not on that path, so add
-   the service's host name to `ALLOWED_HOSTS`; the six webhooks stay off until both are set). Plain http is fine there:
+   webhook token"): shown once. In ERPNext's site config, the secret and the base address:
+
+   ```sh
+   bench --site <site> set-config examleaf_webhook_secret '<it>'
+   ```
+
+   ```sh
+   bench --site <site> set-config examleaf_webhook_base 'http://<platform web service>:8000/api/hooks/erp-events/'
+   ```
+
+   Inside the cluster Caddy is not on that path, so add the service's host name to `ALLOWED_HOSTS`; the six webhooks
+   stay off until both are set. Plain http is fine there:
    this path alone is exempt from the https redirect, the hooks being authenticated by their signature, not by TLS
    (RESILIENCE.md 9.3.1); through the public address they come over https as before. A new token later: the
    previous one is accepted for 24 hours, so set the new one in ERPNext within that time (RUNBOOK.md, "ERPNext").
@@ -1284,14 +1689,24 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
    and `npm audit` on both lockfiles), makes `dependency-report.json` of them and keeps it 90 days as the artifact
    `dependency-report`; it runs on every push to main that touches the site, every Monday and on demand (Actions,
    "examleaf-web", Run workflow). The deploy loads the latest one into the private storage (`DEPENDENCY_REPORT_PATH`),
-   where the System page reads it and says when it is older than 8 days; the file must be inside the container, so:
+   where the System page reads it and says when it is older than 8 days; the file must be inside the container, so,
+   on your computer (GitHub's CLI, logged in), the latest report, then the file to the server:
 
    ```sh
-   # on your computer (GitHub's CLI, logged in), then the file to the server
    gh run download "$(gh run list --repo LazyIndianBook/platform --workflow ci.yml --branch main --status completed --limit 1 --json databaseId --jq '.[0].databaseId')" --repo LazyIndianBook/platform --name dependency-report
+   ```
+
+   ```sh
    scp dependency-report.json examleaf@<server>:/srv/examleaf/
-   # on the server, in /srv/examleaf/examleaf-web
+   ```
+
+   Then on the server, in `/srv/examleaf/examleaf-web`, the file into the container and loaded:
+
+   ```sh
    docker compose cp ../dependency-report.json web:/tmp/dependency-report.json
+   ```
+
+   ```sh
    docker compose exec web python manage.py load_dependency_report /tmp/dependency-report.json
    ```
 
@@ -1300,7 +1715,8 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
    audit that could not run (the registry did not answer) makes no artifact, the report step being strict: the newest
    artifact is never a clean-looking report of nothing, and a run without one is the day to run it again.
 7. **Razorpay's and MSG91's keys** may move from `.env` to the panel (`integrations/README.md` "Precedence"): the first
-   keys pasted there must be of the mode `.env` runs, and take over at once.
+   keys pasted there must be of the mode `.env` runs, and take over at once. `MSG91_AUTHKEY` stays in `.env` all the
+   same while `SMS_BACKEND=msg91`: the site checks it at start.
 8. **The site's own address, from the containers.** The Hardening check fetches the console's `robots.txt` and the daily
    scripts inventory the checkout's and the console's sign-in pages, through `SITE_URL` and `STAFF_PANEL_URL`, from the
    `web` and `worker` containers (pods). They must reach that public address from inside (on a single server, back
@@ -1362,7 +1778,8 @@ the credit notes.
       text on rights requests and the National Consumer Helpline's status. Until the panel sets them, the seller's
       details (`SELLER_*`, `SUPPORT_EMAIL`) stand for the name, the address, the phone and the email.
 - [ ] **Settings → Connections**, a card per provider. Razorpay's and MSG91's keys may stay in `.env` or move to the panel
-      (Replace the keys: tested before they are kept; the first ones must be of the mode `.env` runs). MSG91's delivery
+      (Replace the keys: tested before they are kept; the first ones must be of the mode `.env` runs; `MSG91_AUTHKEY`
+      stays in `.env` while `SMS_BACKEND=msg91`, section 25, item 7). MSG91's delivery
       reports: its card's New token, then in MSG91 the delivery report webhook
       `https://examleaf.in/api/hooks/sms-events/` with the header `X-Webhook-Token: <it>`. SES: `SES_SNS_TOPIC_ARN`
       (section 25, step 3). A Razorpay webhook silent for `INTEGRATION_WEBHOOK_SILENCE_HOURS` opens an inbox item.
@@ -1413,6 +1830,9 @@ app's README. **All run on the default queue** (`celery`): none runs FFmpeg or r
 queue, as invoices are. "Default" is 270 s soft and 300 s hard, "long" 1,500 and 1,800 (RESILIENCE.md, 4.4); a
 test holds every task's limits under the broker's visibility timeout.
 
+<details>
+<summary>The periodic tasks Phase B added, India's time (27 rows)</summary>
+
 | When | Task | Does | Limit |
 |---|---|---|---|
 | every 5 minutes | `learn.tasks.publish_due` | the course's revisions approved for a time that has come go live, once each | default |
@@ -1442,6 +1862,8 @@ test holds every task's limits under the broker's visibility timeout.
 | Mondays 08:00 | `shop.tasks.weekly_staff_grants` | the owners' email of the week's staff discounts, offline payments and ₹0 orders | long |
 | Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk audit events | long |
 | Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days | default |
+
+</details>
 
 ### New paths and body limits
 
@@ -1521,3 +1943,15 @@ together with one reason; `staff.manage_settings`):
 Everything that waits on an adviser's answer (the series prefixes, the QRMP choice, `NCH_STATUS`,
 `SUPPORT_INTERMEDIARY_RULES`, `PARENTAL_CONSENT_MODE`, the legal deposit's days) keeps the build's choice until the answer
 comes; `docs/decisions.md` names each with the setting that carries it.
+
+## Related documents
+
+- [README.md](README.md): the backend, its parts and what each feature is
+- [RUNBOOK.md](RUNBOOK.md): the operator's book once the site runs, each task as the panel page that does it
+- [RESILIENCE.md](RESILIENCE.md): the timeouts, locks and limits behind the knobs of section 13
+- [deploy/kubernetes/README.md](../deploy/kubernetes/README.md): the same stack on a Kubernetes cluster, the chart
+- [The console's README](../examleaf-admin/README.md): the staff console and its deployment at `admin.<domain>`
+- [The website's README](../examleaf-frontend/README.md): the Next.js frontend and its build
+- [erp/README.md](erp/README.md): the ERPNext sync, shadow mode and the cut-over
+- [The decisions register](../docs/decisions.md): what waits on an adviser, with the setting that carries it
+

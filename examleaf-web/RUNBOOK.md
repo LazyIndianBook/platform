@@ -1,16 +1,30 @@
 # Runbook
 
-Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands for
-`docker compose exec web python manage.py`.
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Component: staff console](../docs/assets/badges/component-console.svg)
+![Phase B: merged](../docs/assets/badges/phase-b-merged.svg)
+![For operators](../docs/assets/badges/audience-operators.svg)
+![For staff](../docs/assets/badges/audience-staff.svg)
 
 Most of what an operator does is a page of the Admin Control Panel (`https://admin.<domain>`, the console in
-`../examleaf-admin/`). This runbook names the page, the button, what it asks and what it writes to the audit log; the
-one-page guide of each role (`../docs/guides/roles/`) says who may use it. Where a shell recipe once did the job, it
-stays as a short "If the panel is down" line: the break-glass way, which needs a shell on the server and is nobody's
-daily tool. What waits for a person is in the panel's Inbox, and "The inbox" below says what each item asks of you.
+`../examleaf-admin/`): this runbook names the page, the button, what it asks and what it writes to the audit log, and
+the one-page guide of each role (`../docs/guides/roles/`) says who may use it. Where a shell recipe once did the job, it
+stays as a short "If the panel is down" line, marked as a caution: the break-glass way, which needs a shell on the
+server and is nobody's daily tool. Operators and staff read it when something needs doing or has gone wrong.
+
+> [!NOTE]
+> **At a glance**
+> - Commands run in `/srv/examleaf/examleaf-web` on the server; `dj` below stands for
+>   `docker compose exec web python manage.py`.
+> - What waits for a person is in the panel's Inbox, and "The inbox" below says what each item asks of you.
+> - Something wrong: System → At a glance first, `/health/` when the panel itself does not open (the diagram below).
+> - A restore drill each quarter, recorded in System → Backups, proves the backups work.
+> - A suspected breach: every secret rotated; the Data Protection Board and the people affected told without delay,
+>   the Board's detailed report within 72 hours ("Secrets and key rotation").
 
 ## Contents
 
+- [Something is wrong: where to look](#something-is-wrong-where-to-look): the first pages to open, in order
 - [Backups and restore](#backups-and-restore): restoring the database, the restore drill and where it is recorded
 - [Secrets and key rotation](#secrets-and-key-rotation)
 - [Staff accounts](#staff-accounts): a new member of staff, a lost second factor, leaving, ending sessions, break-glass
@@ -39,44 +53,134 @@ daily tool. What waits for a person is in the panel's Inbox, and "The inbox" bel
 - [Incidents](#incidents)
 - [The inbox: what each item asks of you](#the-inbox-what-each-item-asks-of-you)
 - [Reading the logs](#reading-the-logs): a request's lines, slow requests, a task's lines, gunicorn's restarts
+- [Related documents](#related-documents)
+
+## Something is wrong: where to look
+
+```mermaid
+flowchart TB
+    start["Something is wrong"] --> panel{"Does the panel open?"}
+    panel -->|"yes"| glance["System → At a glance<br/>a line for each part: Good, Look at it, Act now"]
+    panel -->|"no"| health["/health/ with X-Health-Token<br/>its JSON names the failing part"]
+    glance -->|"a person must act"| inbox["The inbox<br/>each kind says what it asks"]
+    glance -->|"a part says Act now"| part["That part's page: Backups, Dependencies,<br/>Hardening, Checkout scripts, Logs and time"]
+    glance -->|"a provider or a webhook"| connections["Settings → Connections<br/>status, calls, events, dead letters"]
+    glance -->|"the ERPNext sync"| sync["System → ERPNext sync"]
+    health --> incidents["Incidents<br/>the database, Redis, storage, Celery"]
+    incidents --> logs["Reading the logs<br/>request_id, task_id"]
+    part -->|"no recent backup,<br/>or data lost"| backups["Backups and restore"]
+    incidents -->|"the panel stays down"| breakglass["The break-glass lines:<br/>a shell on the server"]
+```
+
+*Where to look first: the panel's own pages while it opens, `/health/` and the logs when it does not.*
 
 ## Backups and restore
 
 ### Restore the database from a backup
 
 1. Pick the dump: `ls -lt backups/`, or download it from the backup bucket (`database/examleaf-….dump`, or
-   `….dump.age` when `BACKUP_AGE_RECIPIENT` is set: decrypt it on the computer that holds the key,
-   `age --decrypt -i examleaf-backup.key -o examleaf-….dump examleaf-….dump.age`, then copy the dump to `backups/`).
+   `….dump.age` when `BACKUP_AGE_RECIPIENT` is set: decrypt it on the computer that holds the key, then copy the
+   dump to `backups/`):
+
+   ```sh
+   age --decrypt -i examleaf-backup.key -o examleaf-….dump examleaf-….dump.age
+   ```
+
 2. Keep the erasure ledger: restoring brings back the data of everyone erased since that dump. Every erasure is
    copied to the backups' bucket as it is made (`erasures/<id>.json`), which step 4 reads. If the database you are
-   replacing can still be read, also write its ledger to a file first:
-   `dj reapply_erasures --export /app/media/erasures.jsonl` (the `media` volume outlives the restore).
+   replacing can still be read, also write its ledger to a file first (the `media` volume outlives the restore):
+
+   ```sh
+   dj reapply_erasures --export /app/media/erasures.jsonl
+   ```
+
+> [!CAUTION]
+> **Step 3 is destructive:** `pg_restore --clean` replaces the database's tables with the dump's, and what was written
+> after the dump is gone.
 
 3. Stop everything that writes, restore, start again:
 
    ```sh
    docker compose stop web worker media-worker beat
+   ```
+
+   ```sh
    docker compose exec -T db pg_restore --clean --if-exists --no-owner --username examleaf --dbname examleaf < backups/examleaf-YYYYMMDD-HHMMSS.dump
+   ```
+
+   ```sh
    docker compose up -d
    ```
 
-4. Erase them again, before anyone uses the site: `dj reapply_erasures --dry-run` says how many (counts only), then
-   `dj reapply_erasures` (with `--ledger /app/media/erasures.jsonl` if you wrote one). An account is erased again only
-   while its address still matches the ledger's hash, so nobody else is ever touched; each is an `account.erased` event
-   with `reapplied`. Deletions that were still waiting are completed by the next daily purge (or run
-   `dj shell -c "from accounts.tasks import purge_due_deletions; print(purge_due_deletions())"`).
+4. Erase them again, before anyone uses the site. First how many (counts only):
+
+   ```sh
+   dj reapply_erasures --dry-run
+   ```
+
+   Then (with `--ledger /app/media/erasures.jsonl` if you wrote one):
+
+   ```sh
+   dj reapply_erasures
+   ```
+
+   An account is erased again only while its address still matches the ledger's hash, so nobody else is ever
+   touched; each is an `account.erased` event with `reapplied`. Deletions that were still waiting are completed by the
+   next daily purge, or at once:
+
+   ```sh
+   dj shell -c "from accounts.tasks import purge_due_deletions; print(purge_due_deletions())"
+   ```
+
    Students who asked for deletion after the dump was taken must ask again: tell them. Without a backups' bucket the
    ledger is only in the database: then step 2's file is the only record, so never skip it.
-5. Check `/health/`
-   (`curl -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/`), log in to the
-   admin, open a paper.
+5. Check `/health/`, log in to the admin, open a paper:
+
+   ```sh
+   curl -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/
+   ```
 
 **A restore drill** (each quarter, and after a change to the backups): restore the newest dump into a scratch
-database (`docker compose exec db createdb --username examleaf examleaf_drill`, then `docker compose exec -T db
-pg_restore --no-owner --username examleaf --dbname examleaf_drill < backups/examleaf-….dump`), check that its newest
-order and audit event are there, drop it (`dropdb`), and record it in the panel: System → Backups → "Record a restore
-drill" (ADMIN, the owners; the day, what was restored, the backup, the result, the minutes it took and notes: "The system
-pages", below). The page then says when the backups were last proven to work; it also says each source's newest backup,
+database, check that its newest order and audit event are there, drop it, and record it in the panel: System →
+Backups → "Record a restore drill" (ADMIN, the owners; the day, what was restored, the backup, the result, the minutes
+it took and notes: "The system pages", below).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as The operator
+    participant Panel as The panel, System → Backups
+    participant Shell as The server's shell
+    participant DB as PostgreSQL, the db container
+    Op->>Panel: the newest backup, and its SHA-256
+    Op->>Shell: sha256sum of the dump to restore, compared with it
+    Op->>DB: createdb examleaf_drill
+    Op->>DB: pg_restore the dump into examleaf_drill
+    Op->>DB: its newest order and audit event, checked
+    Op->>DB: dropdb examleaf_drill
+    Op->>Panel: Record a restore drill: the backup, the result, the minutes
+    Panel-->>Op: Last proven to work on that day, and an audit event
+```
+
+*A restore drill on one server: the dump checked, restored beside the live database, dropped, and recorded.*
+
+The scratch database, then the dump into it:
+
+```sh
+docker compose exec db createdb --username examleaf examleaf_drill
+```
+
+```sh
+docker compose exec -T db pg_restore --no-owner --username examleaf --dbname examleaf_drill < backups/examleaf-….dump
+```
+
+Once its newest order and audit event are checked, drop it:
+
+```sh
+docker compose exec db dropdb --username examleaf examleaf_drill
+```
+
+The page then says when the backups were last proven to work; it also says each source's newest backup,
 its SHA-256 (compare it with `sha256sum` of the file you restored) and whether it is older than `BACKUP_STALE_HOURS` (an
 inbox item `backup_stale` opens then: look at the backup job's log, `/srv/examleaf/backup.log` of the host's crontab entry in DEPLOYMENT.md section 9 and its last run
 of `scripts/backup.sh`; on Kubernetes the Cluster's backups, `kubectl -n examleaf get backups,scheduledbackups`, and the
@@ -95,13 +199,21 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
   weeks (sessions made with the old key keep working until then; a password-reset link lives an hour anyway). The hashes
   of the consent records' addresses and of the SMS log's numbers made with the old key can no longer be compared with an
   address or found by number (the SMS log's rows go after 90 days); the records themselves stay valid.
-- **POSTGRES_PASSWORD:** `docker compose exec db psql -U examleaf -c "ALTER USER examleaf PASSWORD 'new'"`, then change
-  `.env` and `docker compose up -d`.
+- **POSTGRES_PASSWORD:** the new password in the database, then change `.env` and `docker compose up -d`:
+
+  ```sh
+  docker compose exec db psql -U examleaf -c "ALTER USER examleaf PASSWORD 'new'"
+  ```
+
 - **Razorpay's and MSG91's keys** from the panel (Settings → Connections → the provider → Replace the keys, OWNER or
   ADMIN): create the new key with the provider, paste it there (it is tested before it is kept, and the old one stays
   in force if the test fails), check the card says Working, then revoke the old key with the provider. Once the
-  panel holds keys, the `.env` ones are no longer read (`integrations/README.md` "Precedence"); with the panel down,
-  the shell below still works only while no account holds keys, so keep a break-glass session for that case.
+  panel holds keys, the `.env` ones are no longer read (`integrations/README.md` "Precedence").
+
+> [!CAUTION]
+> **If the panel is down:** the shell below still works only while no account holds keys, so keep a break-glass
+> session for that case.
+
 - **Provider keys** (email: `SES_*` or the `ANYMAIL_…` key; `MSG91_AUTHKEY`; `RAZORPAY_KEY_*`; `S3_*` and `PUBLIC_S3_*`;
   `AWS_*` of the backups; `GOOGLE_CLIENT_SECRET`; `TURNSTILE_SECRET_KEY`; `FCM_SERVICE_ACCOUNT_JSON`; `SENTRY_DSN`):
   create the new key with the provider, change `.env`, `docker compose up -d`, then revoke the old key. MSG91's new
@@ -119,20 +231,32 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
 - **LEARN_CODE_SECRET:** never. Printed book codes work only with the key they were made under (DEPLOYMENT.md
   section 18). Without it a server does not start: `docker compose logs web` shows `learn.E001` at `migrate`.
 - <a id="integration-keys"></a>**INTEGRATION_KEYS** (the key of the integration accounts' credentials and tokens): put
-  a new key first, `INTEGRATION_KEYS=<new>,<old>`, `docker compose up -d`, then `dj rotate_integration_keys`
-  ("Re-encrypted the secrets of N account(s)"), then remove the old key and `docker compose up -d` again. Never remove a
-  key before the rotation has run: secrets encrypted with it can no longer be read (the admin shows "Cannot be read
-  with INTEGRATION_KEYS", calls fail). Lost for good: paste the credentials of each account again (below) and make a
-  new webhook token. Without any key a server with accounts does not start: `integrations.E001` at `migrate`.
+  a new key first, `INTEGRATION_KEYS=<new>,<old>`, `docker compose up -d`, then re-encrypt ("Re-encrypted the secrets of
+  N account(s)"):
+
+  ```sh
+  dj rotate_integration_keys
+  ```
+
+  Then remove the old key and `docker compose up -d` again. Never remove a key before the rotation has run: secrets
+  encrypted with it can no longer be read (the admin shows "Cannot be read with INTEGRATION_KEYS", calls fail). Lost
+  for good: paste the credentials of each account again (below) and make a new webhook token. Without any key a server
+  with accounts does not start: `integrations.E001` at `migrate`.
 - **Shiprocket's API user** (rotate by the account's `rotate_by`, 90 days, which its card counts down; or at once if
   it leaked): in Shiprocket, Settings → API → Add New API User (a new email address); in the panel, Settings →
   Connections → Shiprocket → Replace the keys with the new email and password (tested before they are kept); then
-  delete the old API user in Shiprocket. The cached token goes with the old credentials. Break-glass fallback: the
-  admin's account → "Replace the credentials" → Save → "Test the connection".
+  delete the old API user in Shiprocket. The cached token goes with the old credentials.
+
+> [!CAUTION]
+> **If the panel is down:** the admin's account → "Replace the credentials" → Save → "Test the connection".
+
 - **A webhook token** (the couriers', MSG91's delivery reports'): the connection's page → Webhooks → New token shows it
   once; paste it at the provider (Shiprocket: Settings → API → Webhooks, the security token; MSG91: the delivery
-  report URL's `X-Webhook-Token` header) within 24 hours, while the previous one still works. Fallback: the admin's
-  action "New webhook token".
+  report URL's `X-Webhook-Token` header) within 24 hours, while the previous one still works.
+
+> [!CAUTION]
+> **If the panel is down:** the admin's action "New webhook token".
+
 - **Suspected breach:** rotate everything above, SECRET_KEY **without** a fallback (a leaked key would otherwise keep
   sessions valid for two weeks) and JWT_SIGNING_KEY (or SECRET_KEY, if it is unset) too, end all sessions (the panel
   ends one person's at a time, so for everyone at once the shell: "Staff accounts", "Ending sessions"; everyone logs in
@@ -187,16 +311,27 @@ parts), Offboarding and ERPNext. Each role's guide is in `../docs/guides/roles/`
    and FINANCE add a passkey first). The audit log has `user.reset_mfa.requested`, `.approved` and `.executed`. A
    customer's second factor is reset the same way from Customers → the customer → "Reset two-step sign-in", approved by
    another holder of that permission (SUPPORT, ADMIN or an owner). Only a break-glass account can change a break-glass
-   account's factors, and an owner's are changed by an owner; if one of them is locked out, the shell:
-   `dj shell -c "from allauth.mfa.models import Authenticator as A; A.objects.filter(user__email='x@example.com').delete()"`.
+   account's factors, and an owner's are changed by an owner.
+
+> [!CAUTION]
+> **If one of them is locked out,** the shell deletes that person's authenticator apps, recovery codes and passkeys:
+>
+> ```sh
+> dj shell -c "from allauth.mfa.models import Authenticator as A; A.objects.filter(user__email='x@example.com').delete()"
+> ```
+
 6. **Leaving:** an owner offboards them in one step (People → the person → Danger zone → "Offboard": their email
    address typed and the reason; the account is deactivated, roles and scopes gone, sessions, tokens and API keys
    ended, their requests withdrawn and tickets unassigned; `user.offboarded`), then works through the
    person's Offboarding tab: the ERPNext user disabled, their
    external accounts closed, the security keys collected, their last 90 days in the audit log read, each ticked (or
    "not needed") with a note (`offboarding.ticked`); the inbox item stays until the last one. A temporary role that
-   ends by itself opens `role_expired` on the person. If the panel is down: in the Django admin, untick Active (the
-   sessions stop working at once) and take the roles away, then do the Offboarding tab's steps when it is back.
+   ends by itself opens `role_expired` on the person.
+
+> [!CAUTION]
+> **If the panel is down:** in the Django admin, untick Active (the sessions stop working at once) and take the roles
+> away, then do the Offboarding tab's steps when it is back.
+
 7. **Passkeys:** OWNER, ADMIN and FINANCE (`STAFF_PASSKEY_ROLES`) add a passkey or a security key on the website's
    Security page before the panel opens for them (`passkey_required`). A lost one: they add another there with their
    authenticator app's code; none left at all: lost phone, above.
@@ -208,9 +343,14 @@ parts), Offboarding and ERPNext. Each role's guide is in `../docs/guides/roles/`
 app, and the app's refresh tokens; the audit event `session_ended_by_staff` with the counts). One customer's:
 Customers → the customer → "Sign them out everywhere" (`staff.end_user_sessions`: SUPPORT, ADMIN, owners), or the
 Customers list's bulk bar for many (checked first; with a student under 18 among them a second person approves it).
-There is no panel action that ends every session of everyone at once. If you must, the break-glass way ends them all,
-and everyone signs in again, staff with their second factor:
-`dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`.
+There is no panel action that ends every session of everyone at once.
+
+> [!CAUTION]
+> **If you must,** the break-glass way ends them all, and everyone signs in again, staff with their second factor:
+>
+> ```sh
+> dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"
+> ```
 
 ### Break-glass accounts
 
@@ -220,12 +360,16 @@ only when nothing else works (Google sign-in down, every owner locked out of the
 
 1. Log in with it as any member of staff does, with its password and its security key (never Google). The owners are
    emailed at once ("Break-glass account #… signed in").
-2. Say why before anything else: the panel asks (the manifest's `break_glass.reason_required`); without the panel,
-   `POST /api/v1/staff/session/reason/` `{"reason": "…"}` on the admin host. Until then the staff API answers
-   `403 {"code": "break_glass_reason_required"}`. The owners get the reason, and every audit event of the session
-   carries `break_glass` and the reason (`details.break_glass_reason`). The Django admin does not ask: give the reason
-   first, in the same browser on the admin host. The session ends after 15 idle minutes, and 2 hours after the log-in
-   however busy (`STAFF_BREAK_GLASS_HOURS`); the owners are told when it ends.
+2. Say why before anything else: the panel asks (the manifest's `break_glass.reason_required`). Until then the staff
+   API answers `403 {"code": "break_glass_reason_required"}`. The owners get the reason, and every audit event of the
+   session carries `break_glass` and the reason (`details.break_glass_reason`). The Django admin does not ask: give the
+   reason first, in the same browser on the admin host. The session ends after 15 idle minutes, and 2 hours after the
+   log-in however busy (`STAFF_BREAK_GLASS_HOURS`); the owners are told when it ends.
+
+> [!CAUTION]
+> **If the panel is down,** give the reason to the staff API on the admin host: `POST /api/v1/staff/session/reason/`
+> with `{"reason": "…"}`.
+
 3. Do what the emergency needs, nothing more, and log out.
 4. Within 24 hours an owner or the auditor reads what it did: `GET /api/v1/staff/audit/?break_glass=true` (the staff
    API, as an AUDITOR or OWNER), and notes why in the incident or the access review.
@@ -247,9 +391,15 @@ privacy"); the shell recipes below each step are the break-glass way, when the p
    identity was checked (Record the identity check: the method, never the document).
 2. **Access:** the request's "Email their data" sends Download my data's file to the account's own address, with who
    processes it for us (the processor register). It is ADMIN's and the owners' (`staff.export_personal_data`, which asks
-   to confirm it's you): SUPPORT logs the request and checks the identity, then asks one of them. Break-glass:
-   `dj shell -c "import json; from django.core.serializers.json import DjangoJSONEncoder; from accounts.models import User; from accounts.views import export_user_data; print(json.dumps(export_user_data(User.objects.get(email='x@example.com')), cls=DjangoJSONEncoder, indent=2))" > export.json`
-   and send the file to that address; delete your copy afterwards.
+   to confirm it's you): SUPPORT logs the request and checks the identity, then asks one of them.
+
+> [!CAUTION]
+> **If the panel is down:** write the file, send it to that address, and delete your copy afterwards:
+>
+> ```sh
+> dj shell -c "import json; from django.core.serializers.json import DjangoJSONEncoder; from accounts.models import User; from accounts.views import export_user_data; print(json.dumps(export_user_data(User.objects.get(email='x@example.com')), cls=DjangoJSONEncoder, indent=2))" > export.json
+> ```
+
 3. **Correct:** edit the user in the admin (ADMIN role; the admin's history records the change).
 4. **Erase or withdraw consent:** the request's erasure: its dry run first (what goes, and what stays and until when:
    the books by financial year, a year of processing logs, legal holds, a child's parent), then "Erase the account",
@@ -259,9 +409,15 @@ privacy"); the shell recipes below each step are the break-glass way, when the p
    deletion waits for the parent" with where the evidence is). Each processor that keeps personal data gets a task in
    the inbox once it is done ("ask SES to purge the address" …): do each, then mark it done. Quotation requests made
    with the address (admin → Shop → Quote requests) are not erased by the purge: delete them too (ADMIN).
-   Break-glass, with the seven-day wait:
-   `dj shell -c "from accounts.models import DeletionRequest, User; DeletionRequest.objects.create(user=User.objects.get(email='x@example.com'))"`;
-   at once, add `.complete()` (it raises `DeletionRequest.Held` with the reasons while something holds it).
+
+> [!CAUTION]
+> **If the panel is down,** this asks for the erasure with the seven-day wait; at once, add `.complete()` (it raises
+> `DeletionRequest.Held` with the reasons while something holds it):
+>
+> ```sh
+> dj shell -c "from accounts.models import DeletionRequest, User; DeletionRequest.objects.create(user=User.objects.get(email='x@example.com'))"
+> ```
+
 5. **Nominee:** the person records it themselves (`me/nominee/`; staff see it on the customer's record, the contact
    masked and revealed with a reason). A nomination by letter: log it as a data request of the kind nomination, with
    what it says in the notes. Act on the nominee's request only on proof of death or incapacity (the claim's flow in
@@ -291,16 +447,18 @@ Nobody presses a button for this: it is two nightly tasks, and the panel shows w
   annual return's due date, whichever is later: `examleaf/retention.py`) and deletes their invoices' and credit notes'
   PDFs; the order rows and their numbers stay, for the totals. A legal hold on the order, one of its documents or its
   customer keeps it as it is ("Legal holds", below). The backups age out on their own (30 days).
-- **If the panel is down,** or a night's run did not happen (the task's lines in `docker compose logs worker`), the
-  break-glass way does the same work:
 
-  ```sh
-  dj shell -c "from ops.tasks import purge_books; print(purge_books(), 'orders purged')"
-  ```
+> [!CAUTION]
+> **If the panel is down,** or a night's run did not happen (the task's lines in `docker compose logs worker`), the
+> break-glass way does the same work:
+>
+> ```sh
+> dj shell -c "from ops.tasks import purge_books; print(purge_books(), 'orders purged')"
+> ```
 
-  `purge_books` calls `forget_orders`, which itself passes by any order whose tax documents are within 72 months of
-  their year's annual return (FY 2025-26: until 31 December 2032), whoever asks; then purge the same years from the
-  off-site backups (bucket lifecycle) and note the date in the support mailbox.
+`purge_books` calls `forget_orders`, which itself passes by any order whose tax documents are within 72 months of their
+year's annual return (FY 2025-26: until 31 December 2032), whoever asks; then purge the same years from the off-site
+backups (bucket lifecycle) and note the date in the support mailbox.
 
 ### The retention tasks (every night)
 
@@ -313,7 +471,7 @@ second delivery or a run by hand does no harm (RESILIENCE.md). The whole schedul
 | 03:05 | `accounts.tasks.copy_erasure_ledger` | copies each erasure's ledger line to the backups' bucket (`erasures/<id>.json`) | |
 | 03:30, 03:45 | `ops.tasks.reset_failed_logins`, `clear_sessions` | forgets django-axes' failed log-ins; deletes expired sessions and the signed-in devices of ended ones | |
 | 03:45 | `support.tasks.purge` | tickets moved to spam 30 days ago, with their messages, files and raw mail; saved replies 30 days in the bin | `support.spam_purged` |
-| 04:00 | django-celery-beat's own | task results older than a week | |
+| 04:00 | `celery.backend_cleanup` (Celery's own) | task results older than a week | |
 | 04:10 | `ops.tasks.trim_expired` | blanks the SMS log's last four digits after 90 days | `retention.trimmed` |
 | 04:10 | `content.tasks.purge_spam` | reported-mistake spam after 30 days | |
 | 04:20 | `ops.tasks.purge_expired` | the SMS log's rows after a year; Razorpay's webhook records and the Celery task results after 7 days; the app's phones silent for 90 days; the orders past their books' period | `retention.purged` |
@@ -324,8 +482,11 @@ second delivery or a run by hand does no harm (RESILIENCE.md). The whole schedul
 | monthly | `manage.py purge_audit` (the owner role's crontab, DEPLOYMENT.md section 23) | the audit log past its retention: two years for the general chain, eight financial years for the money chain | `audit.purged` |
 
 A task that gave up is an inbox item (`failed_job`, "Task … failed", for `staff.view_system`) and a line in Sentry. To
-run one by hand, call it in a shell, for example
-`dj shell -c "from ops.tasks import trim_expired; print(trim_expired())"` (it prints the counts).
+run one by hand, call it in a shell; for example this one prints its counts:
+
+```sh
+dj shell -c "from ops.tasks import trim_expired; print(trim_expired())"
+```
 
 ### Legal holds, policy versions, the disclosures and the self-audit
 
@@ -368,13 +529,28 @@ record, and the legal calendar.
 Signs: students say the code never came; Sentry errors from `ops.tasks.send_email`; failed or retrying tasks under
 Celery Results → Task results; `docker compose logs worker | grep send_email`.
 
-1. Is the worker up? `docker compose ps worker`. (`/health/` pings the workers too, but with two workers it can say "No
-   worker for Celery task queue celery" when the media worker answers first: ask again before restarting anything.) If
-   it is down: `docker compose up -d worker` and look at its logs. While Redis is down, emails are sent directly by the
-   web process, so sign-ups keep working.
-2. Does the provider accept mail? `dj sendtestemail you@example.com` sends synchronously and shows the provider's
-   error (wrong API key, quota, unverified sender domain, account suspended). Check the provider's dashboard and status
-   page, and the SPF/DKIM records.
+1. Is the worker up? (`/health/` pings the workers too, but with two workers it can say "No worker for Celery task
+   queue celery" when the media worker answers first: ask again before restarting anything.)
+
+   ```sh
+   docker compose ps worker
+   ```
+
+   If it is down, start it and look at its logs:
+
+   ```sh
+   docker compose up -d worker
+   ```
+
+   While Redis is down, emails are sent directly by the web process, so sign-ups keep working.
+2. Does the provider accept mail? This sends synchronously and shows the provider's error (wrong API key, quota,
+   unverified sender domain, account suspended):
+
+   ```sh
+   dj sendtestemail you@example.com
+   ```
+
+   Check the provider's dashboard and status page, and the SPF/DKIM records.
 3. A failed email is retried five times with growing waits (25 minutes at most in all), then dropped. Once mail works,
    students log in again (an address not yet confirmed gets a new code at each log-in) or use "Log in with a code"
    again, or reset the password; a log-in code is limited to 3 an hour per address, a confirmation code to 5 an hour and
@@ -470,7 +646,10 @@ person (an `customer.lookup` event: a hash of what was typed, never the words), 
 spending summary (`sensitive_read`; a student under 18's is marked), and every reveal. A record's **Timeline** tab lists
 what happened to the account (orders, payments, refunds, codes, course access and use, tickets, texts and emails sent,
 consent, notes, and what staff did to it); for a student under 18 the course is a count and the last week active,
-never what they watched or answered. Break-glass, the panel down: Admin → Users, and the shell steps in this section.
+never what they watched or answered.
+
+> [!CAUTION]
+> **If the panel is down:** Admin → Users, and the shell steps in this section.
 
 ### Logging in as a customer (support)
 
@@ -523,9 +702,15 @@ the parent", with the time).
   stops working (7 days), how many went today of the day's 3, and whether the account only reads until a parent
   confirms. Opening a student's record there is recorded as a look at a child's data. After the switch to `verified`
   this includes students under 18 who registered before it; email them that a parent must confirm. The Legal and
-  privacy cockpit lists the deletions that wait for a parent. Break-glass, when the panel is down:
-  `dj shell -c "from accounts.models import User; print([u.pk for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"`
-  (the accounts' numbers; open each in the panel when it is back).
+  privacy cockpit lists the deletions that wait for a parent.
+
+> [!CAUTION]
+> **If the panel is down,** this prints the accounts' numbers; open each in the panel when it is back:
+>
+> ```sh
+> dj shell -c "from accounts.models import User; print([u.pk for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"
+> ```
+
 - **Sending the link again from the panel:** the student's record (or the list above) → "Send the link again". A text
   to a parent's mobile number goes from 08:00 to 21:00 India time only (the panel says so out of hours; an email goes at
   any hour), and one address or number gets 3 links a day, whichever students ask: the panel then says the parent has
@@ -596,17 +781,25 @@ page. If it did not:
    press "Ask Razorpay again" (FINANCE, ADMIN, the owners: `staff.replay_webhook`): the answer says what changed ("the
    order is paid now; payment 9101 recorded as captured", or "Razorpay has no captured payment for this order"). An
    authorised payment is captured first; the nightly run (02:30) does the same for every order still waiting.
-2. Without the panel: Razorpay Dashboard → Payments: find the payment (the customer's UPI ID or phone, the amount). The
-   receipt of its order is the order number. Note its status: captured, authorized or failed. Then
-   `dj reconcile_payments` asks Razorpay about every online order still awaiting payment (older than 10 minutes; the
-   staff orders' links included) and records the payments it took: `EL-2026-000123: paid now`. An authorized payment
-   is captured first (when the amount matches). "no payment at Razorpay": it has none for that order (the customer did
-   not pay, or paid another order). "Razorpay could not be asked": try again later.
-3. Why did the webhook not arrive? Dashboard → Webhooks → the delivery log shows what the site answered. 400: the secret
+
+> [!CAUTION]
+> **If the panel is down:** Razorpay Dashboard → Payments: find the payment (the customer's UPI ID or phone, the amount;
+> the receipt of its order is the order number) and note its status: captured, authorized or failed. Then:
+>
+> ```sh
+> dj reconcile_payments
+> ```
+
+It asks Razorpay about every online order still awaiting payment (older than 10 minutes; the staff orders' links
+included) and records the payments it took: `EL-2026-000123: paid now`. An authorized payment is captured first (when
+the amount matches). "no payment at Razorpay": it has none for that order (the customer did not pay, or paid another
+order). "Razorpay could not be asked": try again later.
+
+2. Why did the webhook not arrive? Dashboard → Webhooks → the delivery log shows what the site answered. 400: the secret
    differs from `RAZORPAY_WEBHOOK_SECRET` (live) or `RAZORPAY_WEBHOOK_SECRET_TEST` in `.env` (correct it,
    `docker compose up -d`, resend the event). No attempts at all: the URL or the events are not set (DEPLOYMENT.md,
    section 12). Timeouts: the site was down.
-4. Orders never paid within two days are cancelled by the 04:30 clean-up, which asks Razorpay first: a payment that was
+3. Orders never paid within two days are cancelled by the 04:30 clean-up, which asks Razorpay first: a payment that was
    missed is recorded, not cancelled (an order that staff made, with a payment link, gets 16 days and the link is
    checked the same way). A payment that reaches an order already cancelled (or whose books or coupon are gone) is
    refunded in full by the site, and the customer is emailed.
@@ -636,8 +829,14 @@ page. If it did not:
    the order turns "refunded", the customer is emailed and the credit note is made. Stock is not put back by itself:
    correct it in Products.
 5. Every refund of an invoiced order has a credit note (on the order's record, and admin → Credit notes), bank refunds
-   included once marked paid. Without the panel: `dj shell -c "from shop import services; from shop.models import
-   Refund; services.mark_bank_refund_paid(Refund.objects.get(pk=<id>), '<UTR>')"`.
+   included once marked paid.
+
+> [!CAUTION]
+> **If the panel is down,** a bank refund is marked paid from the shell, with its UTR:
+>
+> ```sh
+> dj shell -c "from shop import services; from shop.models import Refund; services.mark_bank_refund_paid(Refund.objects.get(pk=<id>), '<UTR>')"
+> ```
 
 A refund whose answer was lost (Razorpay slow) is never sent twice: each retry first asks Razorpay for the payment's
 refunds and takes over the one that carries the site's refund number in its notes.
@@ -686,9 +885,15 @@ Going live (the steps are in DEPLOYMENT.md, section 12):
    open" off (`SHOP_OPEN=0`).
 
 Orders made before this mode was recorded (the security release) count as test orders. If the shop had already taken
-real payments before it, no panel page marks them live: this is a one-off for the shell, with the first live order's
-number:
-`dj shell -c "from shop.models import Order, Payment; o = Order.objects.filter(number__gte='EL-2026-000123', placed_at__isnull=False); Payment.objects.filter(order__in=o).update(livemode=True); print(o.update(livemode=True))"`.
+real payments before it, no panel page marks them live.
+
+> [!CAUTION]
+> **A one-off for the shell,** with the first live order's number: it marks that order and every placed order numbered
+> after it live, with their payments.
+>
+> ```sh
+> dj shell -c "from shop.models import Order, Payment; o = Order.objects.filter(number__gte='EL-2026-000123', placed_at__isnull=False); Payment.objects.filter(order__in=o).update(livemode=True); print(o.update(livemode=True))"
+> ```
 
 ### Razorpay settlements (every morning; the panel's Finance → Settlements)
 
@@ -711,8 +916,13 @@ orders, is asked of Razorpay first and recorded. Razorpay unreachable: the run t
    settlement id. Do not post by hand while it waits: once Razorpay has corrected it, fetch its day again (step 4),
    and the settlement takes Razorpay's latest figures and is evaluated anew.
 4. A day the morning run missed (Razorpay was down for longer, the site was off): Finance → Settlements → "Fetch a day"
-   (a dry run first if you like: it keeps nothing), or `dj fetch_settlements --day 2026-10-09` (`--dry-run`). Fetching a
-   day twice changes nothing.
+   (a dry run first if you like: it keeps nothing), or from the shell (`--dry-run` for the dry run). Fetching a day
+   twice changes nothing.
+
+   ```sh
+   dj fetch_settlements --day 2026-10-09
+   ```
+
 5. Posted settlements are never changed here: a line that turns up after its settlement was posted opens the inbox
    item again, and the Journal Entry is corrected in ERPNext by hand (ERPNext → Journal Entry, the settlement id is its
    reference).
@@ -732,11 +942,22 @@ invoice is made when the parcel is marked shipped). Look in `docker compose logs
 The usual cause is the seller's details: while `SELLER_ADDRESS`, `SELLER_EMAIL` or `SELLER_PHONE` still hold their
 `[placeholder]`, no real invoice is numbered ("SELLER_* still holds placeholders"): set them in `.env` and
 `docker compose up -d`. The 04:30 clean-up then makes what is missing, or at once: the order's Actions in the panel,
-"Make missing documents" (its invoice and credit notes; "Email the invoice again" sends its link). Without the panel:
-`dj shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"` (the id is the number in the
-order's address in the admin). WeasyPrint failing (fonts, Pango) is in the same log. A missing credit note is made the
-same way: `dj shell -c "from shop.tasks import generate_credit_note; generate_credit_note(<refund id>)"` (the id is the
-number in the refund's address in the admin); the 04:30 clean-up makes missing ones too. A credit note is never made
+"Make missing documents" (its invoice and credit notes; "Email the invoice again" sends its link). WeasyPrint failing
+(fonts, Pango) is in the same log.
+
+> [!CAUTION]
+> **If the panel is down:** an invoice, with the order's id (the number in the order's address in the admin), then a
+> credit note, with the refund's (the number in the refund's address); the 04:30 clean-up makes missing ones too:
+>
+> ```sh
+> dj shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"
+> ```
+>
+> ```sh
+> dj shell -c "from shop.tasks import generate_credit_note; generate_credit_note(<refund id>)"
+> ```
+
+A credit note is never made
 after 30 November following its invoice's financial year, nor against a cancelled invoice: the refund still went out,
 and the inbox has a "No credit note for refund #…" item with the reason; record what the CA decides on the order as a
 note.
@@ -766,8 +987,11 @@ needs a CAPTCHA), DTDC, Xpressbees and "another courier" open 17TRACK with the n
 link (the SMS, when they asked for SMS, gives the courier and the tracking number), and the order page shows it. Type a
 link yourself only for a courier whose page you know takes the number in the address. A wrong number: correct it in the
 order's Shipments; correct the link too (empty is not refilled there). The first time each courier is used, open the
-emailed link once with a real number to check it. If the panel is down, ADMIN does it in the Django admin: Orders →
-select the packed orders → "Mark shipped", with the same fields.
+emailed link once with a real number to check it.
+
+> [!CAUTION]
+> **If the panel is down,** ADMIN does it in the Django admin: Orders → select the packed orders → "Mark shipped", with
+> the same fields.
 
 This stays the way for India Post and any courier without an API. A parcel booked with a courier through Shiprocket
 (`shipping/`) is shipped and delivered by the courier's own scans instead, and its row on the order's page is read
@@ -798,10 +1022,16 @@ those printed on the documents (prices include tax; the coupon, offers and a sta
 shipping taxed with the goods it carries). Orders the site does not invoice (a school order paid outside the site and
 never entered as a staff order) are not in the files; staff orders are.
 
-Break-glass, without the panel:
-
-    docker compose exec web python manage.py export_gstr1 --from 2026-10-01 --to 2026-10-31 --out /tmp/gstr1
-    docker compose cp web:/tmp/gstr1 .
+> [!CAUTION]
+> **If the panel is down:** the files for the period, then out of the container:
+>
+> ```sh
+> docker compose exec web python manage.py export_gstr1 --from 2026-10-01 --to 2026-10-31 --out /tmp/gstr1
+> ```
+>
+> ```sh
+> docker compose cp web:/tmp/gstr1 .
+> ```
 
 ### Tax: rates, documents, series
 
@@ -838,8 +1068,9 @@ name: a job makes them (above your bulk limit an approver passes it first) and *
 CSV (the link lasts 5 minutes; the file a week). Each code works for one order: the order made with it takes it, and
 a cancelled order frees it for another. "This code has been used" at the cart is that rule.
 
-When the panel is down, a superuser changes a coupon in the admin (Shop → Coupons); its codes are under Shop → Coupon
-codes, read-only.
+> [!CAUTION]
+> **If the panel is down,** a superuser changes a coupon in the admin (Shop → Coupons); its codes are under Shop →
+> Coupon codes, read-only.
 
 ### Offers
 
@@ -881,10 +1112,15 @@ SALES, ADMIN and the owners (`shop.change_order`) make one, send an open one aga
 a B2B invoice's link and records its ERPNext entry (below).
 
 A customer says the link was paid and the order still waits (the webhook was lost): open its payment (Finance →
-Payments, the order number) and "Ask Razorpay again". Without the panel:
-`dj shell -c "from shop import payments; from shop.models import Order; print(payments.reconcile(Order.objects.get(number='EL-2026-000123')))"`
-records the payment if the link was paid (`True`), `False` means nothing was paid, `None` that Razorpay could not be
-asked.
+Payments, the order number) and "Ask Razorpay again".
+
+> [!CAUTION]
+> **If the panel is down,** this records the payment if the link was paid (`True`); `False` means nothing was paid,
+> `None` that Razorpay could not be asked:
+>
+> ```sh
+> dj shell -c "from shop import payments; from shop.models import Order; print(payments.reconcile(Order.objects.get(number='EL-2026-000123')))"
+> ```
 
 **A B2B invoice of ERPNext paid by link** (a school's or a bookshop's invoice, made in ERPNext and copied to the
 platform while `ERP_PULL_B2B` is on): Finance → Payment links → Make a link → "A B2B invoice in ERPNext" and its name
@@ -1024,9 +1260,10 @@ the environment: their cards are read-only ("Secrets and key rotation" says how 
 payments came in: look at the webhook in Razorpay's dashboard, which disables one after 24 hours of failures, and enable it
 again; the item is done when one arrives). "The inbox", below, lists them all.
 
-**If the panel is down,** the Django admin does it: Admin → Integrations → Integration accounts has the actions "Replace
-the credentials", "Test the connection", "New webhook token", "Hold the circuit open" and "Reset the circuit"; Integration
-failures has "Replay" and "Discard"; Inbound events has "Process again".
+> [!CAUTION]
+> **If the panel is down,** the Django admin does it: Admin → Integrations → Integration accounts has the actions
+> "Replace the credentials", "Test the connection", "New webhook token", "Hold the circuit open" and "Reset the
+> circuit"; Integration failures has "Replay" and "Discard"; Inbound events has "Process again".
 
 ## Couriers and integrations
 
@@ -1067,8 +1304,11 @@ pickup nickname Shiprocket does not know, a product without weight, a COD total 
 in Shiprocket's panel"). A webhook that could not be processed is an event marked failed (the same page → Events
 received, an inbox item `failed_event`): "Process again" once the cause is fixed. Refused events (a wrong or missing
 token) are kept without their body: many from one address are someone else's; many in a row after a token change mean
-Shiprocket still sends the old one (paste the new one, "Secrets and key rotation"). If the panel is down: Admin →
-Integrations → Integration failures ("Replay", "Discard") and Inbound events ("Process again").
+Shiprocket still sends the old one (paste the new one, "Secrets and key rotation").
+
+> [!CAUTION]
+> **If the panel is down:** Admin → Integrations → Integration failures ("Replay", "Discard") and Inbound events
+> ("Process again").
 
 **No webhook for a day while parcels move:** check Shiprocket's webhook settings (enabled, the URL, the token); the
 poll every two hours keeps the parcels up to date meanwhile (`dj shipping_poll_tracking` at once).
@@ -1158,8 +1398,12 @@ your limit FINANCE approves). Exchanges are not built: refund, and the customer 
 - Stock is taken when an online order is paid (cash on delivery: when it is placed) and given back when the order is
   cancelled. Books sold outside the site, or counted: the panel's Catalogue → the product → Stock → *Set the copies*,
   with the reason (audited); it is refused when orders changed the count since the page was read (read it again). The
-  panel's Stock lists the copies, the fewest first, with what orders hold and what waits for payment. The admin's
-  "Set stock" is the fallback. A bundle's books are fixed once orders have taken its copies: make a new bundle.
+  panel's Stock lists the copies, the fewest first, with what orders hold and what waits for payment. A bundle's books
+  are fixed once orders have taken its copies: make a new bundle.
+
+> [!CAUTION]
+> **If the panel is down:** the admin's "Set stock".
+
 - A product out of stock shows "Email me when it is back" (signed-in accounts only; a visitor is asked to log in; the
   email goes to the account's address). Each address gets one email, within the hour after copies are back (the stock
   raised in Products, or a cancelled order's copies returned), and is then forgotten; alerts never sent are deleted
@@ -1189,8 +1433,12 @@ DEPLOYMENT.md section 18 has the set-up. The shell recipes below are the fallbac
 5. **Panel → Course → the subject → the chapter → its revision → "Submit for review"**: the subject's reviewers find
    it in their inbox. A REVIEWER who did not submit it approves it, sends it back with what to change, or publishes
    it now (it needs a ready clip) or at a date and time (India's): a task every 5 minutes publishes it then. The app
-   shows it at once; "Back to draft" hides it again, and students keep their progress. (Fallback: the admin's
-   Revisions → select → "Publish the selected revisions", with `staff.publish_course`.)
+   shows it at once; "Back to draft" hides it again, and students keep their progress.
+
+> [!CAUTION]
+> **If the panel is down:** the admin's Revisions → select → "Publish the selected revisions", with
+> `staff.publish_course`.
+
 6. Order of clips, cards and quiz items: in the panel's outline, drag a row by its handle or use its "Move to…"
    (first, last, before or after another). A row deleted there goes into the bin for 30 days (Course → Bin →
    Restore); a clip's video goes for good with the nightly purge after that.
@@ -1209,16 +1457,26 @@ once with "Not a video we take". If the upload itself fails ("The upload was cut
 (403)"), the bucket's CORS rule lacks PUT for the site's origin (DEPLOYMENT.md section 17) or the 15-minute link ran
 out: choose the video again. After a new upload the clip is processed again by itself. To retry without a new upload
 (the bucket or the worker was down): **panel → Course → the clip → Retry**, beside the reason in words (shown for a
-failed clip and for one processing for over an hour). The fallback, for many clips at once or without the panel:
+failed clip and for one processing for over an hour).
 
-```sh
-docker compose exec web python manage.py reprocess_clips            # the failed ones, and those "processing" for over an hour
-docker compose exec web python manage.py reprocess_clips 12 15      # these clips
-docker compose exec web python manage.py reprocess_clips --all      # every clip (after changing LEARN_PUBLIC_VIDEO)
-```
+> [!CAUTION]
+> **If the panel is down,** or for many clips at once: the failed ones and those "processing" for over an hour, these
+> clips, or every clip (after changing `LEARN_PUBLIC_VIDEO`); or Clips → select → "Process the video again".
+>
+> ```sh
+> docker compose exec web python manage.py reprocess_clips
+> ```
+>
+> ```sh
+> docker compose exec web python manage.py reprocess_clips 12 15
+> ```
+>
+> ```sh
+> docker compose exec web python manage.py reprocess_clips --all
+> ```
 
-or Clips → select → "Process the video again". Clips stuck in "processing" mean the queue lost the task (Redis or the
-worker restarted): `docker compose ps media-worker`, then the first command.
+Clips stuck in "processing" mean the queue lost the task (Redis or the worker restarted): `docker compose ps
+media-worker`, then the first command.
 
 ### Printing book codes
 
@@ -1247,13 +1505,19 @@ code stops working at once, the codes already redeemed keep what they opened, th
 owners are told. One code alone (a photo of it posted online): look it up, then **Void this code**.
 
 Set `LEARN_CODE_SECRET` before the first batch and never change it (DEPLOYMENT.md section 18; nothing is made without
-it and a server does not start without it). The fallback without the panel (the same digests, and the print run's row
-for the panel, where it is then marked dispatched):
+it and a server does not start without it).
 
-```sh
-docker compose exec web python manage.py make_book_codes PHY 5000 --batch PHY-2027-1 --out /app/media/PHY-2027-1.csv
-docker compose cp web:/app/media/PHY-2027-1.csv . && docker compose exec web rm /app/media/PHY-2027-1.csv
-```
+> [!CAUTION]
+> **If the panel is down:** the same digests, and the print run's row for the panel, where it is then marked
+> dispatched; the file comes out of the container and is deleted there:
+>
+> ```sh
+> docker compose exec web python manage.py make_book_codes PHY 5000 --batch PHY-2027-1 --out /app/media/PHY-2027-1.csv
+> ```
+>
+> ```sh
+> docker compose cp web:/app/media/PHY-2027-1.csv . && docker compose exec web rm /app/media/PHY-2027-1.csv
+> ```
 
 ### Granting access
 
@@ -1264,7 +1528,10 @@ then Apply (above your bulk limit an approver is asked). Choose rows in the list
 last day) or revoke them (access ends today); one at a time it happens at once, many as a job with a dry run.
 Revoking never touches a student's progress: access given again picks up where it stopped. The app shows the subject
 open at once. Purchases of a digital product in the shop grant themselves when paid; an entitlement is never needed
-for the free previews. (Fallback: the admin's Entitlements → Add.)
+for the free previews.
+
+> [!CAUTION]
+> **If the panel is down:** the admin's Entitlements → Add.
 
 ### A lost code, or "my code says used already"
 
@@ -1296,8 +1563,13 @@ the permissions named; the shell recipes stay for when the panel cannot be used.
 3. A "Not matched" solution label is a heading the parser could not place: fix it in the books repository, pull, run
    again.
 
-Break-glass (the panel down): `docker compose exec web python manage.py import_papers --subject physics --dry-run`,
-then without `--dry-run` (DEPLOYMENT.md section 11). The command and the panel share the same code.
+> [!CAUTION]
+> **If the panel is down:** a dry run, then the same without `--dry-run` (DEPLOYMENT.md section 11). The command and
+> the panel share the same code.
+>
+> ```sh
+> docker compose exec web python manage.py import_papers --subject physics --dry-run
+> ```
 
 ### A reader reported a wrong solution
 
@@ -1345,8 +1617,13 @@ never name a student: what they say about learners is about groups of 5 or more 
 1. Sentry reports it (after one retry ten minutes later). For the forecast, the backtest and the print runs the admin
    says so too: Insights → Forecast runs → status "failed", the error in the notes; the rows of the night before stay
    the newest, so the panel shows them with their older `data_as_of`.
-2. Run it again by hand and read the line it prints: `dj insights_run forecast_demand` (or the job's name; `all` runs
-   them in the night's order). "nothing to work on" with a reason is not a failure: the exam seasons are missing
+2. Run it again by hand and read the line it prints (or the job's name; `all` runs them in the night's order):
+
+   ```sh
+   dj insights_run forecast_demand
+   ```
+
+   "nothing to work on" with a reason is not a failure: the exam seasons are missing
    (enter the next season's and the last one's: Insights → Exam seasons), a line sold nothing last season, or a title
    has no print cost.
 3. A job that fails again on the same data: copy the error into an issue with the run's id. The jobs only read the
@@ -1396,8 +1673,14 @@ captured, a refund on the day it was processed, a day is a day in India, a test-
 
 ### The monthly review, in season
 
-`dj insights_review` prints each title's last four complete weeks: the forecast made before each week, the copies
-sold and the seasonal naive, with both errors (WAPE). Then insights/README.md, "The monthly review": the backtest's
+This prints each title's last four complete weeks: the forecast made before each week, the copies sold and the
+seasonal naive, with both errors (WAPE):
+
+```sh
+dj insights_review
+```
+
+Then insights/README.md, "The monthly review": the backtest's
 summary, the print runs to act on, the fraud signals still open, and a note in the season of what changed.
 
 ### A new season
@@ -1421,9 +1704,17 @@ the panel: System → ERPNext sync (`/system/sync/`; `erp.view_sync`: ADMIN, the
 address, as the System entry is not in its sidebar) shows the outbox by flow, its dead letters, ERPNext's calls back in the last 7 days, each night's reconciliation with its
 differences, and a search for a document by reference, ERPNext name or id; Settings → Connections → ERPNext (the
 "Connections" section, above) has the account, its circuit, the webhook and the dead letters to run again or give up;
-Settings → "The ERPNext sync" holds each flow's switch. Without the panel: `dj erp_status`, or Admin → ERPNext sync
-(the outbox, the links, the cursors, the stock snapshots, the B2B mirrors and the reconciliation runs) and Admin →
-Integrations. What waits for a person is in the staff inbox: a document ERPNext refused for good (`sync_failed`, for
+Settings → "The ERPNext sync" holds each flow's switch.
+
+> [!CAUTION]
+> **If the panel is down:** the sync's state from the shell, or Admin → ERPNext sync (the outbox, the links, the
+> cursors, the stock snapshots, the B2B mirrors and the reconciliation runs) and Admin → Integrations.
+>
+> ```sh
+> dj erp_status
+> ```
+
+What waits for a person is in the staff inbox: a document ERPNext refused for good (`sync_failed`, for
 those with `erp.replay_sync`: ADMIN, the owners) and a night's differences (`reconciliation`, for those with
 `erp.resolve_difference`: FINANCE too).
 
@@ -1484,7 +1775,11 @@ The email to `ERP_ALERT_EMAILS` and the inbox item list them (Admin → ERPNext 
 
 - `document not in ERPNext invoice:EL/…: outbox: dead here` (or `pending`): the dead letter above, or the relay
   behind (ERPNext down overnight); `outbox: no row`: the flow was off when it was issued:
-  `dj erp_initial_load --apply --invoices-from <that day>`.
+
+  ```sh
+  dj erp_initial_load --apply --invoices-from <that day>
+  ```
+
 - totals (`invoices total`, `payments and refunds receive razorpay amount` …) with nothing missing: a document changed
   or deleted in ERPNext by hand: find it (its number, the payment's reference), put it back as the platform has it.
 - `invoices tax_total` or `taxable_value` beyond 0.01 a taxed invoice: a GST rate differs between the two.
@@ -1514,19 +1809,42 @@ Panel: Settings → "The ERPNext sync" lists each switch with the environment's 
 and the owners (`staff.manage_flags`), event `flag.changed`, and the switch's history is on the same page (or
 `PUT /api/v1/staff/flags/ERP_SYNC_INVOICES/` `{"value": false, "reason": "…"}`; or the environment's
 `ERP_SYNC_INVOICES=0` and a restart). Its new events are not written and its waiting rows hold their orders; on again
-("Back to the environment's value", which is `null`), they go, and `dj erp_initial_load --apply --invoices-from <the day it
-went off>` writes what was missed (what the outbox has is never written twice). `ERP_ENABLED` off stops only the
-talking: rows keep being written and wait. `ERP_STOCK_PROJECTION` off gives the copies for sale back to the
-platform's own number (as the last projection left it): count the shelf.
+("Back to the environment's value", which is `null`), they go, and this writes what was missed (what the outbox has is
+never written twice):
+
+```sh
+dj erp_initial_load --apply --invoices-from <the day it went off>
+```
+
+`ERP_ENABLED` off stops only the talking: rows keep being written and wait. `ERP_STOCK_PROJECTION` off gives the
+copies for sale back to the platform's own number (as the last projection left it): count the shelf.
 
 ### ERPNext restored from a backup
 
-What the platform sent since the backup is sent again: `dj erp_replay --sent-since <the backup's time, e.g.
-2026-10-09T06:00>` puts every row ERPNext answered since then back in the outbox, in order and with its keys (ERPNext
-answers duplicates for what the backup kept; an audit event, `erp.resend`). The initial load would not do it: it
-writes only what the outbox lacks. Then `dj erp_pull --restart` (the B2B mirrors and stock read again) and
-`dj erp_reconcile --date <each day since>`. What only ERPNext held since the backup (purchases, journals, receipts and
-counts, B2B documents) is entered again by hand from its paper trail.
+What the platform sent since the backup is sent again:
+
+1. Every row ERPNext answered since the backup's time (e.g. `2026-10-09T06:00`) back in the outbox, in order and with
+   its keys (ERPNext answers duplicates for what the backup kept; an audit event, `erp.resend`). The initial load would
+   not do it: it writes only what the outbox lacks.
+
+   ```sh
+   dj erp_replay --sent-since <the backup's time>
+   ```
+
+2. The B2B mirrors and stock read again:
+
+   ```sh
+   dj erp_pull --restart
+   ```
+
+3. Each day since reconciled:
+
+   ```sh
+   dj erp_reconcile --date <each day since>
+   ```
+
+What only ERPNext held since the backup (purchases, journals, receipts and counts, B2B documents) is entered again by
+hand from its paper trail.
 
 ## Support
 
@@ -1594,8 +1912,14 @@ acknowledged then.
 
 Panel → Support → Grievance register (ADMIN, the owners, AUDITOR): the days received, then the file once the job is
 done (a dated CSV: numbers, categories, sources, NCH dockets, the times taken and whether in time; no personal data).
-Above your export limit it waits for an approver. Break-glass fallback, on the server:
-`dj grievance_register --from 2026-10-01 --until 2026-10-31 > register.csv`.
+Above your export limit it waits for an approver.
+
+> [!CAUTION]
+> **If the panel is down,** on the server:
+>
+> ```sh
+> dj grievance_register --from 2026-10-01 --until 2026-10-31 > register.csv
+> ```
 
 ### Switches
 
@@ -1624,9 +1948,9 @@ System → Backups (`/system/backups/`) shows the newest backup of each source i
 SHA-256 in its `.sha256` sidecar (compare it with `sha256sum` of the file you restore), how long they are kept
 (`BACKUP_KEEP_DAYS`), and "Last proven to work on <day>, by restoring <engine>", or "Never proven by a restore". A source
 whose newest backup is older than `BACKUP_STALE_HOURS` (26) opens the inbox item `backup_stale` (hourly check, the owners
-alerted once) and the page says "Older than N hours": look at the backup job's logs (`docker compose logs backup`, or
-the CronJob's last run) and run it. After each restore drill ("Backups and restore", above) press "Record a restore
-drill": the day, what was restored (the platform's PostgreSQL, ERPNext's MariaDB and files, or both), the backup
+alerted once) and the page says "Older than N hours": look at the backup job's logs (`/srv/examleaf/backup.log`, which
+the host's crontab entry of DEPLOYMENT.md section 9 writes, or the CronJob's last run) and run it. After each restore
+drill ("Backups and restore", above) press "Record a restore drill": the day, what was restored (the platform's PostgreSQL, ERPNext's MariaDB and files, or both), the backup
 restored, the result (It worked, In part, It failed), the minutes it took and notes; the audit event is
 `backup.drill_recorded`. A drill each quarter, both engines, and the first before the cut-over rehearsal (plan 9.6).
 
@@ -1673,20 +1997,29 @@ A new log is a new row in `examleaf/logs.py`.
 
 ## Incidents
 
-- **/health/ returns 500:** the JSON (ask for it with
-  `curl -H 'Accept: application/json' -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/`;
-  the results are up to 20 seconds old) names the failing part: database (`docker compose logs db`), cache (Redis),
-  storage (disk full? `df -h`), Celery (worker; "No worker for Celery task queue celery" while
-  `docker compose ps worker` shows it running means that the media worker answered the ping first: ask again). With
-  Redis down the site keeps working without its cache (rate limits are off meanwhile; log-in, sign-up and password reset
-  work) and sends emails itself; the shop's own limits refuse instead (Find your order, checkout, place order, coupon
-  codes, reviews, back-in-stock alerts and school quotations answer "Too many tries" (coupon codes: "Too many codes
-  tried: please try again in an hour.") until the cache Redis is back; online payments already started still complete).
-  The cache is `redis-cache` and the queue `redis`: `docker compose up -d redis redis-cache`, then the daily clean-up
-  queues again the invoices, credit notes and refunds that could not be queued. A web container that will not start
-  prints the failing check (`docker compose logs web`): the database or a migration (its readiness check needs nothing
-  else; the site starts without its cache). A cache Redis that stops answering (rather than refusing) costs each web
-  process one second, then five seconds of misses at once: a warning "every cache call a miss for 5 seconds" in the logs.
+- **/health/ returns 500:** the JSON (the results are up to 20 seconds old) names the failing part:
+
+  ```sh
+  curl -H 'Accept: application/json' -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/
+  ```
+
+  The parts: database (`docker compose logs db`), cache (Redis), storage (disk full? `df -h`), Celery (worker; "No
+  worker for Celery task queue celery" while `docker compose ps worker` shows it running means that the media worker
+  answered the ping first: ask again). With Redis down the site keeps working without its cache (rate limits are off
+  meanwhile; log-in, sign-up and password reset work) and sends emails itself; the shop's own limits refuse instead
+  (Find your order, checkout, place order, coupon codes, reviews, back-in-stock alerts and school quotations answer
+  "Too many tries" (coupon codes: "Too many codes tried: please try again in an hour.") until the cache Redis is back;
+  online payments already started still complete). The cache is `redis-cache` and the queue `redis`; start them again,
+  then the daily clean-up queues again the invoices, credit notes and refunds that could not be queued:
+
+  ```sh
+  docker compose up -d redis redis-cache
+  ```
+
+  A web container that will not start prints the failing check (`docker compose logs web`): the database or a
+  migration (its readiness check needs nothing else; the site starts without its cache). A cache Redis that stops
+  answering (rather than refusing) costs each web process one second, then five seconds of misses at once: a warning
+  "every cache call a miss for 5 seconds" in the logs.
 - **/health/web/ returns 500** (the chart's readiness: the pod gets no traffic): the database does not answer, or a
   migration of this code is not applied ("N migrations not applied": `dj migrate`; on Kubernetes the init container
   runs it, so look at its log). It never fails for the cache or the buckets.
@@ -1709,18 +2042,27 @@ A new log is a new row in `examleaf/logs.py`.
 - **A panel job stays "running"** long after its start: past its soft limit (25 minutes) a job ends failed with the
   reason; one whose worker was lost (a pod killed, out of memory) stays running. "Cancel the job" (My account → Your
   background jobs; only whoever started it) asks a live worker to stop at its next row, so it does nothing for a lost
-  one. Mark it failed
-  by hand:
-  `dj shell -c "from staff.models import Job; Job.objects.filter(pk=ID, state='running').update(state='failed')"`, and
-  start it again from the panel.
+  one. Mark it failed by hand, and start it again from the panel:
+
+  ```sh
+  dj shell -c "from staff.models import Job; Job.objects.filter(pk=ID, state='running').update(state='failed')"
+  ```
+
 - **Disk full:** `docker system df`; old images (`docker image prune`), backups beyond `BACKUP_KEEP_DAYS`; logs are
   rotated already; the clips' videos are in the `media` volume unless the buckets are set.
 - **Certificate problems:** `docker compose logs caddy`; DNS must point at the server and ports 80/443 be open.
 - **Someone locked out by django-axes** (10 failed log-ins): it lifts after 15 minutes. A customer's, at once, in the
   panel: Customers → the customer (the list shows "Locked") → Actions → "Unlock sign-in" (`staff.unlock_user`: SUPPORT,
   ADMIN, the owners; event `user.unlocked` with the attempts cleared). A member of staff's lock-out has no panel
-  action (the Customers pages show customers only): wait the 15 minutes, or run `dj axes_reset_username x@example.com`,
-  which also does a customer's with the panel down. The owners are emailed when a staff account is locked.
+  action (the Customers pages show customers only): wait the 15 minutes, or run the command below. The owners are
+  emailed when a staff account is locked.
+
+> [!CAUTION]
+> **A member of staff's lock-out, or a customer's with the panel down:**
+>
+> ```sh
+> dj axes_reset_username x@example.com
+> ```
 
 ## The inbox: what each item asks of you
 
@@ -1731,6 +2073,9 @@ are Only mine, Show (open, snoozed, done) and Kind. An item's title names a numb
 themselves when the cause goes (a circuit closes, a settlement matches, a backup is recent again); the rest wait for a
 person to mark them done. In this table "the owners" are OWNER and "the auditor" reads only what `staff.view_system`
 shows.
+
+<details>
+<summary>Every kind of inbox item, who sees it and what it asks (26 rows)</summary>
 
 | Kind | Who sees it | What it asks |
 |---|---|---|
@@ -1759,6 +2104,8 @@ shows.
 | `template_idle`, `template_certify` | ADMIN, the owners | A message template unused for 75 days (DLT deactivates one at 90), or due for its yearly self-certification: Settings → Message templates |
 | `backup_stale`, `dependencies_stale`, `scripts_changed` | ADMIN, the owners, the auditor | No recent backup; the dependency report is old; the checkout's or the sign-in's scripts changed: "The system pages" |
 
+</details>
+
 ## Reading the logs
 
 Every line is a JSON object on stdout (`docker compose logs -f web worker`, or the cluster's log store): `time`,
@@ -1770,17 +2117,46 @@ own `task_id` and `task_name`.
   `/api/<version>/orders/t/<slug:token>/`: an order link's token or a consent link never reaches the logs), `status`,
   `duration_ms` and `user_id` (the account's id, null when signed out; never an email address). Everything else that
   request logged has the same `request_id`:
-  `docker compose logs web | grep 4c6a4b317a694c15aed3a359fa453e1d`.
-- **Slow requests:** the same line at WARNING with "(slow)" past `SLOW_REQUEST_SECONDS` (2 s):
-  `docker compose logs web | grep '"level": "WARNING", "logger": "examleaf.requests"'`. A slow payment page is
+
+  ```sh
+  docker compose logs web | grep 4c6a4b317a694c15aed3a359fa453e1d
+  ```
+
+- **Slow requests:** the same line at WARNING with "(slow)" past `SLOW_REQUEST_SECONDS` (2 s). A slow payment page is
   Razorpay (`shop.payments` "not created"); a slow API page with "statement timeout" is a query.
-- **A task:** `docker compose logs worker | grep '"task_name": "shop.tasks.refund_payment"'`; Celery's own lines say
-  `received`, `succeeded in …s`, `retry: Retry in …s` or `raised …` for each task id.
+
+  ```sh
+  docker compose logs web | grep '"level": "WARNING", "logger": "examleaf.requests"'
+  ```
+
+- **A task:** Celery's own lines say `received`, `succeeded in …s`, `retry: Retry in …s` or `raised …` for each task
+  id.
+
+  ```sh
+  docker compose logs worker | grep '"task_name": "shop.tasks.refund_payment"'
+  ```
+
 - **gunicorn's processes:** `gunicorn.error` lines: "Booting worker", "Autorestarting worker after current request"
   (the recycling after `GUNICORN_MAX_REQUESTS`: normal), "Worker exiting", and the ones that matter: "WORKER TIMEOUT"
   and "worker … timed out: the stacks of its threads follow" (a process stuck as a whole: the stacks after it show
   where), "was sent SIGKILL! Perhaps out of memory?". Count them a day:
-  `docker compose logs --since 24h web | grep -c 'WORKER TIMEOUT\|Perhaps out of memory'`.
+
+  ```sh
+  docker compose logs --since 24h web | grep -c 'WORKER TIMEOUT\|Perhaps out of memory'
+  ```
+
 - **The cache Redis silent:** `examleaf.cache` "every cache call a miss for 5 seconds", one a pause per process.
 - **The providers' bulkhead:** "Half of this process's threads are waiting on providers already" in a Razorpay or
   MSG91 error: the provider is slow, and calls beyond the share are answered at once (Incidents).
+
+## Related documents
+
+- [The guides of the roles](../docs/guides/roles/README.md): who may use each page, a page for each role
+- [DEPLOYMENT.md](DEPLOYMENT.md): the first deployment, every setting, and what each upgrade adds
+- [README.md](README.md): the backend, its parts and every periodic task
+- [RESILIENCE.md](RESILIENCE.md): the timeouts and limits behind "Incidents" and "Reading the logs"
+- [The console's README](../examleaf-admin/README.md): the panel these pages are part of
+- [staff/README.md](staff/README.md): the panel's backend: approvals, the audit log, the inbox, legal and privacy
+- [erp/README.md](erp/README.md): the ERPNext sync, its flows and its operations
+- [deploy/kubernetes/README.md](../deploy/kubernetes/README.md): the same work on the cluster, backups and restore
+  included

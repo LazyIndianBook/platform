@@ -1,5 +1,35 @@
 # ExamLeaf web: security review of phases 5 and 6
 
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Status: archive](../docs/assets/badges/status-archive.svg)
+![For developers](../docs/assets/badges/audience-developers.svg)
+
+The record of the second security review of the Django backend, made on 8 October 2026 over what phases 5 A, 5 B, 6 D
+and 6 E added: sign-in and communications, storage and pictures, the revision course and the store. It is an archive:
+every finding stays as it was written, with the status its fix was given. Developers read it before changing what a
+finding touched; `SECURITY_REVIEW.md` came before it and is not repeated here.
+
+> [!NOTE]
+> **At a glance**
+> - 28 findings, none of them Critical: 1 High, 5 Medium, 12 Low and 10 Informational.
+> - H1, a 10-minute gunicorn timeout on sync workers behind a streaming proxy, and every Medium were fixed.
+> - 21 findings record a fix and 5 a fix in part; I6 is left to the founder and I10 accepted at the course's price.
+> - What held up: the codes, passkeys and Google sign-in, the consent token, Payment Links, the course's access checks.
+> - A read-only review of the code against OWASP ASVS 4.0 level 2; nothing was run against a server.
+
+## Contents
+
+- [Summary](#summary): scope and method, the findings by severity, the top three
+- [High](#high): H1
+- [Medium](#medium): M1 to M5
+- [Low](#low): L1 to L12
+- [Informational](#informational): I1 to I10
+- [Checked and sound (phases 5 and 6)](#checked-and-sound-phases-5-and-6): what the review found right
+- [Suggested order](#suggested-order): the order the fixes were proposed in
+- [Related documents](#related-documents)
+
+## Summary
+
 **Date:** 8 October 2026. **Scope:** what phases 5 A, 5 B, 6 D and 6 E added to `examleaf-web/` (commit 4e30e59, plus
 the working tree's `ops/tasks.py`, which now builds an HTML part for every text email), with
 `.github/workflows/ci.yml` and `.github/dependabot.yml`. Templates only for what the Python feeds them.
@@ -10,15 +40,24 @@ firebase-admin 7.7.0, DRF 3.18.3. The vendored hls.js was compared with the npm 
 Nothing was run against a server and no other project file was changed. The findings of `SECURITY_REVIEW.md` (all fixed or
 decided there) and its "Checked and sound" list are not repeated.
 
-## Summary
+| Severity | Count | Findings | Status recorded in this review |
+|---|---|---|---|
+| Critical | 0 | none | |
+| High | 1 | H1 | fixed |
+| Medium | 5 | M1 to M5 | all fixed |
+| Low | 12 | L1 to L12 | ten fixed (L1 before this pass); L11 and L12 fixed in part |
+| Informational | 10 | I1 to I10 | five fixed; I1, I7 and I9 fixed in part; I6 open for the founder; I10 open, accepted at the course's price |
 
-| Severity      | Count |
-|---------------|-------|
-| Critical      | 0     |
-| High          | 1     |
-| Medium        | 5     |
-| Low           | 12    |
-| Informational | 10    |
+```mermaid
+pie showData
+    title Findings by severity
+    "High" : 1
+    "Medium" : 5
+    "Low" : 12
+    "Informational" : 10
+```
+
+*The review's 28 findings by severity; it found no Critical one.*
 
 Top three:
 
@@ -816,3 +855,13 @@ Cloud Messaging API Admin" role only, and a key limited to the public bucket in 
 4. M4 before the first offer with a usage limit.
 5. M5 before the first video from outside.
 6. L1, L2 and L7 (a few lines each), then the other Low items.
+
+## Related documents
+
+- [SECURITY_REVIEW.md](SECURITY_REVIEW.md): the first review, phases 1 to 4, whose findings this one does not repeat
+- [Phase B's authorization review](../docs/security/phase-b-authorization-review.md): the panel's staff API and public endpoints
+- [RESILIENCE.md](RESILIENCE.md): the timeouts, locks and limits of the backend, gunicorn's among them
+- [DEPLOYMENT.md](DEPLOYMENT.md): sections 14 to 18, security, the accounts, sign-in, storage and the revision course
+- [RUNBOOK.md](RUNBOOK.md): SMS, phone numbers, passkeys and parental consent; the revision course
+- [CHANGELOG.md](CHANGELOG.md): what changed, by phase
+- [README.md](README.md): the backend as it is now

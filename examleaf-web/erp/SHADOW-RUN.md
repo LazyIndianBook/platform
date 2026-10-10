@@ -1,4 +1,57 @@
-# The sync in shadow mode against a real ERPNext: what was run and what it showed
+# The ERPNext shadow run
+
+![Component: ERPNext](../../docs/assets/badges/component-erpnext.svg)
+![Component: Django backend](../../docs/assets/badges/component-backend.svg)
+![Phase B: merged](../../docs/assets/badges/phase-b-merged.svg)
+![Status: archive](../../docs/assets/badges/status-archive.svg)
+
+The record of the platform's ERPNext sync run in shadow mode against a real ERPNext, the dev stack standing in for the
+staging site, on 10 October 2026: what was run, what it showed and what it changed. It is an archive of one run;
+whoever prepares the staging site's run or the cut-over reads it beside `README.md` "Shadow mode and the cut-over".
+
+> [!NOTE]
+> **At a glance**
+> - One run, 01:45 to 02:32 India time, every flow switched on through the panel; the stock projection tried once.
+> - 28 outbox rows: 27 sent (25 at their first try) and 1 discarded; 13 doorbells, each accepted in 13 to 36 ms.
+> - The clean day reconciled with 0 differences; GST 0.01 apart on each taxed document, within the tolerance.
+> - It found one gap in the contract (a second order under an invoice's number) and six smaller things: all changed.
+> - What the staging site needs beyond this run is section 12.
+
+## Contents
+
+- [Summary](#summary): what was tried, what it showed, what changed
+- [What ran, and where](#what-ran-and-where): the machine, the two sides, the round trip
+- [1. The stack and the platform](#1-the-stack-and-the-platform)
+- [2. The initial load](#2-the-initial-load)
+- [3. The mirrored documents](#3-the-mirrored-documents)
+- [4. Idempotency](#4-idempotency)
+- [5. The doorbells and the pull](#5-the-doorbells-and-the-pull)
+- [6. The planted difference](#6-the-planted-difference)
+- [7. Dead letters](#7-dead-letters)
+- [8. The rollback by flag](#8-the-rollback-by-flag)
+- [9. A clean day](#9-a-clean-day)
+- [10. What failed, and what changed](#10-what-failed-and-what-changed)
+- [11. The numbers](#11-the-numbers)
+- [12. What the staging site needs beyond this](#12-what-the-staging-site-needs-beyond-this)
+- [13. Not tested, and why](#13-not-tested-and-why)
+- [14. Running it again, and cleaning up](#14-running-it-again-and-cleaning-up)
+- [Related documents](#related-documents)
+
+## Summary
+
+| Tried | What it showed | What changed |
+|---|---|---|
+| [The initial load](#2-the-initial-load) | eleven rows (ten items and the bundle), each created in ERPNext, sent in 1.76 seconds | |
+| [Two orders through every flow](#3-the-mirrored-documents) | invoices, payments, a credit note, delivery notes and a COD settlement mirrored; a delivery note waited for the stock, its order's later rows behind it; 0 differences | |
+| [Idempotency](#4-idempotency) | an event sent twice and a resend after a restore were answered as duplicates, one document each | a second order under an invoice's number, answered as a duplicate, now gets 409 `conflict` (649646f, a2f78e1) |
+| [The doorbells and the pull](#5-the-doorbells-and-the-pull) | 13 doorbells, signed and accepted in 13 to 36 ms; the stock invariant held; the projection took the copies for sale from 18 to 23 | the pull skips the platform's own invoices, and B2B customers are mirrored Enabled or Disabled, not Draft (4290309) |
+| [A planted difference](#6-the-planted-difference) | found by the reconciliation, resolved through the panel, 0 differences again | |
+| [Dead letters](#7-dead-letters) | two permanent refusals dead at their first try; one replayed, one discarded, both audited | |
+| [The rollback by flag](#8-the-rollback-by-flag) | rows held while a flow was off went in order once it was on; the initial load filled the gap; no duplicates | |
+| [A clean day](#9-a-clean-day) | 0 differences; GST 0.01 apart on each taxed document, within the tolerance | the app's tests run on a site configured for a platform (a2f78e1) |
+| [The tooling](#10-what-failed-and-what-changed) | | `erp_status` in India's time (5b4fda6); `./dev.sh up` builds the image once (2bc7d4f); the documents put right |
+
+## What ran, and where
 
 One run on 10 October 2026, 01:45 to 02:32 India time, of this app against the ERPNext of `examleaf-erp/compose/`
 standing in for the staging site, with every flow switched on through the panel as `README.md` "Shadow mode and the
@@ -13,6 +66,41 @@ cut-over" says. Everything below is the platform's own code on `phase-b` (a28d5f
 | The platform | Python 3.14, Django 6.1.2, Celery 5.6.3; a SQLite file of its own; Django on `127.0.0.1:8123`, a Celery worker (2 processes) and beat on the Mac's Redis (database 11, the cache on 12: the other agents use 2, 9 and 14) |
 | Its settings | `ERP_MODE=erpnext`, `ERP_ENABLED=1`, `ERP_PULL_STOCK=1`, `ERP_PULL_B2B=1`, the five `ERP_SYNC_*` off until the panel switched them on, `ERP_STOCK_PROJECTION=0`; Razorpay's test keys (`rzp_test_…`), so its orders are numbered in the T series and are not test orders of a live site (`Order.is_test` is false: they sync) |
 | Money | no Razorpay account: a capture and a refund were recorded as their webhooks record them (`record_capture`, `refund_processed`) |
+
+Every flow below makes the same round trip, out through the outbox and back by a doorbell:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Shop as The shop's services
+    participant Outbox as The outbox (ErpOutbox)
+    participant Relay as erp.tasks.relay
+    participant ERP as ERPNext (examleaf_erp)
+    participant Hook as /api/hooks/erp-events/
+    participant Read as The stock read
+    Shop->>Outbox: a document and its row, in one transaction
+    Outbox-->>Relay: nudged at the commit, else beat's next minute
+    Relay->>Outbox: claim the aggregate's first row, with a 5-minute lease
+    Relay->>ERP: the row's call, with its idempotency key
+    alt created, or a key ERPNext holds already
+        ERP-->>Relay: its answer, duplicate true for a repeat
+        Relay->>Outbox: sent, and the ErpLink kept
+    else refused for now, as insufficient_stock
+        ERP-->>Relay: the refusal
+        Relay->>Outbox: tried again after its backoff, the aggregate's later rows waiting
+    else refused for good, as conflict or invalid_request
+        ERP-->>Relay: the refusal
+        Relay->>Outbox: dead at once, a dead letter for staff
+    end
+    Note over ERP: a Stock Entry is saved
+    ERP->>Hook: the doorbell, signed
+    Hook-->>ERP: 200 at once, the body kept once
+    Hook->>Read: one stock read queued 30 s ahead for a burst
+    Read->>ERP: get_stock
+    ERP-->>Read: the copies by batch, kept as snapshots
+```
+
+*A document's round trip as the run exercised it: its outbox row out, ERPNext's answer back, a doorbell for a change.*
 
 ## 1. The stack and the platform
 
@@ -317,3 +405,13 @@ run's two test runs on 10 October). Their MariaDB root password is the one of th
 whose `compose/.env` is gone: `new-site` needs it only to make a site, so a second site, or a clean one, needs
 `./dev.sh destroy` first. The platform's processes were stopped, its database deleted, its two Redis databases
 emptied and the sync user's key file (`compose/.sync-keys`) removed: `./dev.sh keys` makes a new one.
+
+## Related documents
+
+- [README.md](README.md): the erp app, its flows, shadow mode and the cut-over
+- [examleaf-erp/README.md](../../examleaf-erp/README.md): ERPNext's side, the dev stack and the examleaf_erp app
+- [examleaf-erp/API.md](../../examleaf-erp/API.md): the contract between the two, with its deviations
+- [DEPLOYMENT.md](../DEPLOYMENT.md): section 24, ERPNext on a deployment, and the switches in their order
+- [RUNBOOK.md](../RUNBOOK.md): "ERPNext", for a dead letter, the morning's differences and a restore
+- [deploy/kubernetes/README.md](../../deploy/kubernetes/README.md): ERPNext in the cluster, its site and its Jobs
+- [deploy/kubernetes/TESTING.md](../../deploy/kubernetes/TESTING.md): the chart's runs on kind
