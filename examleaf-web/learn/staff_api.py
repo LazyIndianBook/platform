@@ -1606,6 +1606,7 @@ class BatchViewSet(CourseView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         "dispatched": "learn.change_codebatch",
         "void": "staff.void_book_codes",
     }
+    throttle_scopes = {"create": "staff_export"}  # a print run's codes, made as a file: an export's rate
 
     def get_serializer_class(self):
         return CourseBatchDetailSerializer if self.action == "retrieve" else CourseBatchSerializer

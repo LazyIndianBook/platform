@@ -1767,7 +1767,7 @@ class DataRequestViewSet(
         "reveal": "staff.reveal_contact",
     }
     reauth = ("erase",)
-    throttle_scopes = {"reveal": "staff_reveal"}
+    throttle_scopes = {"reveal": "staff_reveal", "export": "staff_export"}
     http_method_names = ["get", "post", "patch"]
 
     def get_queryset(self):

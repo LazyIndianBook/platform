@@ -203,7 +203,7 @@ class TicketViewSet(
         "reveal": "staff_reveal",
         "refund": "staff_money",
         "cancel": "staff_money",
-        "book_code": "staff_search",
+        "book_code": "staff_code_lookup",  # the course's lookup's budget: book codes looked up, per member of staff
     }
 
     def get_queryset(self):

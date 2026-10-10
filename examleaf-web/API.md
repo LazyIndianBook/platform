@@ -3513,20 +3513,16 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 | MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
 | the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`, and `staff/jobs/` of an export) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| searches for a person (`GET staff/users/`, `staff/orders/`, `staff/support/tickets/`, `staff/finance/payments/`, `staff/course/entitlements/?q=`, `staff/course/learners/<id>/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<id>/reveal/`, `staff/data-requests/<id>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| exports (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, `staff/tax/gstr1/`, `staff/data-requests/<id>/export/`, a print run's codes `staff/course/codes/batches/`, `staff/finance/settlements/fetch/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`, `staff/catalogue/import/`) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| book codes looked up (`staff/course/codes/lookup/` and `staff/support/tickets/<number>/book-code/`: one budget) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
 | a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
 | the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; refunds, offline payments, staff orders, prices, coupons and offers; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
 | new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`), the support queue and its book-code lookups | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
 
