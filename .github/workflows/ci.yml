@@ -1,4 +1,6 @@
-# ExamLeaf web: lint and tests on PostgreSQL 17 for every push to main and every pull request that touches the site.
+# ExamLeaf web: lint and tests on PostgreSQL 17 for every push to main and every pull request that touches the site
+# (the backend, the website, the staff console). The dependency audit also runs every Monday and on demand, so that the
+# report the System page reads does not age for want of a push (DEPLOYMENT.md section 25).
 # The import tests and the Playwright backend read the test papers committed in examleaf-web/content/fixtures/papers/:
 # no checkout of the books repository (LazyIndianBook/Class-12-Assam) is needed.
 name: examleaf-web
@@ -6,15 +8,19 @@ name: examleaf-web
 on:
   push:
     branches: [main]
-    paths: ["examleaf-web/**", "examleaf-frontend/**", ".github/workflows/ci.yml"]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", ".github/workflows/ci.yml"]
   pull_request:
-    paths: ["examleaf-web/**", "examleaf-frontend/**", ".github/workflows/ci.yml"]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", "examleaf-admin/**", ".github/workflows/ci.yml"]
+  schedule:
+    - cron: "30 20 * * 0"  # Mondays 02:00 India time: before the Monday 09:00 check of the report's age
+  workflow_dispatch:  # Actions, "examleaf-web", Run workflow
 
 permissions:
   contents: read  # the jobs only read the code
 
 jobs:
   test:
+    if: github.event_name != 'schedule'  # (every job but the audit)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,6 +56,7 @@ jobs:
   docker-build:
     # The production image builds (system libraries, pinned requirements, collectstatic) and Django starts in it.
     # Nothing is pushed.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -84,9 +91,9 @@ jobs:
           pip-audit --format json --output ../pip-audit.json || true
           (cd ../examleaf-frontend && npm audit --omit=dev --json > ../npm-audit-frontend.json) || true
           (cd ../examleaf-admin && npm audit --omit=dev --json > ../npm-audit-admin.json) || true
-      - name: The dependency report
+      - name: The dependency report, strict (an audit that did not run makes no artifact, not a clean one)
         run: >
-          python scripts/dependency_report.py --pip ../pip-audit.json --npm frontend=../npm-audit-frontend.json
+          python scripts/dependency_report.py --strict --pip ../pip-audit.json --npm frontend=../npm-audit-frontend.json
           --npm admin=../npm-audit-admin.json
           --version "next=$(node -p "require('../examleaf-admin/package.json').dependencies.next")"
           --commit "$GITHUB_SHA" --output ../dependency-report.json
@@ -102,6 +109,7 @@ jobs:
     # then the Playwright smoke tests against that build and a Django backend that scripts/e2e-backend.sh seeds from
     # examleaf-web (a fresh SQLite database: the test papers of content/fixtures/papers/, the shop's starting catalogue,
     # an open sample).
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -149,3 +157,27 @@ jobs:
             examleaf-frontend/playwright-report/
             /tmp/examleaf-e2e-django.log
           retention-days: 7
+
+  admin:
+    # The staff console (examleaf-admin/, the Admin Control Panel): lint and formatting, types and Vitest, the checks its
+    # README asks of every change. Its Playwright journeys (the mock, and the real backend) start next dev and Django
+    # together, and stay a local check (examleaf-admin/README.md "Tests"). Its npm audit is the dependency-audit job's.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examleaf-admin
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: examleaf-admin/package-lock.json
+      - run: npm ci
+      - name: Lint and formatting
+        run: npm run lint && npm run format:check
+      - name: Types
+        run: npm run typecheck
+      - name: Unit and component tests (Vitest)
+        run: npm test
