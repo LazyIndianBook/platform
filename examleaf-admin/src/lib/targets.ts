@@ -38,6 +38,13 @@ const PAGES: Record<string, (id: string) => string> = {
   "content.book": (id) => `/content/books/${id}/`,
   "content.paper": (id) => `/content/papers/${id}/`,
   "support.ticket": (id) => `/support/tickets/${id}/`,
+  // the course: a revision waiting for review, a clip that failed, an item, a print run (by its id: ~<id>), access
+  "learn.revision": (id) => `/course/revisions/${id}/`,
+  "learn.clip": (id) => `/course/clips/${id}/`,
+  "learn.quizitem": (id) => `/course/items/${id}/`,
+  "learn.codebatch": (id) => `/course/codes/~${id}/`,
+  "learn.entitlement": () => "/course/entitlements/",
+  "learn.chapter": () => "/course/",
   // a mention's inbox item names "ticket id:person id"; it opens the ticket
   "support.mention": (id) => `/support/tickets/${encodeURIComponent(decodeURIComponent(id).split(":")[0])}/`,
   // Finance: a payment, a settlement (or a day's fetch, named by its day: that day's settlements); a B2B invoice's link

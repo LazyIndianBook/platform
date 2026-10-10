@@ -2072,3 +2072,228 @@ export const startCatalogueJob = (kind: CatalogueJobKind, params: Record<string,
   send(undefined, (o) =>
     api.POST("/api/v1/staff/jobs/", { ...o, body: { kind, params, dry_run: false } }),
   ) as Promise<Job>;
+// ---- Course ----
+// examleaf-web's learn/staff_api.py (API.md "Course (staff)"): a subject's outline (chapters, revisions, clips, cards,
+// quiz items) with its moves, a revision's review and publish, the 30-day bin, the quiz bank, entitlements, the print
+// runs' book codes and the lookup, the codes report, one learner's page (logged). Bulk work is a staff job: the bank's
+// metadata (`item_metadata`) and entitlements (`entitlement.grant`, `.extend`, `.revoke`), a dry run first.
+
+export type CourseSubject = Schemas["CourseSubject"];
+export type CourseOutline = Schemas["CourseOutline"];
+export type CourseOutlineChapter = Schemas["CourseOutlineChapter"];
+export type CourseOutlineClip = Schemas["CourseOutlineClip"];
+export type CourseRevision = Schemas["CourseRevision"];
+export type CourseClip = Schemas["CourseClip"];
+export type CourseCard = Schemas["CourseCard"];
+export type CourseItem = Schemas["CourseItem"];
+export type CourseItemRow = Schemas["CourseItemRow"];
+export type CourseItemStats = Schemas["CourseItemStats"];
+export type CourseVersion = Schemas["CourseVersion"];
+export type CourseBinRow = Schemas["CourseBinRow"];
+export type CourseEntitlement = Schemas["CourseEntitlement"];
+export type CourseEntitlementDetail = Schemas["CourseEntitlementDetail"];
+export type CourseBatch = Schemas["CourseBatch"];
+export type CourseBatchDetail = Schemas["CourseBatchDetail"];
+export type CourseCodeLookup = Schemas["CourseCodeLookup"];
+export type CourseReport = Schemas["CourseReport"];
+export type CourseLearner = Schemas["CourseLearner"];
+/** The bin's and the moves' kinds of row, as the paths name them. */
+export type CourseRowKind = Schemas["CourseRowKindEnum"];
+export type CourseMove = Schemas["CourseMoveEnum"];
+export type CourseTransition = Schemas["CourseTransitionEnum"];
+/** The bulk actions of the course (the approvals' actions a bulk job names). */
+export type CourseBulkAction = "item_metadata" | "entitlement.grant" | "entitlement.extend" | "entitlement.revoke";
+
+const rowPath = (id: number) => ({ params: { path: { id } } });
+
+export const listCourseSubjects = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/subjects/", o));
+export const getCourseOutline = (subject: number, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/course/subjects/{subject}/outline/", { ...o, params: { path: { subject } } }),
+  );
+export const changeChapter = (id: number, body: Schemas["PatchedCourseChapterRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/course/chapters/{id}/", { ...o, ...rowPath(id), body }));
+
+export const getRevision = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/revisions/{id}/", { ...o, ...rowPath(id) }));
+export const changeRevision = (id: number, body: Schemas["PatchedCourseRevisionRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/course/revisions/{id}/", { ...o, ...rowPath(id), body }));
+/** One move of a revision's review (its `transitions` say which the reader may make now). */
+export function moveRevision(id: number, move: CourseTransition, input: { comment?: string; publishAt?: string }) {
+  switch (move) {
+    case "submit":
+      return send(undefined, (o) => api.POST("/api/v1/staff/course/revisions/{id}/submit/", { ...o, ...rowPath(id) }));
+    case "approve":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/course/revisions/{id}/approve/", {
+          ...o,
+          ...rowPath(id),
+          body: { comment: input.comment ?? "" },
+        }),
+      );
+    case "needs_changes":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/course/revisions/{id}/needs-changes/", {
+          ...o,
+          ...rowPath(id),
+          body: { comment: input.comment ?? "" },
+        }),
+      );
+    case "publish":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/course/revisions/{id}/publish/", {
+          ...o,
+          ...rowPath(id),
+          body: { publish_at: input.publishAt || null },
+        }),
+      );
+    case "unpublish":
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/course/revisions/{id}/unpublish/", { ...o, ...rowPath(id) }),
+      );
+  }
+}
+
+export const getClip = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/clips/{id}/", { ...o, ...rowPath(id) }));
+export const changeClip = (id: number, body: Schemas["PatchedCourseClipRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/course/clips/{id}/", { ...o, ...rowPath(id), body }));
+/** Its video processed again: a failed clip, or one stuck in processing. */
+export const retryClip = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/clips/{id}/retry/", { ...o, ...rowPath(id) }));
+export const getCard = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/cards/{id}/", { ...o, ...rowPath(id) }));
+export const changeCard = (id: number, body: Schemas["PatchedCourseCardRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/course/cards/{id}/", { ...o, ...rowPath(id), body }));
+
+/** A clip, card or quiz item moved first, last, or before or after a sibling (the API numbers them again). */
+export function moveRow(kind: CourseRowKind, id: number, to: CourseMove, target?: number | null) {
+  const body = { to, target: target ?? null };
+  if (kind === "clips")
+    return send(undefined, (o) => api.POST("/api/v1/staff/course/clips/{id}/move/", { ...o, ...rowPath(id), body }));
+  if (kind === "cards")
+    return send(undefined, (o) => api.POST("/api/v1/staff/course/cards/{id}/move/", { ...o, ...rowPath(id), body }));
+  return send(undefined, (o) => api.POST("/api/v1/staff/course/items/{id}/move/", { ...o, ...rowPath(id), body }));
+}
+/** Into the bin for 30 days (a clip keeps its files): the bin's row, with `bin_until`. */
+export function deleteRow(kind: CourseRowKind, id: number) {
+  if (kind === "clips")
+    return send(undefined, (o) => api.DELETE("/api/v1/staff/course/clips/{id}/", { ...o, ...rowPath(id) }));
+  if (kind === "cards")
+    return send(undefined, (o) => api.DELETE("/api/v1/staff/course/cards/{id}/", { ...o, ...rowPath(id) }));
+  return send(undefined, (o) => api.DELETE("/api/v1/staff/course/items/{id}/", { ...o, ...rowPath(id) }));
+}
+/** Out of the bin, back at its place (within 30 days). */
+export async function restoreRow(kind: CourseRowKind, id: number): Promise<void> {
+  if (kind === "clips")
+    await send(undefined, (o) => api.POST("/api/v1/staff/course/clips/{id}/restore/", { ...o, ...rowPath(id) }));
+  else if (kind === "cards")
+    await send(undefined, (o) => api.POST("/api/v1/staff/course/cards/{id}/restore/", { ...o, ...rowPath(id) }));
+  else await send(undefined, (o) => api.POST("/api/v1/staff/course/items/{id}/restore/", { ...o, ...rowPath(id) }));
+}
+export const listBin = (filters: Filters<"/api/v1/staff/course/bin/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/bin/", { ...o, params: { query: query(filters) } })).then(paged);
+
+export type CourseItemFilters = Filters<"/api/v1/staff/course/items/">;
+export const listItems = (filters: CourseItemFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/items/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getItem = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/items/{id}/", { ...o, ...rowPath(id) }));
+export const changeItem = (id: number, body: Schemas["PatchedCourseItemRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/course/items/{id}/", { ...o, ...rowPath(id), body }));
+/** "Needs checking": a report in the content triage, once while one is open (`created` false: open already). */
+export const flagItem = (id: number, note: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/items/{id}/flag/", { ...o, ...rowPath(id), body: { note } }));
+export const itemHistory = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/items/{id}/history/", { ...o, ...rowPath(id) }));
+
+export type CourseEntitlementFilters = Filters<"/api/v1/staff/course/entitlements/">;
+/** Who may watch what; `q` is an account's email address, exactly (the server records the search by its hash). */
+export const listEntitlements = (filters: CourseEntitlementFilters, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/course/entitlements/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+export const getEntitlement = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/entitlements/{id}/", { ...o, ...rowPath(id) }));
+export const grantEntitlement = (body: Schemas["CourseGrantRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/entitlements/", { ...o, body }));
+export const extendEntitlement = (id: number, days: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/course/entitlements/{id}/extend/", { ...o, ...rowPath(id), body: { days, reason } }),
+  );
+export const revokeEntitlement = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/course/entitlements/{id}/revoke/", { ...o, ...rowPath(id), body: { reason } }),
+  );
+/** A bulk action of the course as a staff job (202): each row through its own rules; `dryRun` checks and changes
+ *  nothing. Above the starter's bulk_rows it waits for an approver (its change_request_id). */
+export const startCourseBulk = (
+  action: CourseBulkAction,
+  targets: (number | string)[],
+  payload: Record<string, unknown>,
+  reason: string,
+  dryRun: boolean,
+) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", {
+      ...o,
+      body: { kind: "bulk_action", params: { action, targets, payload, reason }, dry_run: dryRun },
+    }),
+  ) as Promise<Job>;
+
+export const listBatches = (filters: Filters<"/api/v1/staff/course/codes/batches/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/course/codes/batches/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** A batch by its `key` (its label, or ~ and its id). */
+export const getBatch = (key: string, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/course/codes/batches/{label}/", { ...o, params: { path: { label: key } } }),
+  );
+/** A print run's codes, made by a job (202: the batch and the job; the printer's file is the maker's for 24 hours). */
+export const makeBatch = (body: Schemas["CourseBatchCreateRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/codes/batches/", { ...o, body }));
+/** A print run whose job failed before its codes were made, made again: a new job (POST jobs/, kind code_batch). */
+export const remakeBatch = (batch: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "code_batch", params: { batch }, dry_run: false } }),
+  ) as Promise<Job>;
+export const markDispatched = (key: string, at: string | null) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/course/codes/batches/{label}/dispatched/", {
+      ...o,
+      params: { path: { label: key } },
+      body: { at },
+    }),
+  );
+/** Every unused code of the batch voided, with why (critical: the owners are told). */
+export const voidBatch = (key: string, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/course/codes/batches/{label}/void/", {
+      ...o,
+      params: { path: { label: key } },
+      body: { reason },
+    }),
+  );
+export const voidCode = (code: string, reason: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/codes/void/", { ...o, body: { code, reason } }));
+/** A typed or scanned code, answered in one line (hashed on the server, never kept; audited and throttled). */
+export const lookUpCode = (code: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/course/codes/lookup/", { ...o, body: { code } }));
+/** The Course module's codes report by print run (the reports module's getCodesReport adds the districts). */
+export const getCourseCodesReport = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/codes/report/", o));
+
+/** One learner's course for support: reading it is logged (a sensitive read; a child's a summary without times). */
+export const getLearner = (user: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/course/learners/{user}/", { ...o, params: { path: { user } } }));
+export const signOutDevice = (user: number, device: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/course/learners/{user}/devices/{device}/sign-out/", {
+      ...o,
+      params: { path: { user, device } },
+    }),
+  );

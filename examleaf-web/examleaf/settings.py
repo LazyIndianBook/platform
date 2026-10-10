@@ -1126,6 +1126,40 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the catalogue
     CategoryMoveEnum="shop.staff_catalogue.MOVES",
     CatalogueStatesEnum="shop.staff_catalogue.STATE_CODES",
 )
+# Course (learn/README.md "The Course module"; API.md "Course (staff)"): the outline, a revision's review and its
+# publish at a set time (learn-publish-due, every 5 minutes), the 30-day bin (learn-purge-bin, nightly: a clip's files
+# go with it), the quiz bank, entitlements, the print runs' book codes (their printer's files deleted 24 hours after
+# they are made: learn-purge-code-files, hourly), the learner's page. The book codes' fraud rules run hourly too
+# (learn-code-fraud: a spike of failed tries or a leak from a batch not yet dispatched emailed at once to
+# INSIGHTS_ALERT_EMAILS); a code looked up by staff counts against STAFF_THROTTLE_CODE_LOOKUP.
+_COURSE_TAG = {
+    "name": "course (staff)",
+    "description": "Outline, review, bin, quiz bank, entitlements, codes (API.md).",
+}
+if _COURSE_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_COURSE_TAG)  # noqa: F405
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(  # noqa: F405
+    staff_code_lookup=env("STAFF_THROTTLE_CODE_LOOKUP", default="120/hour"),  # book codes looked up, per staff member
+)
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the course module's choices
+    CourseRevisionStatusEnum="learn.models.Revision.Status",  # (RevisionStatusEnum is the app's: published or none)
+    ClipProcessingEnum="learn.models.Clip.Processing",
+    QuizItemDifficultyEnum="learn.models.QuizItem.Difficulty",
+    QuizItemBloomEnum="learn.models.QuizItem.Bloom",
+    CourseMoveEnum="learn.course.MOVES",
+    CourseRowKindEnum="learn.course.ROW_KINDS",
+    FraudSignalKindEnum="insights.models.FraudSignal.Kind",  # (insights' and a batch's signals: one name)
+    CourseEntitlementStateEnum="learn.staff_api.STATES",
+    CourseBatchStateEnum="learn.staff_api.BATCH_STATES",
+    CourseCodeStateEnum="learn.staff_api.CODE_STATES",
+    CourseTransitionEnum="learn.staff_api.TRANSITIONS",
+)
+CELERY_BEAT_SCHEDULE |= {
+    "learn-publish-due": {"task": "learn.tasks.publish_due", "schedule": crontab(minute="*/5")},
+    "learn-purge-bin": {"task": "learn.tasks.purge_bin", "schedule": crontab(hour=4, minute=30)},
+    "learn-purge-code-files": {"task": "learn.tasks.purge_code_files", "schedule": crontab(minute=20)},
+    "learn-code-fraud": {"task": "insights.tasks.code_fraud_rules", "schedule": crontab(minute=40)},
+}
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

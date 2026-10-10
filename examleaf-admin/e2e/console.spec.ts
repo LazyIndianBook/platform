@@ -16,8 +16,10 @@
 // colleague's review published, another published and undone within its five seconds, the report marked fixed and its
 // reporter told, an import's dry run and apply. Finance: today's stuck payments, one asked of Razorpay again and
 // captured, its line in the settlement that did not match matched by hand and the adjustment accepted, both in the
-// audit trail. Home and reports: the OWNER's and the PACKER's cards, a report and its export as a job. The TEST band
-// shows throughout (the fixtures are test data).
+// audit trail. Home and reports: the OWNER's and the PACKER's cards, a report and its export as a job. The course
+// module's journey: a clip moved first from the outline with Move to…, a colleague's revision scheduled (one's own never
+// decided), a book code looked up and voided once VOID is typed, and a redeemed code's learner page, logged and, for a
+// child, a summary. The TEST band shows throughout (the fixtures are test data).
 import { readFileSync } from "node:fs";
 
 import { expect, type Page, test } from "@playwright/test";
@@ -159,6 +161,23 @@ const PAGES = [
   "/catalogue/categories/",
   "/catalogue/collections/",
   "/catalogue/import/",
+  // Phase B: the course
+  "/course/",
+  "/course/?subject=CHE",
+  "/course/revisions/402/",
+  "/course/clips/506/",
+  "/course/clips/511/",
+  "/course/bin/",
+  "/course/bin/?kind=items",
+  "/course/items/",
+  "/course/items/702/",
+  "/course/entitlements/",
+  "/course/codes/",
+  "/course/codes/PHY-2027-1/",
+  "/course/codes/~2406/",
+  "/course/report/",
+  "/course/learners/7101/",
+  "/course/learners/7102/",
 ];
 
 const stamp = Date.now();
@@ -1017,6 +1036,75 @@ for (const width of [1280, 390]) {
         await page.goto("/reports/codes/");
         await expect(page.getByRole("heading", { name: "Not found, or not yours to see" })).toBeVisible();
         await page.context().clearCookies({ name: "staff_mock_role" });
+      });
+    });
+
+    test("course: a clip moved from the outline, a revision scheduled, a code looked up and voided", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/course/", codes);
+      await expect(page.getByRole("heading", { level: 1, name: "Course" })).toBeVisible();
+
+      await test.step("the outline: a clip moved first with Move to…, the keyboard's way for every drag", async () => {
+        const chapter = page.locator("#chapter-2");
+        await chapter.locator("summary", { hasText: "Chapter 2: Current electricity" }).click();
+        const clips = chapter.getByRole("list", { name: "Clips" });
+        await expect(clips.getByRole("listitem").first()).toContainText("Ohm's law");
+        await expect(clips.getByText(/could not be read \(cut short or damaged\)/)).toBeVisible();
+        await clips.getByRole("button", { name: /^Move to….*The Wheatstone bridge$/ }).click();
+        const dialog = page.getByRole("dialog", { name: "Move The Wheatstone bridge" });
+        await dialog.getByRole("radio", { name: "First" }).check();
+        await dialog.getByRole("button", { name: "Move it" }).click();
+        await expect(toast(page, "Moved")).toBeVisible();
+        await expect(clips.getByRole("listitem").first()).toContainText("The Wheatstone bridge");
+      });
+
+      await test.step("a colleague's revision published at a time to come: scheduled", async () => {
+        await page.goto("/course/revisions/402/");
+        await expect(
+          page.getByRole("heading", { level: 1, name: "Current electricity, the whole chapter" }),
+        ).toBeVisible();
+        await page.getByRole("button", { name: "Publish", exact: true }).click();
+        const dialog = page.getByRole("dialog", { name: "Publish the revision" });
+        await dialog.getByRole("radio", { name: "At a time" }).check();
+        const later = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+        await dialog.getByLabel("Date and time (India)").fill(`${later}T09:30`);
+        await dialog.getByRole("button", { name: "Publish", exact: true }).click();
+        await expect(toast(page, "Scheduled")).toBeVisible();
+        await expect(page.getByText(/^Publishes /).first()).toBeVisible();
+        await expect(page.getByRole("button", { name: "Back to draft" })).toBeVisible();
+      });
+
+      await test.step("one's own submission waits for another reviewer", async () => {
+        await page.goto("/course/revisions/404/");
+        await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
+      });
+
+      await test.step("a code looked up in one line, then voided once VOID is typed", async () => {
+        await page.goto("/course/codes/");
+        await page.getByRole("textbox", { name: "Book code" }).fill("7kqm 3xpa 9trw");
+        await page.getByRole("button", { name: "Look up" }).click();
+        await expect(page.getByText("Not redeemed yet: batch PHY-2027-1 (Physics).")).toBeVisible();
+        await page.getByRole("button", { name: "Void this code" }).click();
+        const dialog = page.getByRole("dialog", { name: "Void the code" });
+        await dialog.getByLabel("Reason").fill("The parent sent a photo of the torn page (ticket T-2026-00042).");
+        const confirm = dialog.getByRole("button", { name: "Void this code" });
+        await expect(confirm).toBeDisabled();
+        await dialog.getByLabel("To confirm, type VOID below.").fill("VOID");
+        await confirm.click();
+        await settle(page, toast(page, "Code voided"), staff, codes);
+        await expect(page.getByText(/^Void since /)).toBeVisible();
+      });
+
+      await test.step("a redeemed code's learner: the page says the view is logged; a child's is a summary", async () => {
+        await page.getByRole("textbox", { name: "Book code" }).fill("4HNC-8DVE-2JYS");
+        await page.getByRole("button", { name: "Look up" }).click();
+        await page.getByRole("link", { name: "Open the learner's page" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Riya Das" })).toBeVisible();
+        await expect(page.getByText(/^This view is logged/)).toBeVisible();
+        await expect(page.getByText(/^Under 18 or of unknown age/)).toBeVisible();
+        await expect(page.getByText("Last active in the week of")).toBeVisible();
       });
     });
   });

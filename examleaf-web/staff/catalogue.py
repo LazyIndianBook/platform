@@ -156,6 +156,18 @@ STAFF_ACTIONS = [
     ),
     ("set_stock", "Set a product's stock by hand, with the reason", CATALOGUE, MEDIUM),
     ("change_product_tax", "Set a product's HSN or SAC code and a bundle's tax treatment", TAX, MEDIUM),
+    # Course (learn/staff_api.py): publishing the course's revisions, making a print run's book codes (the owners are
+    # told), voiding a code or a whole batch (critical: the owners are told)
+    ("publish_course", "Approve and publish the course's revisions, now or at a set time", COURSE, MEDIUM),
+    (
+        "make_book_codes",
+        "Make a print run's book codes and download the printer's file (the owners are told)",
+        COURSE,
+        HIGH,
+        False,
+        True,
+    ),
+    ("void_book_codes", "Void a book code, or every unused code of a batch", COURSE, CRITICAL),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

@@ -302,6 +302,8 @@ class InboxItem(models.Model):
         # Phase B: finance (shop/settlements.py, shop/payments.py)
         SETTLEMENT = "settlement", "a Razorpay settlement that does not match"
         B2B_PAYMENT = "b2b_payment", "a B2B invoice paid by link: its entry to post in ERPNext"
+        # Phase B: course (insights' fraud rules: a signal new or grown, done once acknowledged)
+        FRAUD_SIGNAL = "fraud_signal", "a fraud signal to look at"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -378,6 +380,8 @@ class Job(models.Model):
         COUPON_CODES = "coupon_codes", "single-use coupon codes"
         PRODUCT_IMPORT = "product_import", "product import"
         PRODUCT_EXPORT = "product_export", "product export"
+        # Phase B: course
+        CODE_BATCH = "code_batch", "book codes made for the printer"  # learn.codes
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

@@ -128,6 +128,8 @@ ROLES = {
         # the catalogue (Phase B, plan 5.5): prices (beyond discount_percent FINANCE approves) and stock by hand, a
         # school's single-use coupon codes, a new product's code chosen from the HSN and SAC master
         *["staff.change_price", "staff.set_stock", "shop.view_couponcode", "shop.add_couponcode", "shop.view_hsncode"],
+        # the course (learn/staff_api.py): a school order's print run of book codes, made and marked dispatched
+        *["staff.make_book_codes", "learn.view_codebatch", "learn.change_codebatch"],
         *PANEL,
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
@@ -147,6 +149,7 @@ ROLES = {
         "staff.view_parcels",  # "where is my parcel?": the parcel's timeline and its exceptions (the plan, 5.7)
         *crud("learn", ["entitlement"]),  # a course opened by hand (a lost book code, a school's pupils)
         "learn.view_bookcode",
+        "learn.view_codebatch",  # the course's print runs, beside a code looked up (learn/staff_api.py)
         "content.view_errorreport",  # the mistakes readers report: to answer "did you get my report?"
         # the panel: masked contacts revealed with a reason (logged), the account actions, data requests, refunds
         # asked for (within ROLE_LIMITS; above them FINANCE approves), a second factor reset (a second person approves)
@@ -198,6 +201,7 @@ ROLES = {
         *crud("content", CONTENT, ["view"]),
         *crud("learn", COURSE, ["view"]),
         "staff.publish_paper",
+        "staff.publish_course",  # the course's revisions approved and published, now or at a time (learn/staff_api.py)
         # approve, publish and roll back drafts, triage reported mistakes, import from the books repository
         *CONTENT_PANEL,
         "staff.import_content",
@@ -337,6 +341,8 @@ ROLE_LIMITS = {
     MARKETING: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 20, "export_rows": 0, "bulk_rows": 100},
     AUDITOR: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 0, "export_rows": 5_000, "bulk_rows": 0},
     PACKER: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 0, "export_rows": 0, "bulk_rows": 100},
+    # the course's quiz bank: its metadata edited in bulk (learn/staff_api.py)
+    CONTENT_EDITOR: {"refund_inr": 0, "offline_inr": 0, "discount_percent": 0, "export_rows": 0, "bulk_rows": 200},
 }
 LIMITS = ["refund_inr", "offline_inr", "discount_percent", "export_rows", "bulk_rows"]
 

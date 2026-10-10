@@ -157,3 +157,73 @@ def test_the_nights_signals_are_emailed_without_personal_data(settings):
     assert digest("user", 1) not in body  # the start of the hash only
     mail.outbox.clear()
     assert fraud.fraud_rules() == 0 and not mail.outbox  # nothing new: no email
+
+
+# Phase B: course (the device rule, the leak rule, the inbox, the hour's alert)
+
+
+def test_failed_codes_from_one_device_in_an_hour_are_signalled_and_the_device_is_kept_as_a_hash(physics):
+    api = APIClient(REMOTE_ADDR="203.0.113.9")
+    for n in range(5):  # one phone, five accounts: each account and the address under their limits
+        sign_in(api, student())
+        api.post("/api/v1/learn/redeem/", {"code": f"ABCD-EFGH-JK{n}M", "device": "fid-phone-1"}, format="json")
+    assert set(RedemptionAttempt.objects.values_list("device_hash", flat=True)) == {digest("device", "fid-phone-1")}
+    assert fraud.fraud_rules() == 1
+    signal = FraudSignal.objects.get()
+    assert (signal.kind, signal.subject, signal.count) == (Kind.FAILED_CODES_DEVICE, digest("device", "fid-phone-1"), 5)
+    other = APIClient(REMOTE_ADDR="203.0.113.10")  # (another address: the first one's tries are spent)
+    sign_in(other, student())
+    other.post("/api/v1/learn/redeem/", {"code": "ABCD-EFGH-JKLM"}, format="json")  # no device sent: none kept
+    assert RedemptionAttempt.objects.order_by("-pk").first().device_hash == ""
+
+
+def test_codes_redeemed_before_their_batch_was_dispatched_are_a_leak(physics):
+    from learn.models import CodeBatch
+
+    make_codes(physics, 3, "PHY-2027-1")
+    make_codes(physics, 1, "PHY-2027-2")
+    batch = CodeBatch.objects.create(label="PHY-2027-1", printed=3, generated_at=timezone.now() - timedelta(days=9))
+    CodeBatch.objects.create(label="PHY-2027-2", printed=1, generated_at=timezone.now() - timedelta(days=9),
+                             dispatched_at=timezone.now() - timedelta(days=8))  # fmt: skip
+    person = learners(1)[0]
+    BookCode.objects.update(redeemed_by=person, redeemed_at=timezone.now() - timedelta(days=2))
+    assert fraud.fraud_rules() == 1  # the dispatched batch's code is no leak
+    leak = FraudSignal.objects.get()
+    assert (leak.kind, leak.count, leak.subject) == (Kind.UNDISPATCHED, 3, digest("batch", "PHY-2027-1"))
+    assert leak.details == {"batch": "PHY-2027-1", "codes": sorted(BookCode.objects.filter(batch="PHY-2027-1")
+                                                                   .values_list("pk", flat=True))}  # fmt: skip
+    CodeBatch.objects.filter(pk=batch.pk).update(dispatched_at=timezone.now() - timedelta(days=5))
+    assert fraud.fraud_rules() == 0  # dispatched before: nothing more
+
+
+def test_each_new_or_grown_signal_waits_in_the_inbox_until_acknowledged(client):
+    from staff.models import InboxItem
+    from staff.tests.conftest import make_staff, signed_in
+
+    tries(5)
+    fraud.fraud_rules()
+    signal = FraudSignal.objects.get()
+    item = InboxItem.objects.get(kind="fraud_signal", done_at=None)
+    assert (item.target_type, item.target_id, item.permission) == ("insights.fraudsignal", str(signal.pk),
+                                                                  "staff.acknowledge_signal")  # fmt: skip
+    assert item.title == f"Fraud signal #{signal.pk}: failed book codes from one account in an hour (5)"
+    tries(1)
+    fraud.fraud_rules()  # grown: the same item
+    assert InboxItem.objects.filter(kind="fraud_signal").count() == 1
+    admin = signed_in(make_staff("ADMIN"))
+    assert admin.post(f"/api/v1/insights/fraud-signals/{signal.pk}/acknowledge/").status_code == 200
+    assert InboxItem.objects.get(pk=item.pk).done_at is not None
+
+
+def test_the_hours_run_emails_a_spike_or_a_leak_at_once(settings, physics):
+    from insights.tasks import code_fraud_rules
+
+    settings.INSIGHTS_ALERT_EMAILS = ["owner@examleaf.in"]
+    tries(5)  # one account's failures: the inbox, no email now
+    assert code_fraud_rules() == 1 and not mail.outbox
+    tries(25, user=lambda n: n + 100, ip=lambda n: n + 100, hours_ago=1)
+    assert code_fraud_rules() >= 1
+    assert len(mail.outbox) == 1 and "Insights alert: book code signals to look at now (1)" in mail.outbox[0].subject
+    assert "an hour far above the usual: 25" in mail.outbox[0].body
+    mail.outbox.clear()
+    assert code_fraud_rules() == 0 and not mail.outbox  # the same hour again: nothing

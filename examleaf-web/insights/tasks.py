@@ -62,3 +62,10 @@ def course_health():
 def fraud_rules():
     """The fraud rules, then the night's email (fraud signals and print runs to act on)."""
     return fraud.fraud_rules()
+
+
+@shared_task
+@single_run(300)
+def code_fraud_rules():
+    """Hourly: the book codes' tries and leaks (fraud.code_rules), a spike or a leak emailed at once."""
+    return fraud.code_rules()

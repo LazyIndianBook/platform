@@ -28,10 +28,12 @@ def first_answers():
     )
     for learner, item, right, chosen, created in rows.iterator(chunk_size=5000):
         first.setdefault((learner, item), (int(right), chosen, created))
+    # the items outside the course's bin (QuizItem's default manager): a deleted item is not analysed
     chapters = dict(QuizItem.objects.filter(pk__in={item for _, item in first}).values_list("pk", "chapter_id"))
     grouped = defaultdict(lambda: defaultdict(dict))
     for (learner, item), answer in first.items():
-        grouped[chapters[item]][learner][item] = answer
+        if item in chapters:
+            grouped[chapters[item]][learner][item] = answer
     return grouped
 
 

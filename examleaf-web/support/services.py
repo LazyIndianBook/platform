@@ -1144,7 +1144,9 @@ def look_up_code(ticket, *, by, code, request=None):
     else:
         subject = book_code.subject.name if book_code.subject_id else "every subject"
         mine = book_code.redeemed_by_id is not None and book_code.redeemed_by_id == ticket.user_id
-        if book_code.redeemed_at is None:
+        if book_code.voided_at and book_code.redeemed_at is None:  # the course's void (learn.codes): opens nothing
+            state = f"void since {timezone.localtime(book_code.voided_at):%d %b %Y}: it opens nothing"
+        elif book_code.redeemed_at is None:
             state = "not redeemed yet"
         elif mine:
             state = f"redeemed by this requester on {timezone.localtime(book_code.redeemed_at):%d %b %Y}"

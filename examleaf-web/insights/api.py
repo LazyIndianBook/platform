@@ -17,7 +17,7 @@ from staff import audit
 from staff.api import StaffAppView
 
 from . import cells
-from .jobs import latest
+from .jobs import fraud, latest
 from .jobs.demand import SHOWN_HORIZON
 from .models import (
     Backtest,
@@ -288,7 +288,8 @@ class FraudSignalList(InsightList):
 
     serializer_class = FraudSignalSerializer
     method = (
-        "rules: failed book codes per account, address and hour; codes per account; accounts per code; shared contacts"
+        "rules: failed book codes per account, address, device and hour; codes redeemed before their batch was "
+        "dispatched; codes per account; accounts per code; shared contacts"
     )
 
     def get_queryset(self):
@@ -315,6 +316,7 @@ class FraudSignalAcknowledgeView(StaffAppView, generics.GenericAPIView):
                 audit.record(
                     "insights.signal_acknowledged", request=request, target=signal, details={"kind": signal.kind}
                 )
+            fraud.acknowledged(signal)  # its inbox item done
         signal.refresh_from_db()
         return Response(self.get_serializer(signal).data)
 

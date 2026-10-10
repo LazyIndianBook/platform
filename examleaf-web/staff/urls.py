@@ -39,6 +39,7 @@ urlpatterns = [
     path("catalogue/", include("shop.staff_catalogue")),  # (catalogue/ itself stays the permissions' catalogue)
     path("connections/", include("integrations.api")),
     path("content/", include("content.staff_api")),
+    path("course/", include("learn.staff_api")),
     path("finance/", include("shop.staff_finance")),
     path("home/", include("insights.staff_home")),
     path("orders/", include("shop.staff_orders")),

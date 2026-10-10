@@ -5,7 +5,7 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Min, Q
 from django.utils import timezone
 
@@ -53,14 +53,32 @@ class CodeError(Exception):
     pass
 
 
-def make_codes(subject, count, batch):
+VOID = "This code can no longer be used. Write to us with a photo of the code and the bill of the book."
+
+
+def make_codes(subject, count, batch, tick=None):
     """`count` new book codes for `subject` (None: all subjects); only their digests are kept, so the list returned
-    (XXXX-XXXX-XXXX) is the only copy of the codes."""
-    codes = set()
-    while len(codes) < count:
-        codes.add("".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH)))
-    BookCode.objects.bulk_create(BookCode(digest=code_digest(c), subject=subject, batch=batch) for c in codes)
-    return sorted(f"{c[:4]}-{c[4:8]}-{c[8:]}" for c in codes)
+    (XXXX-XXXX-XXXX) is the only copy of the codes. `tick()` is called once a code (a staff job's progress). A code
+    whose digest another batch has (one chance in about 10^12 per code) makes the whole set again, three times at
+    most."""
+    for attempt in range(3):
+        codes = set()
+        while len(codes) < count:
+            code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+            if code not in codes:
+                codes.add(code)
+                if tick and attempt == 0:
+                    tick()
+        try:
+            with transaction.atomic():
+                BookCode.objects.bulk_create(
+                    (BookCode(digest=code_digest(c), subject=subject, batch=batch) for c in codes), batch_size=1000
+                )
+        except IntegrityError:
+            if attempt == 2:
+                raise
+            continue
+        return sorted(f"{c[:4]}-{c[4:8]}-{c[8:]}" for c in codes)
 
 
 def redeem(user, code):
@@ -81,6 +99,9 @@ def redeem(user, code):
         if book_code.redeemed_at:
             logger.warning("book code #%s refused for user %s: used already", book_code.pk, user.pk)
             raise CodeError("This code has been used already.")
+        if book_code.voided_at:  # a leaked code, or its batch voided (learn.codes): it opens nothing
+            logger.warning("book code #%s refused for user %s: void", book_code.pk, user.pk)
+            raise CodeError(VOID)
         book_code.redeemed_by, book_code.redeemed_at = user, timezone.now()
         book_code.save(update_fields=["redeemed_by", "redeemed_at"])
         entitlement = Entitlement.objects.create(

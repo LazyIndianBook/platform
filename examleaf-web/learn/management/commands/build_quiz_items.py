@@ -61,7 +61,7 @@ class Command(BaseCommand):
                 skipped[code, why] += 1
                 continue
             kind, choices, answer, explanation = item
-            _, new = QuizItem.objects.get_or_create(
+            _, new = QuizItem.all_objects.get_or_create(  # one in the course's bin stays there: kept, not made again
                 source=question,
                 defaults=dict(chapter=chapter, kind=kind, text=question.text_md, options=choices, answer=answer,
                               explanation=explanation.strip()),

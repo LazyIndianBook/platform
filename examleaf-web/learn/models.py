@@ -1,6 +1,11 @@
 """The revision course (docs/examleaf-phase6-plan.md, work package D): per chapter the Board's marks and how often it
 asked, a 10-15 minute revision made of short clips, flash cards and one-mark quiz items; who may watch (entitlements,
-book codes); each student's progress, quiz answers, settings and app devices."""
+book codes); each student's progress, quiz answers, settings and app devices.
+
+Phase B (the panel's Course module, learn/README.md): a revision's review and scheduled publish, a 30-day bin for
+clips, cards and quiz items (`deleted_at`: their default manager hides the bin from everything but the panel's bin and
+its purge, `all_objects` sees it), the quiz bank's metadata and history, revoked entitlements and their history, void
+book codes and the print runs' batches (CodeBatch)."""
 
 import hashlib
 import hmac
@@ -10,14 +15,24 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
+from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 from django_fsm import FSMField, transition
 from model_utils.models import TimeStampedModel
+from simple_history.models import HistoricalRecords
 from taggit.managers import TaggableManager
 
 VIDEO_TYPES = ["mp4", "mov", "m4v", "webm", "mkv"]
+
+
+class Live(models.Manager):
+    """The rows not in the bin (Phase B: `deleted_at` empty): every model's default, so the app's and the website's
+    reads, the related managers (a revision's clips) and the plan never see a deleted clip, card or quiz item. Joins
+    across models (a chapter's clip count) filter `deleted_at` themselves; `all_objects` sees the bin."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted_at__isnull=True)
 
 
 def source_path(clip, filename):
@@ -54,9 +69,16 @@ class Chapter(models.Model):
 
 
 class Revision(TimeStampedModel):
+    """A chapter's revision: its clips, and with it the chapter's flash cards and quiz items, which the app shows only
+    while it is published. Phase B: draft → in review (submitted) → approved (by a reviewer, never its submitter) →
+    published, at once or at `publish_at` (learn.tasks.publish_due); back to draft from any of them."""
+
     class Status(models.TextChoices):
         DRAFT = "draft", "draft"
         PUBLISHED = "published", "published"
+        # Phase B: course
+        REVIEW = "review", "in review"
+        APPROVED = "approved", "approved"
 
     chapter = models.OneToOneField(Chapter, on_delete=models.CASCADE, related_name="revision")
     title = models.CharField(max_length=200)
@@ -65,6 +87,23 @@ class Revision(TimeStampedModel):
     )
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT, db_index=True)
     order = models.PositiveIntegerField(default=0, db_index=True)
+    # Phase B: course
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        editable=False,
+        help_text="Who approved it (never who submitted it).",
+    )
+    publish_at = models.DateTimeField(
+        null=True, blank=True, editable=False, help_text="Approved: published by the task at this time."
+    )
 
     class Meta:
         ordering = ["order", "pk"]
@@ -111,6 +150,13 @@ class Clip(TimeStampedModel):
     )
     questions = models.ManyToManyField("content.Question", blank=True, related_name="+")
     tags = TaggableManager(blank=True)
+    # Phase B: course
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, editable=False, db_index=True, help_text="In the bin: purged 30 days later."
+    )
+
+    objects = Live()
+    all_objects = models.Manager()  # noqa: DJ012  (after `objects`: the first manager declared is the default)
 
     class Meta:
         ordering = ["order", "pk"]
@@ -137,6 +183,13 @@ class FlashCard(models.Model):
     front = models.TextField(help_text="Markdown.")
     back = models.TextField(help_text="Markdown.")
     tags = TaggableManager(blank=True)
+    # Phase B: course
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, editable=False, db_index=True, help_text="In the bin: purged 30 days later."
+    )
+
+    objects = Live()
+    all_objects = models.Manager()  # noqa: DJ012  (after `objects`: the first manager declared is the default)
 
     class Meta:
         ordering = ["order", "pk"]
@@ -152,10 +205,26 @@ def normalise(text):
 
 
 class QuizItem(models.Model):
+    """A one-mark quiz item. Phase B: the bank's metadata (topic, marks, difficulty, Bloom level; the book question it
+    came from is `source`), its place in the chapter's quiz (`order`), its history, the bin."""
+
     class Kind(models.TextChoices):
         MCQ = "mcq", "multiple choice"
         TRUE_FALSE = "true_false", "true or false"
         FILL_BLANK = "fill_blank", "fill in the blank"
+
+    class Difficulty(models.TextChoices):  # Phase B: course (empty: not rated yet)
+        EASY = "easy", "easy"
+        MEDIUM = "medium", "medium"
+        HARD = "hard", "hard"
+
+    class Bloom(models.TextChoices):  # the revised taxonomy's levels (empty: not set)
+        REMEMBER = "remember", "remember"
+        UNDERSTAND = "understand", "understand"
+        APPLY = "apply", "apply"
+        ANALYSE = "analyse", "analyse"
+        EVALUATE = "evaluate", "evaluate"
+        CREATE = "create", "create"
 
     chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name="quiz_items")
     kind = models.CharField(max_length=10, choices=Kind.choices)
@@ -171,12 +240,31 @@ class QuizItem(models.Model):
         "content.Question", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
     tags = TaggableManager(blank=True)
+    # Phase B: course
+    order = models.PositiveIntegerField(default=0, db_index=True, help_text="Its place in the chapter's quiz.")
+    topic = models.CharField(max_length=120, blank=True, help_text="Within the chapter: Coulomb's law.")
+    marks = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(10)])
+    difficulty = models.CharField(max_length=10, choices=Difficulty.choices, blank=True, default="")
+    bloom = models.CharField("Bloom level", max_length=10, choices=Bloom.choices, blank=True, default="")
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, editable=False, db_index=True, help_text="In the bin: purged 30 days later."
+    )
+    history = HistoricalRecords()
+
+    objects = Live()
+    all_objects = models.Manager()  # noqa: DJ012  (after `objects`: the first manager declared is the default)
 
     class Meta:
-        ordering = ["chapter", "pk"]
+        ordering = ["chapter", "order", "pk"]
 
     def __str__(self):
         return self.text[:60]
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.order:  # a new item goes last in its chapter's quiz
+            last = QuizItem.all_objects.filter(chapter_id=self.chapter_id).aggregate(last=models.Max("order"))["last"]
+            self.order = (last or 0) + 1
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.kind == self.Kind.MCQ and not (self.answer.isdigit() and 1 <= int(self.answer) <= len(self.options)):
@@ -207,7 +295,8 @@ def code_digest(code):
 
 
 class BookCode(models.Model):
-    """A code printed in a book (manage.py make_book_codes), redeemed once in the app for an entitlement."""
+    """A code printed in a book (manage.py make_book_codes, or the panel's batch job: learn.codes), redeemed once in
+    the app for an entitlement; a void one (a leaked code, or its batch voided) is never redeemed."""
 
     digest = models.CharField(max_length=64, unique=True, editable=False)
     subject = models.ForeignKey(
@@ -219,16 +308,21 @@ class BookCode(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
     redeemed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Phase B: course
+    voided_at = models.DateTimeField(null=True, blank=True, editable=False, help_text="Void: never redeemed.")
 
     class Meta:
         ordering = ["-created", "-pk"]
+        indexes = [models.Index(fields=["batch", "redeemed_at"], name="learn_bookcode_batch")]
 
     def __str__(self):
         return f"Book code #{self.pk} ({self.batch})"
 
 
 class Entitlement(TimeStampedModel):
-    """What a student may watch: one subject or all of them (empty), until a day or for good."""
+    """What a student may watch: one subject or all of them (empty), until a day or for good. Phase B: revoked by
+    staff (`revoked_at`, its `valid_until` brought to the day before: the app reads it as ended), with its history;
+    the student's progress stays whatever becomes of it, so access given again picks up where it stopped."""
 
     class Source(models.TextChoices):
         BOOK_CODE = "book_code", "book code"
@@ -243,6 +337,9 @@ class Entitlement(TimeStampedModel):
     reference = models.CharField(max_length=40, blank=True, editable=False, help_text="The order or the book code.")
     valid_until = models.DateField(null=True, blank=True, help_text="The last day; empty: no end.")
     note = models.CharField(max_length=200, blank=True, help_text="Why it was granted (staff).")
+    # Phase B: course
+    revoked_at = models.DateTimeField(null=True, blank=True, editable=False, help_text="Revoked by staff, with why.")
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ["-created"]
@@ -326,3 +423,46 @@ class Device(models.Model):
 
     def __str__(self):
         return f"Device #{self.pk}"
+
+
+# Phase B: course
+
+BATCH_LABEL = RegexValidator(r"^[A-Za-z0-9][A-Za-z0-9-]{0,39}\Z", "A print run's label: letters, digits and hyphens.")
+
+
+class CodeBatch(models.Model):
+    """A print run's book codes (`label` is their BookCode.batch): made by a staff job that keeps only their digests
+    and writes the codes once, into the printer's file (learn.codes), which its starter downloads within 24 hours.
+    Dispatched once the books leave (a code redeemed before is a leak: insights' fraud rules), voided with a reason
+    (every unused code of it then refuses to open anything)."""
+
+    label = models.CharField(max_length=40, unique=True, validators=[BATCH_LABEL], help_text="PHY-2027-1.")
+    subject = models.ForeignKey(
+        "content.Subject", on_delete=models.PROTECT, null=True, blank=True, related_name="+", help_text="Empty: all."
+    )
+    product = models.ForeignKey(
+        "shop.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="The book the codes are printed in: its sales are the batch's in the codes report.",
+    )
+    printed = models.PositiveIntegerField(default=0, help_text="Codes made for the print run.")
+    note = models.TextField("the print run's note", blank=True, help_text="The printer, the run, the delivery.")
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created = models.DateTimeField(default=timezone.now)
+    generated_at = models.DateTimeField(null=True, blank=True, help_text="Empty while its job makes the codes.")
+    job = models.ForeignKey("staff.Job", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    dispatched_at = models.DateTimeField(null=True, blank=True, help_text="The books left: redemptions start here.")
+    voided_at = models.DateTimeField(null=True, blank=True)
+    void_reason = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        verbose_name_plural = "code batches"
+        ordering = ["-created", "-pk"]
+
+    def __str__(self):
+        return f"Code batch {self.label}"

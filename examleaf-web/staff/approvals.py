@@ -937,6 +937,8 @@ class RunJob(Action):
         return {"job": job.pk}
 
 
+from learn.approvals import COURSE_ACTIONS  # noqa: E402  (the course's: here, once Action and Refused exist)
+
 ACTIONS = {
     action.name: action
     for action in [
@@ -954,6 +956,7 @@ ACTIONS = {
         CouponChange(),
         OfferCreate(),
         OfferChange(),
+        *COURSE_ACTIONS,
     ]
 }
 

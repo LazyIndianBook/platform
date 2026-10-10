@@ -12,9 +12,9 @@ from django.utils import timezone
 
 from accounts.factories import UserFactory
 from insights import metrics, reports
-from learn.models import BookCode
+from learn.models import BookCode, CodeBatch
 from shop.factories import ProductFactory
-from shop.models import Payment, Product, Refund, money_field
+from shop.models import Payment, Refund, money_field
 from staff.tests.conftest import STAFF, signed_in
 
 from .helpers import as_test, give_back, pay, sell
@@ -166,47 +166,21 @@ def test_unmatched_settlement_items_are_the_lines_matched_to_nothing(finance, se
     assert metrics.settlement_items_unmatched(owner, metrics.last_days(7)).value == 2
 
 
-@pytest.fixture
-def course(monkeypatch):
-    """learn.CodeBatch as the Course module keeps it: a label, as BookCode.batch uses it, and the title it is printed
-    in (none yet for a batch made before the title was recorded)."""
-    with isolate_apps("insights"):
-
-        class CodeBatch(models.Model):
-            label = models.CharField(max_length=40, unique=True)
-            product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True, related_name="+")
-
-            class Meta:
-                app_label = "insights"
-                db_table = "stand_in_code_batch"
-
-            def __str__(self):
-                return self.label
-
-        with connection.schema_editor() as editor:
-            editor.create_model(CodeBatch)
-        monkeypatch.setattr(reports, "model", lambda label: {"learn.CodeBatch": CodeBatch}[label])
-        try:
-            yield CodeBatch
-        finally:
-            with connection.schema_editor() as editor:
-                editor.delete_model(CodeBatch)
-
-
-def test_codes_sold_are_the_live_copies_of_the_title_the_batch_is_printed_in(course, settings):
+def test_codes_sold_are_the_live_copies_of_the_title_the_batch_is_printed_in(settings):
     settings.RAZORPAY_KEY_ID = ""  # no keys counts as live
     book = ProductFactory(title="Physics Sample Papers")
     for label, count in (("PHY-1", 3), ("PHY-2", 2), ("OLD-1", 1)):
         for number in range(count):
             BookCode.objects.create(digest=f"{label}-{number}".ljust(64, "0"), batch=label)
-    course.objects.create(label="PHY-1", product=book)
-    course.objects.create(label="PHY-2", product=book)  # a second batch of the same title
-    course.objects.create(label="OLD-1")  # made before the title was recorded
+    CodeBatch.objects.create(label="PHY-1", product=book)
+    CodeBatch.objects.create(label="PHY-2", product=book)  # a second batch of the same title
+    CodeBatch.objects.create(label="OLD-1")  # made before the title was recorded
     today = timezone.localdate()
     sell(book, today, copies=3)
     sell(book, today, copies=2)
     as_test(sell(book, today, copies=9))  # a test order is no sale
+    BookCode.objects.filter(digest="PHY-1-0".ljust(64, "0")).update(voided_at=timezone.now())  # a leaked code
     rows = {row["batch"]: row for row in reports.codes(UserFactory(is_staff=True, is_superuser=True), {})["rows"]}
     assert (rows["PHY-1"]["sold"], rows["PHY-2"]["sold"]) == (5, 5)  # the title's copies, all its batches together
     assert rows["OLD-1"]["sold"] is None  # no title recorded: not zero, not known
-    assert rows["PHY-1"]["revoked"] is None  # the code has no void marker here: not recorded
+    assert (rows["PHY-1"]["revoked"], rows["PHY-2"]["revoked"]) == (1, 0)  # the Course module's void marker, by batch

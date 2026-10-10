@@ -15,7 +15,7 @@ from insights import reports
 from insights.jobs import demand
 from insights.metrics import Absent
 from insights.models import CodeActivationStat, PrintCost, PrintRunAdvice
-from learn.models import BookCode
+from learn.models import BookCode, CodeBatch
 from shipping.models import CodRemittance
 from shop.factories import ProductFactory
 from shop.models import Order, OrderItem, Shipment
@@ -255,6 +255,8 @@ def batches(physics, directory):
         )
     for number in range(5):
         BookCode.objects.create(digest=f"b{number}".ljust(64, "0"), batch="PHY-2027-2", subject=physics)
+    BookCode.objects.filter(digest="a9".ljust(64, "0")).update(voided_at=timezone.now())  # a leaked code, voided
+    CodeBatch.objects.create(label="PHY-2027-1", subject=physics, product=ProductFactory(), printed=10)
     now = timezone.now()
     CodeActivationStat.objects.bulk_create(
         [
@@ -278,7 +280,10 @@ def test_codes_by_batch_with_the_activation_rate_and_districts_under_the_minimum
         1,
     )
     assert rows["PHY-2027-1"]["activation_rate"] == "0.4000" and rows["PHY-2027-2"]["activation_rate"] == "0.0000"
-    assert rows["PHY-2027-1"]["sold"] is None and rows["PHY-2027-1"]["revoked"] is None  # not recorded (yet)
+    # the Course module records the print run's title (its sales: none here) and the voided code; a run it never
+    # recorded has no title, so no "sold" (not zero: unknown)
+    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["revoked"]) == (0, 1)
+    assert (rows["PHY-2027-2"]["sold"], rows["PHY-2027-2"]["revoked"]) == (None, 0)
     districts = {row["district"]: row for row in answer["districts"]}
     assert districts["Kamrup Metro"]["redeemed"] == 14 and districts["Kamrup Metro"]["hidden"] is False  # 12 + 2
     assert (districts["Jorhat"]["hidden"], districts["Jorhat"]["under"], districts["Jorhat"]["redeemed"]) == (
@@ -289,6 +294,24 @@ def test_codes_by_batch_with_the_activation_rate_and_districts_under_the_minimum
     assert "Elsewhere" not in districts  # a batch with no code of ours
     one = get("codes/", role=roles.OWNER, batch="PHY-2027-2")["districts"]
     assert [(row["district"], row["hidden"]) for row in one] == [("Kamrup Metro", True)]  # 2 in the batch: under 10
+
+
+def test_codes_record_nothing_of_the_course_module_when_it_is_not_there(batches, monkeypatch):
+    """Without the Course module's print runs and void marker, "sold" and "revoked" are unknown, never zero."""
+    real_model, real_field = reports.model, reports.field
+
+    def without_course(label):
+        if label == "learn.CodeBatch":
+            raise Absent(label)
+        return real_model(label)
+
+    def without_void(model, *names):
+        return None if "voided_at" in names else real_field(model, *names)
+
+    monkeypatch.setattr(reports, "model", without_course)
+    monkeypatch.setattr(reports, "field", without_void)
+    rows = {row["batch"]: row for row in get("codes/", role=roles.OWNER)["rows"]}
+    assert (rows["PHY-2027-1"]["sold"], rows["PHY-2027-1"]["revoked"]) == (None, None)
 
 
 def test_codes_are_the_persons_subjects_only(batches, physics):

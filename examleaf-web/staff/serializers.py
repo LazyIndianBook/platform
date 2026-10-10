@@ -206,7 +206,9 @@ class JobStartSerializer(serializers.Serializer):
         'report_export: {"report": "sales", "filters": {...}} (the report\'s own filters: reports/); '
         'coupon_codes: {"coupon": a single-use coupon\'s code, "count", "prefix", "note": the school\'s name}; '
         'product_import: {"file": catalogue/import/\'s, "dry_run_job": the dry run\'s id (to apply)}; '
-        'product_export: {"filters": {…}} (the product list\'s)',
+        'product_export: {"filters": {…}} (the product list\'s); '
+        'code_batch: {"batch": a batch\'s id} (its codes made again after a failed job: course/codes/batches/ makes '
+        "a new one)",
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -256,6 +258,13 @@ class JobStartSerializer(serializers.Serializer):
             from insights.exports import clean_params as report_params
 
             data["params"] = report_params(params)
+            return data
+        if data["kind"] == Job.Kind.CODE_BATCH:  # a batch's codes made again after its first job failed (learn.codes)
+            from learn.codes import job_params
+
+            if data["dry_run"]:
+                raise serializers.ValidationError({"dry_run": ["Making book codes has no dry run."]})
+            data["params"] = job_params(params)
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

@@ -37,7 +37,8 @@ def activity(seconds, watched, total, answers, right, last):
 def subjects(user, entitled):
     """Per subject open to the user or touched by them, its published chapters with clips watched (of the processed
     ones), minutes watched (at most each clip's length), quiz answers and the share right, and the latest activity."""
-    watched = Progress.objects.filter(user=user, clip__processing=Clip.Processing.READY)
+    # a clip or a quiz item in the course's bin (the panel's; Phase B) is not counted: joins filter it themselves
+    watched = Progress.objects.filter(user=user, clip__processing=Clip.Processing.READY, clip__deleted_at__isnull=True)
     progress = {
         row["clip__revision__chapter"]: row
         for row in watched.values("clip__revision__chapter").annotate(
@@ -48,13 +49,14 @@ def subjects(user, entitled):
     }
     quiz = {
         row["item__chapter"]: row
-        for row in QuizAttempt.objects.filter(user=user)
+        for row in QuizAttempt.objects.filter(user=user, item__deleted_at__isnull=True)
         .values("item__chapter")
         .annotate(answers=Count("pk"), right=Count("pk", filter=Q(correct=True)), last=Max("created"))
     }
+    ready = Q(revision__clips__processing=Clip.Processing.READY, revision__clips__deleted_at__isnull=True)
     chapters = (
         Chapter.objects.filter(revision__status=Revision.Status.PUBLISHED)
-        .annotate(total=Count("revision__clips", filter=Q(revision__clips__processing=Clip.Processing.READY)))
+        .annotate(total=Count("revision__clips", filter=ready))
         .select_related("subject")
         .order_by("subject", "number")
     )
