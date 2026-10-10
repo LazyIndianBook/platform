@@ -9,8 +9,8 @@ brief](resources-brief.md) of the website's first redesign, the [baseline](basel
 matrix](coverage-matrix.md), the Django site's audits ([accessibility](audit-accessibility.md),
 [Lighthouse](audit-lighthouse.md)), the Next.js frontend's ([parity](parity-nextjs.md), [parity
 check](audit-nextjs-parity.md), [accessibility](audit-nextjs-accessibility.md),
-[Lighthouse](audit-nextjs-lighthouse.md), [security](audit-nextjs-security.md)) and [the
-screenshots](screenshots/README.md).
+[Lighthouse](audit-nextjs-lighthouse.md), [security](audit-nextjs-security.md), [the review's
+scripts](audit-scripts/nextjs/README.md)) and [the screenshots](screenshots/README.md).
 
 Branch `design/answer-script`, built on 9 October 2026 from `main` at b3cd16b. The design is "Direction A, Answer
 Script" (`implementation/design/*.dc.html`, one `[data-screen-label]` per screen; `implementation/README_IMPLEMENTATION.md`

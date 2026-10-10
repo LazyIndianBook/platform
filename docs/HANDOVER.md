@@ -50,11 +50,13 @@ timeline
 
 1. **The "Answer Script" redesign of the public site** (`examleaf-frontend/`): finished and verified. Report with
    before/after screenshots and numbers: `docs/design/answer-script-implementation.md`. Design sources:
-   `implementation/design/*.dc.html`, plan `implementation/README_IMPLEMENTATION.md`.
+   `implementation/design/*.dc.html`, plan
+   [`implementation/README_IMPLEMENTATION.md`](../implementation/README_IMPLEMENTATION.md).
 2. **The Admin Control Panel** (the business's back office): planned in full, Phases A and B built and merged, Phases
-   C to E pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,784 lines; sections 9 and 10 are the phases and the
-   owner's decisions). Research behind it: `docs/research/2026-10-09-admin-control-panel/` (seven reports, each with a
-   numbered sources file; index row in `docs/research/README.md`).
+   C to E pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,784 lines; sections 9 and 10 are the phases and
+   the owner's decisions). Research behind it: `docs/research/2026-10-09-admin-control-panel/` (the inventory of what
+   the backend did for staff and six reports, each report with a numbered sources file; index row in
+   `docs/research/README.md`).
 
 ## 2. Components and where each lives
 

@@ -31,14 +31,18 @@ Each folder holds:
   cost model.
 - [2026-10-08-production-features](2026-10-08-production-features/report.md): one report and nothing else, the
   library and provider checks behind the Phase 5 plan.
-- [2026-10-09-admin-control-panel](2026-10-09-admin-control-panel/inventory.md): the inventory of what the backend did
-  for staff and six reports, each with its numbered sources
-  ([learning, content, CRM](2026-10-09-admin-control-panel/research-lms-crm-cms.md),
-  [roles and security](2026-10-09-admin-control-panel/research-rbac-security.md),
-  [commerce and GST](2026-10-09-admin-control-panel/research-commerce-gst.md),
-  [B2B and predictions](2026-10-09-admin-control-panel/research-b2b-predictive.md),
-  [integrations](2026-10-09-admin-control-panel/research-integrations.md),
-  [ERPNext](2026-10-09-admin-control-panel/research-erpnext.md)); the Admin Control Panel's plan.
+- `2026-10-09-admin-control-panel`: the inventory of what the backend did for staff and six reports, each with its
+  numbered sources, behind the Admin Control Panel's plan:
+
+| Area | Report | Sources |
+|---|---|---|
+| What the backend did for staff | [inventory.md](2026-10-09-admin-control-panel/inventory.md) | none: it was read from the code |
+| Learning, content, CRM and marketing, support, analytics | [research-lms-crm-cms.md](2026-10-09-admin-control-panel/research-lms-crm-cms.md) | [sources-lms-crm-cms.md](2026-10-09-admin-control-panel/sources-lms-crm-cms.md) |
+| Roles, approvals, audit, sessions, the DPDP and CERT-In duties | [research-rbac-security.md](2026-10-09-admin-control-panel/research-rbac-security.md) | [sources-rbac-security.md](2026-10-09-admin-control-panel/sources-rbac-security.md) |
+| Orders, inventory, accounting, invoicing and GST | [research-commerce-gst.md](2026-10-09-admin-control-panel/research-commerce-gst.md) | [sources-commerce-gst.md](2026-10-09-admin-control-panel/sources-commerce-gst.md) |
+| Distributors, schools, teachers, predictive analytics | [research-b2b-predictive.md](2026-10-09-admin-control-panel/research-b2b-predictive.md) | [sources-b2b-predictive.md](2026-10-09-admin-control-panel/sources-b2b-predictive.md) |
+| Couriers, payments, messaging and the other integrations | [research-integrations.md](2026-10-09-admin-control-panel/research-integrations.md) | [sources-integrations.md](2026-10-09-admin-control-panel/sources-integrations.md) |
+| ERPNext v16 and the sync | [research-erpnext.md](2026-10-09-admin-control-panel/research-erpnext.md) | [sources-erpnext.md](2026-10-09-admin-control-panel/sources-erpnext.md) |
 
 ## Elsewhere
 
