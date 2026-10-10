@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="208" height="20" role="img" aria-label="ERPNext: v16 · India Compliance">
+  <title>ERPNext: v16 · India Compliance</title>
+  <linearGradient id="s" x2="0" y2="100%"><stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-opacity=".1"/></linearGradient>
+  <clipPath id="r"><rect width="208" height="20" rx="4" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="56" height="20" fill="#2f3542"/>
+    <rect x="56" width="152" height="20" fill="#0b2a5b"/>
+    <rect width="208" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="28.0" y="14" fill="#010101" fill-opacity=".3">ERPNext</text>
+    <text x="28.0" y="13">ERPNext</text>
+    <text x="132.0" y="14" fill="#010101" fill-opacity=".3">v16 · India Compliance</text>
+    <text x="132.0" y="13">v16 · India Compliance</text>
+  </g>
+</svg>
