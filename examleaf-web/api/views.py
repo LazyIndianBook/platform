@@ -32,6 +32,7 @@ from drf_spectacular.utils import (
 from rest_framework import exceptions, generics, permissions, serializers, status, views, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from accounts.forms import TurnstileField
@@ -321,8 +322,9 @@ def recently_authenticated(request):
     """Logged in or re-authenticated in this session within ACCOUNT_REAUTHENTICATION_TIMEOUT (5 minutes), by allauth's
     records of the session: the website's log-in and re-authentication, allauth.headless's (auth/reauthenticate,
     auth/2fa/reauthenticate, a new log-in, Google's included). Not allauth's did_recently_authenticate, which lets an
-    account with neither a password nor a second step through at any time. The app's tokens have no session."""
-    if not isinstance(request.successful_authenticator, SessionAuthentication):
+    account with neither a password nor a second step through at any time. The app's tokens have no session. A
+    Django request (the admin's, on the panel's session) is read from its session the same way."""
+    if isinstance(request, Request) and not isinstance(request.successful_authenticator, SessionAuthentication):
         return False
     records = get_authentication_records(request)
     return bool(records) and time.time() - records[-1]["at"] < account_settings.REAUTHENTICATION_TIMEOUT

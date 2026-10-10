@@ -45,7 +45,7 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 
 from accounts import roles
-from api.views import ReauthenticationRequired, exception_handler, recently_authenticated
+from api.views import ReauthenticationRequired, exception_handler
 from examleaf.middleware import BREAK_GLASS, absolute_expiry, idle_limit, needs_passkey
 
 from . import approvals, audit, catalogue, jobs, services
@@ -149,11 +149,6 @@ def coded(exc, context):
         if isinstance(exc, ReauthenticationRequired):
             response.data["flows"] = REAUTH_FLOWS
     return response
-
-
-def require_reauth(request, perm):
-    if catalogue.needs_reauth(perm) and not recently_authenticated(request):
-        raise ReauthenticationRequired()
 
 
 def accepted(change_request, view):
@@ -622,8 +617,7 @@ class ChangeRequestViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveMode
         data = s.AskSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         name = data.validated_data["action"]
-        require_reauth(request, approvals.ACTIONS[name].maker)
-        change_request, created = approvals.ask(
+        change_request, created = approvals.ask(  # (its maker's step-up: approvals.step_up)
             name,
             maker=user,
             target=data.validated_data["target"],

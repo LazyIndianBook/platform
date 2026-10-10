@@ -1,9 +1,9 @@
 """Step-up (research 2.3, plan 9.2's exit criteria): every money, role, key, export, erasure, void, cancel-document and
 credential action answers `reauthentication_required` to a session authenticated an hour ago and goes on for one
 authenticated a moment ago. The endpoints are derived from the catalogue and the authorization tables (which hold the
-URL walk: test_matrix), so a new high or critical action without the step fails here; so are the jobs whose permission
-is high, every export among them. A child's erasure confirmed for the parent steps up whatever its endpoint's
-permission (its view's `reauth`)."""
+URL walk: test_matrix), so a new high or critical action without the step fails here; so are the jobs and change
+requests whose permission is high. Three actions step up whatever their endpoint's permission: a cancellation that
+refunds (approvals.step_up), a bulk cancellation (jobs.start), a child's erasure confirmed for the parent."""
 
 from collections import defaultdict
 
@@ -13,8 +13,11 @@ from django.urls import resolve
 from accounts import roles
 from erp.tests.test_matrix import ENDPOINTS as ERP_ENDPOINTS
 from erp.tests.test_matrix import objects as erp_objects
-from staff import catalogue, jobs
-from staff.models import AuditEvent, Job
+from shop import services as shop
+from shop.factories import ProductFactory, captured, make_order
+from shop.models import Order
+from staff import approvals, catalogue, jobs
+from staff.models import AuditEvent, ChangeRequest, Job
 from staff.permissions import ANY_STAFF
 
 from .conftest import STAFF, make_staff, signed_in
@@ -125,3 +128,82 @@ def test_the_high_jobs_hold_every_export_and_bulk_money():
         assert kind in kinds, kind
     assert {"report_export", "code_batch", "coupon_codes", "content_import", "product_import"} <= kinds
     assert ("bulk_action", {"action": "order.refund"}) in HIGH_JOBS
+
+
+HIGH_ASKS = sorted(
+    name for name, item in approvals.ACTIONS.items() if item.generic and catalogue.needs_reauth(item.maker)
+)
+
+
+@pytest.mark.parametrize("name", HIGH_ASKS)
+def test_a_change_request_for_a_high_action_asks_an_hour_old_session_to_step_up(name):
+    owner = make_staff(roles.OWNER)
+    body = {"action": name, "target": "EL-2026-000001", "payload": {}, "reason": "Testing the step"}
+    assert refused(signed_in(owner, reauth=False).post(STAFF + "change-requests/", body, format="json"))
+    assert not ChangeRequest.objects.exists()
+
+
+@pytest.fixture
+def paid(rzp):
+    order = make_order((ProductFactory(stock=5), 1))
+    shop.record_capture(captured(order))
+    return Order.objects.get(pk=order.pk)
+
+
+def test_cancelling_an_order_paid_online_is_its_refund_and_steps_up_as_one(paid, commit):
+    sales = make_staff(roles.SALES)  # shop.change_order and staff.refund_order, ₹2,000 at once
+    url, body = f"{STAFF}orders/{paid.number}/cancel/", {"reason": "Asked by phone"}
+    assert refused(signed_in(sales, reauth=False).post(url, body, format="json"))
+    paid.refresh_from_db()
+    assert paid.status == Order.Status.PAID and not paid.refunds.exists() and not ChangeRequest.objects.exists()
+    with commit():
+        done = signed_in(sales).post(url, body, format="json")
+    assert done.status_code == 201, done.content
+    paid.refresh_from_db()
+    assert paid.status == Order.Status.REFUNDED
+
+
+def test_a_tickets_cancellation_of_a_paid_order_steps_up_as_its_refund(paid, commit):
+    from support.tests.conftest import make_ticket
+
+    with commit():
+        ticket = make_ticket(email=paid.email, order=paid, category="order")
+    url, body = f"{STAFF}support/tickets/{ticket.number}/cancel/", {"reason": "Asked to cancel"}
+    sales = make_staff(roles.SALES)
+    assert refused(signed_in(sales, reauth=False).post(url, body, format="json"))
+    assert not ChangeRequest.objects.exists()
+    with commit():
+        assert signed_in(sales).post(url, body, format="json").status_code == 201
+
+
+def test_a_bulk_cancellation_steps_up_and_its_dry_run_does_not(paid):
+    sales = make_staff(roles.SALES)
+    body = {"kind": "orders_cancel", "params": {"targets": [paid.number], "reason": "Out of print"}}
+    assert refused(signed_in(sales, reauth=False).post(STAFF + "jobs/", body, format="json"))
+    assert not Job.objects.exists()
+    dry = signed_in(sales, reauth=False).post(STAFF + "jobs/", {**body, "dry_run": True}, format="json")
+    assert dry.status_code == 202, dry.content  # changes nothing: no step
+    assert signed_in(sales).post(STAFF + "jobs/", body, format="json").status_code == 202
+
+
+def test_the_admins_cancel_of_a_paid_order_steps_up_too(client, paid, commit):
+    """The Django admin's Cancel (on the panel's session, admin host) asks for the same refund: refused, with the
+    reason, until the session re-authenticated in the last 5 minutes (in the console)."""
+    import time
+
+    from allauth.account.internal.flows.login import AUTHENTICATION_METHODS_SESSION_KEY
+    from django.urls import reverse
+
+    admin = reverse("admin:shop_order_changelist")
+    client.force_login(make_staff(roles.SALES))
+    body = {"action": "cancel", "_selected_action": [paid.pk]}
+    answer = client.post(admin, body, follow=True).content.decode()
+    paid.refresh_from_db()
+    assert paid.status == Order.Status.PAID and "Confirm it is you" in answer
+    session = client.session
+    session[AUTHENTICATION_METHODS_SESSION_KEY] = [{"method": "password", "at": time.time()}]
+    session.save()
+    with commit():
+        client.post(admin, body, follow=True)
+    paid.refresh_from_db()
+    assert paid.status == Order.Status.REFUNDED

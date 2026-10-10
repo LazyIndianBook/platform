@@ -1,9 +1,11 @@
 """Staff side: SALES and SUPPORT permissions, the order actions (packing and shipping: staff.pack_order, ADMIN's in
 the admin; refunds there: ADMIN's), the export, the dashboard and seed_shop."""
 
+import time
 from io import StringIO
 
 import pytest
+from allauth.account.internal.flows.login import AUTHENTICATION_METHODS_SESSION_KEY
 from django.contrib.auth.models import Group
 from django.core import mail
 from django.core.management import call_command
@@ -25,6 +27,14 @@ def staff(role):
     user = UserFactory(is_staff=True)
     user.groups.set([Group.objects.get(name=role)])
     return user
+
+
+def sign_in(client, user):
+    """Signed in a moment ago: a refund (staff.approvals' "order.refund") steps up, here as in the panel."""
+    client.force_login(user)
+    session = client.session
+    session[AUTHENTICATION_METHODS_SESSION_KEY] = [{"method": "password", "at": time.time()}]
+    session.save()
 
 
 @pytest.fixture
@@ -91,12 +101,12 @@ def test_packing_shipping_and_delivery_need_the_packing_permission(client, paid,
 
 
 def test_refund_action_needs_a_reason_and_refunds_through_razorpay(client, paid, rzp, commit):
-    client.force_login(staff(roles.SALES))  # SALES asks for refunds in the panel, where FINANCE approves (plan 4.1)
+    sign_in(client, staff(roles.SALES))  # SALES asks for refunds in the panel, where FINANCE approves (plan 4.1)
     with commit():
         act(client, "refund", [paid], apply="1", reason="Damaged in transit.")
     assert not Refund.objects.exists()
     admin = staff(roles.ADMIN)
-    client.force_login(admin)
+    sign_in(client, admin)
     assert "Reason" in act(client, "refund", [paid]).content.decode()
     with commit():
         act(client, "refund", [paid], apply="1", reason="Damaged in transit.")
@@ -109,7 +119,7 @@ def test_refund_action_needs_a_reason_and_refunds_through_razorpay(client, paid,
 
 
 def test_partial_refund_of_a_refused_parcel(client, paid, rzp, commit):
-    client.force_login(staff(roles.ADMIN))
+    sign_in(client, staff(roles.ADMIN))
     with commit():
         services.pack_order(paid)
         services.ship_order(paid, "India Post", "EA1IN")
@@ -129,7 +139,7 @@ def dear(rzp):
 def test_a_refund_above_the_makers_limit_waits_for_finance_as_in_the_panel(client, rzp, commit):
     order = dear(rzp)
     admin = staff(roles.ADMIN)
-    client.force_login(admin)
+    sign_in(client, admin)
     with commit():
         page = act(client, "refund", [order], apply="1", reason="Damaged in transit.").content.decode()
     change = ChangeRequest.objects.get()
@@ -143,7 +153,7 @@ def test_a_refund_above_the_makers_limit_waits_for_finance_as_in_the_panel(clien
 def test_cancelling_an_order_paid_online_is_its_refund_with_the_makers_limit(client, rzp, paid, commit):
     order = dear(rzp)
     sales = staff(roles.SALES)  # cancels and asks for refunds; ₹2,000 at once
-    client.force_login(sales)
+    sign_in(client, sales)
     with commit():
         act(client, "cancel", [paid, order])
     paid.refresh_from_db()

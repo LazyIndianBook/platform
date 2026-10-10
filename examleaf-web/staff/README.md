@@ -121,6 +121,10 @@ another payload is refused. `execute()` runs the stored payload, never one sent 
 action's preconditions (the order not shipped meanwhile, the price unchanged …), in one transaction; it fails rather
 than do something else. Each step is an audit event `<action>.requested|approved|rejected|expired|executed|failed`
 (`.overridden` for an owner's override), with the request's id. An `Idempotency-Key` answers the first request again.
+Asked from a request (the panel, the admin), an action whose maker's permission is high or critical needs a log-in or
+re-authentication in the last 5 minutes (`approvals.step_up`), whichever endpoint asks: cancelling an order paid online
+is its refund, and steps up as one. A job whose rows ask for an action as their starter (`shop.order_jobs.ASKS`: a
+bulk cancellation's refunds) steps it up when it starts; its dry run does not.
 
 | Action | Maker | Checker | Waits when |
 |---|---|---|---|
@@ -237,8 +241,9 @@ website's. The admin host must also be in `ALLOWED_HOSTS`, and its `https://` or
 
 **The admin's refunds are the panel's.** The order's "Refund through Razorpay" action, and "Cancel" on an order paid
 online (which is its refund), ask `approvals.ask("order.refund", …)`: within the maker's `refund_inr` they run at once,
-above it a change request waits for FINANCE in the panel; each step is audited. Packing, shipping and delivery in the
-admin need `staff.pack_order` (`shop/admin.py`).
+above it a change request waits for FINANCE in the panel; each step is audited. Like the panel's, they need a
+re-authentication in the last 5 minutes (made in the console: the admin shares its session), else nothing is refunded
+and the admin says why. Packing, shipping and delivery in the admin need `staff.pack_order` (`shop/admin.py`).
 
 ## Notes and policies
 
