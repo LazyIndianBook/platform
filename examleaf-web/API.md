@@ -4,9 +4,11 @@ The REST API behind the ExamLeaf app: the public catalogue (boards, subjects, bo
 signed-in student with a confirmed email address, as on the website, or for everyone while the site's solutions are
 open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), the
 shop (books, categories, collections, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices) and the
-revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the insights (forecasts,
-print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`, `serializers.py`, `shop.py`,
-`learn.py`) and `insights/api.py`, settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
+revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the Admin Control Panel's
+API (`/api/v1/staff/…`, on the admin host only: the [Staff API](#staff-api) and a section for each module) and the
+insights (forecasts, print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`,
+`serializers.py`, `shop.py`, `learn.py`), `insights/api.py` and the staff API's, which each module keeps beside its
+models (its section names the file); settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
 `examleaf/api_urls.py`.
 
 ## Contents
@@ -14,18 +16,16 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
-[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) · [Legal ·
-and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff) · [Connections ·
-(staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Content (staff)](#content-staff) · [Support ·
-(staff)](#support-staff) · [Finance (staff)](#finance-staff) · [Home and reports (staff)](#home-and-reports-staff) · ·
-[Catalogue (staff)](#catalogue-staff) · [Course (staff)](#course-staff) · [Customers (staff)](#customers-staff) · ·
-[Lists](#lists) · [Staff API](#staff-api) · [Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · ·
-[Versioning](#versioning) · [Operations](#operations)
-
 [Shop](#shop) · [Revision course](#revision-course) · [Shipping (staff)](#shipping-staff) ·
-[Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
-[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) · [Operations](#operations)
+[Site](#site-configuration-and-legal-pages) · [Insights (staff)](#insights-staff) ·
+[ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) ·
+[Legal and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff) ·
+[Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Content (staff)](#content-staff) ·
+[Support (staff)](#support-staff) · [Finance (staff)](#finance-staff) ·
+[Home and reports (staff)](#home-and-reports-staff) · [Catalogue (staff)](#catalogue-staff) ·
+[Course (staff)](#course-staff) · [Customers (staff)](#customers-staff) · [Lists](#lists) · [Staff API](#staff-api) ·
+[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) ·
+[Operations](#operations)
 
 ## Conventions
 
@@ -44,7 +44,7 @@ and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff
 
 ## Endpoints
 
-Paths are under `/api/v1/` except those of the last three rows. Who: **anyone** needs no sign-in; **signed in** needs a
+Paths are under `/api/v1/` except those that start with a slash. Who: **anyone** needs no sign-in; **signed in** needs a
 valid access token (or the website's session); **confirmed** also needs a confirmed email address; a permission
 (`staff.view_parcels` …) is the [Staff API](#staff-api)'s rule: a member of staff with an authenticator app holding
 it, on the panel's session (or an API key), on the admin host only. **Shop open**: while
@@ -129,13 +129,11 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance; the e-commerce disclosures and the dark-pattern certificate |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | GET | `pages/<slug>/versions/` | anyone | a legal page's versions: number, in force from, what changed, the one waiting for its day |
-| POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | POST | `contact/` | anyone | the contact form: a support ticket, its number emailed to the sender |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
 | GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
 | GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | `staff.view_insights` | days in transit per courier and district, fraud signals, what coupons and offers did |
 | POST | `insights/fraud-signals/<id>/acknowledge/` | `staff.acknowledge_signal` | looked at and handled: it leaves `?open=1` |
-
 | GET | `shipping/orders/<number>/quote/` (`?weight_g=`) | `staff.book_parcel` | the couriers for an order's parcel, ranked, with India Post's price for a prepaid order ([Shipping (staff)](#shipping-staff)) |
 | GET POST | `shipping/shipments/` | `staff.view_parcels`; POST `staff.book_parcel` | parcels (`?status=&carrier=&courier_company_id=&order=&search=`); POST books one: with a courier of the quote (202) or sent by hand (201) |
 | GET | `shipping/shipments/<id>/`, `shipping/shipments/<id>/events/` | `staff.view_parcels` | a parcel with its timeline, exceptions, charges and COD remittance; its timeline |
@@ -148,6 +146,8 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/erp-events/` | ERPNext, with its signature in `X-Frappe-Webhook-Signature` | ERPNext's doorbell for a document that changed ([ERPNext sync (staff)](#erpnext-sync-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/sms-events/` | MSG91, with the connections page's token in `X-Webhook-Token` | MSG91's delivery reports ([Connections (staff)](#connections-staff)); not in the OpenAPI schema |
 | POST | `/api/hooks/support-mail/` | the forwarder, with its token in `X-Support-Mail-Token` | an email to the support address ([Support (staff)](#support-staff)); not in the OpenAPI schema |
 | any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
@@ -1255,6 +1255,8 @@ curl https://admin.examleaf.in/api/v1/staff/privacy/holds/ -b "sessionid=…; cs
   -H "Content-Type: application/json" -d '{"target_type": "shop.order", "target_id": "EL-2026-000123", "reason": "chargeback"}'
 # 201 {"id": 7, "user": null, "target_type": "shop.order", "target_id": "41", "target_label": "Order EL-2026-000123",
 #      "reason": "chargeback", "note": "", "until": null, "active": true, "created": "…", "created_by": 3, …}
+```
+
 ## Orders (staff)
 
 `/api/v1/staff/orders/…` (code: `shop/staff_orders.py`, the jobs `shop/order_jobs.py`; the module:
@@ -1647,6 +1649,8 @@ curl -X POST https://admin.examleaf.in/api/v1/staff/finance/settlements/fetch/ \
   -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
   -d '{"day": "2026-10-09"}'
 # 202 {"id": 812, "kind": "settlement_fetch", "state": "queued", ...}
+```
+
 ## Home and reports (staff)
 
 `/api/v1/staff/home/` and `/api/v1/staff/reports/…` (code: `insights/staff_home.py` and `insights/staff_api.py`; the
@@ -2027,6 +2031,17 @@ minutes.
   same key answers the first request again instead of making a second one. 201: it ran at once, within your limits
   (`limits` in `session/`); 202: it waits for a second person (`status` "pending"); 400 with `detail`: it ran and
   failed (its preconditions no longer held).
+- **Jobs** (`jobs/`) run in the background and are followed through `jobs/<id>/`: `state`, `done` of `total`, the rows'
+  `errors`, `result` and `result_url`, a link signed for 5 minutes. The kinds: `audit_export` (below), `bulk_action`
+  (`params.action` one of the change requests' actions or of the customers' and the course's account actions:
+  [Customers (staff)](#customers-staff), [Course (staff)](#course-staff)), `erp_initial_load` ([ERPNext sync
+  (staff)](#erpnext-sync-staff)), `gstr1_export` ([Tax (staff)](#tax-staff)), `orders_pack`, `orders_print`,
+  `orders_cancel` and `orders_export` ([Orders (staff)](#orders-staff)), `content_import` ([Content
+  (staff)](#content-staff)), `grievance_export` ([Support (staff)](#support-staff)), `settlement_fetch` ([Finance
+  (staff)](#finance-staff)), `report_export` ([Home and reports (staff)](#home-and-reports-staff)), `coupon_codes`,
+  `product_import` and `product_export` ([Catalogue (staff)](#catalogue-staff)) and `code_batch` ([Course
+  (staff)](#course-staff)). Each kind asks for its own permission, and above the starter's `export_rows` or
+  `bulk_rows` a change request (`job.run`) waits for an approver first.
 - **Personal data is masked** (`ra•••@example.com`, `••••••2345`, `203.0.113.x`); opening a customer and revealing a
   detail are recorded (`sensitive_read`).
 
@@ -3508,23 +3523,20 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | mistakes reported (`POST reports/`), per client address, the website's included | 5 an hour and 20 a day | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 | MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`, and `staff/jobs/` of an export) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
-| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
-| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| ERPNext's webhook (`POST /api/hooks/erp-events/`), per client address | 600 a minute | `API_THROTTLE_ERP_EVENTS` |
 | the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
 | new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`), the support queue and its book-code lookups | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
-| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| searches that cost a query: customers (`GET staff/users/`), orders, Finance's payments, the support queue and a ticket's book-code lookup, a person searched for among the course's entitlements (`?q=`), a learner's page | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals of a customer's, a ticket's, a nominee's or a bank refund's payee details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<user>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| exports and the files made as jobs (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, the GSTR-1 file, a day of settlements fetched) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`, and the catalogue's import) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
+| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
+| book codes looked up (`POST staff/course/codes/lookup/`) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; staff orders, refunds (a bank one marked paid too), offline payments and quotes made into orders; products, coupons and offers made or changed; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
