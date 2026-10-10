@@ -46,7 +46,7 @@ from content.isbn import validate_isbn13
 from content.review import VERSION_TYPES
 from staff import approvals, audit, jobs
 from staff.api import IDEMPOTENCY, StaffView, accepted
-from staff.backends import scoped
+from staff.backends import SUBJECT, scope_values, scoped
 from staff.models import ChangeRequest, Job
 from staff.serializers import ChangeRequestSerializer, JobSerializer
 
@@ -554,9 +554,9 @@ class CatalogueProductWriteSerializer(serializers.Serializer):
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
     reason = serializers.CharField(max_length=500, required=False, help_text="why the price changes (its approval)")
 
-    def __init__(self, *args, product=None, **kwargs):
+    def __init__(self, *args, product=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.product = product
+        self.product, self.user = product, user
         if product is None:  # a new product: its identity and an MRP at least
             for name in self.fields:
                 self.fields[name].required = name in ("title", "slug", "kind", "mrp")
@@ -590,6 +590,13 @@ class CatalogueProductWriteSerializer(serializers.Serializer):
             data["subject"] = Subject.objects.filter(pk=data["subject"]).first()
             if data["subject"] is None:
                 raise serializers.ValidationError({"subject": ["No such subject."]})
+        if self.user is not None and ("subject" in data or product is None):  # made or moved: in the writer's reach
+            perm = "shop.add_product" if product is None else "shop.change_product"
+            values = None if self.user.is_superuser else scope_values(self.user, perm, SUBJECT)
+            subject = data.get("subject")
+            if values is not None and (subject is None or subject.code not in values):
+                words = f"Not one of your subjects ({', '.join(sorted(values))})."
+                raise serializers.ValidationError({"subject": [words]})
         if "book" in data and data["book"] is not None:
             from content.models import Book
 
@@ -860,7 +867,7 @@ class ProductViewSet(CatalogueView, viewsets.GenericViewSet):
         """A new product: made at its MRP, off sale unless said; a selling price below the MRP follows through the
         approval product.price (staff.change_price; beyond your discount limit it waits for FINANCE)."""
         user = self.human()
-        asked = CatalogueProductWriteSerializer(data=request.data)
+        asked = CatalogueProductWriteSerializer(data=request.data, user=user)
         asked.is_valid(raise_exception=True)
         data = dict(asked.validated_data)
         price = data.pop("price", None)
@@ -901,7 +908,7 @@ class ProductViewSet(CatalogueView, viewsets.GenericViewSet):
         """A change: the page's fields save at once; the MRP and selling price go through product.price (with a
         `reason`): within your discount limit at once (200), beyond it 202 with the change request, the rest saved."""
         user, product = self.human(), self.get_object()
-        asked = CatalogueProductWriteSerializer(data=request.data, product=product, partial=True)
+        asked = CatalogueProductWriteSerializer(data=request.data, product=product, partial=True, user=user)
         asked.is_valid(raise_exception=True)
         data = dict(asked.validated_data)
         prices = {name: data.pop(name) for name in list(data) if name in PRICE_FIELDS}

@@ -7,7 +7,8 @@
   a reveal (a reason, a re-authentication, a sensitive_read) answers one;
 - no answer and no audit event holds a secret: an API key, a provider's credentials, a webhook token, SECRET_KEY;
 - a write never takes a protected field (a publish flag, a number, a hash, an owner, a verification, a superuser
-  flag, an API key's prefix): refused or ignored."""
+  flag, an API key's prefix): refused or ignored;
+- a write never puts an object outside its writer's scope (a product made or moved into another subject)."""
 
 import json
 import re
@@ -23,7 +24,7 @@ from accounts import roles
 from accounts.models import Nominee, User
 from shop.factories import ADDRESS, ProductFactory, make_order, verified_user
 from shop.models import Address, Product
-from staff.models import ApiKey, AuditEvent, DataRequest, SavedView
+from staff.models import ApiKey, AuditEvent, DataRequest, SavedView, StaffScope
 from support import services as support
 
 from .conftest import STAFF, make_staff, signed_in
@@ -210,3 +211,41 @@ def test_the_publics_writes_never_take_a_protected_field():
     nominee = {"name": "Asha Das", "contact": "asha@example.com", "relation": "mother"}
     me.put("/api/v1/me/nominee/", {**nominee, "verified_at": "2026-01-01T00:00:00Z"}, format="json")
     assert Nominee.objects.get(user=customer).verified_at is None
+
+
+def test_a_product_is_never_made_or_moved_out_of_its_writers_subjects():
+    """A content editor narrowed to Physics makes and changes Physics products only (as books: content's
+    validate_subject; entitlements and code batches: learn.course.check_subject_scope)."""
+    from content.conftest import make_paper
+
+    physics, chemistry = make_paper(subject="PHY").book.subject, make_paper(subject="CHE", code="CHE-E01").book.subject
+    editor = make_staff(roles.CONTENT_EDITOR)
+    StaffScope.objects.create(user=editor, kind="subject", value="PHY")
+    client = signed_in(editor)
+    new = {"title": "Chemistry 2027", "slug": "chemistry-notes", "kind": "sample-papers", "mrp": "349.00"}
+    new |= {"weight_grams": 280, "price": "349.00"}
+    made = client.post(f"{STAFF}catalogue/products/", {**new, "subject": chemistry.pk}, format="json")
+    assert made.status_code == 400 and "subject" in made.json(), made.content[:300]
+    assert not Product.objects.filter(slug="chemistry-notes").exists()
+    mine = ProductFactory(slug="physics-notes", subject=physics)
+    moved = client.patch(f"{STAFF}catalogue/products/{mine.slug}/", {"subject": chemistry.pk}, format="json")
+    assert moved.status_code == 400 and Product.objects.get(pk=mine.pk).subject == physics
+    ok = client.patch(f"{STAFF}catalogue/products/{mine.slug}/", {"title": "Physics notes, 2027"}, format="json")
+    assert ok.status_code == 200, ok.content[:300]
+    # the import (shop.catalogue_jobs.import_row) on the same rules: a row of another subject's product, or a new
+    # one in another subject, refused for an importer narrowed to Physics
+    from rest_framework.exceptions import PermissionDenied, ValidationError
+
+    from shop.catalogue_jobs import import_row
+    from staff.models import Job
+
+    importer = make_staff(roles.OWNER)
+    StaffScope.objects.create(user=importer, kind="subject", value="PHY")
+    job = Job.objects.create(kind="product_import", params={}, started_by=importer)
+    theirs = ProductFactory(slug="chemistry-notes", subject=chemistry, title="Chemistry notes")
+    with pytest.raises(PermissionDenied):
+        import_row({"slug": theirs.slug, "title": "Chemistry notes, 2027"}, importer, job)
+    row = {"slug": "chemistry-2", "title": "Chemistry 2", "kind": "sample-papers", "mrp": "349.00"}
+    with pytest.raises(ValidationError) as refused:
+        import_row({**row, "subject": str(chemistry.pk), "weight_grams": "280"}, importer, job)
+    assert "subject" in refused.value.detail
