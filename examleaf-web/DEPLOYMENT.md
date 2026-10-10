@@ -11,7 +11,7 @@ Sections 1 to 12 are the first deployment, in order. After them: 13 every settin
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
 18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
 (the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log, 24 ERPNext, 25 the
-staff, settings and integrations, and system pages (Phase B).
+staff, settings and integrations, and system pages (Phase B), 26 Phase B's settings by module.
 
 ## 1. Accounts you need
 
@@ -294,7 +294,9 @@ the flows.
 - [ ] Razorpay account activated. Switch the Dashboard to Live Mode, generate live keys and set `RAZORPAY_KEY_ID=rzp_live_…`
       and `RAZORPAY_KEY_SECRET`; create the same webhook again in Live Mode (webhooks are per mode) with a new secret,
       set as `RAZORPAY_WEBHOOK_SECRET` (keep `RAZORPAY_WEBHOOK_SECRET_TEST`); `SHOP_OPEN=1`; `docker compose up -d`.
-      The payment page no longer says "Test mode". RUNBOOK.md "Test mode and live mode" has the details.
+      The payment page no longer says "Test mode". Once the panel holds Razorpay's keys (Settings → Connections →
+      Razorpay), the same steps are "Replace the keys" for the Live mode, then Mode → Live, and "Rotate the token" for
+      the webhook's secret. RUNBOOK.md "Test mode and live mode" has the details.
 - [ ] One real purchase of a cheap book, then cancel it: the refund appears in the Razorpay Dashboard (Refunds) and
       the money comes back to the card or UPI account.
 - [ ] `check --deploy` shows only W005 and W021; `/health/` is OK; Sentry receives errors; the `media` volume (or the
@@ -303,7 +305,7 @@ the flows.
       each courier's link (RUNBOOK.md "Shipping with tracking links").
 - [ ] After a first real order: `docker compose exec web python manage.py reconcile_payments` lists nothing but
       "no payment at Razorpay" for abandoned checkouts (it asks Razorpay about every unpaid online order; RUNBOOK.md,
-      "A stuck payment").
+      "A stuck payment", where the panel's Finance → Payments does the same).
 
 ## 13. Settings
 
@@ -332,6 +334,8 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `BOOK_SOURCE` | `../../Class 12` | required to import on a server | compose only: the books checkout on the host (`/srv/books`, section 4), its `production/` mounted read-only at `/book/production` |
 | `SOLUTIONS_REQUIRE_LOGIN` | `1` | no | 1: solutions for signed-in students; 0: for everyone (README.md, "Open or registered solutions") |
 | `PARENTAL_CONSENT_MODE` | `declared` | no | `declared`: the parent ticks the sign-up box; `verified`: the parent also confirms by a link sent by email, or by SMS to an Indian mobile number when SMS are on (section 14; before May 2027) |
+| `WEB_COURSE` | `0` | no | 1: the revision course's pages on the website (`web_course` in `GET /api/v1/config/`); also a panel setting (Settings → "The revision course's pages on the website"), which wins once set |
+| `APP_LINK_ANDROID`, `APP_LINK_IOS` | empty | no | the app's Google Play and App Store addresses, drawn by the website's footer (`app_links` in `config/`; null while empty) |
 | `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy stops bodies over 10 MB (500 MB only on the clip and revision admin pages, for signed-in staff) |
 
 ### Database, cache and queue
@@ -380,6 +384,7 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `DEFAULT_FROM_EMAIL` | `ExamLeaf <noreply@localhost>` | required on a server | the sender of every email: `ExamLeaf <noreply@examleaf.in>`, on the verified sending domain |
 | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | none | with Amazon SES | the access key of the IAM user `examleaf-ses` (section 15); not the S3 or backup keys; the secret is required once the id is set |
 | `SES_REGION` | `ap-south-1` | no | SES's region (Mumbai) |
+| `SUPPORT_EMAIL` | empty: `SELLER_EMAIL` | recommended | the support address: the customer-care email the website shows (`support.email` in `config/`, and the disclosures' until the panel sets its own), the Reply-To of ticket emails, the address the support mailbox's forwarder takes (RUNBOOK.md "Support") and the contact form's copy (`SUPPORT_COPY_TO_EMAIL`); while neither it nor `SELLER_EMAIL` is set (or either is still a `[placeholder]`) the contact form answers that it is not set up |
 | `ANYMAIL_AMAZON_SES_CONFIGURATION_SET_NAME` | none | with SES bounce handling | `examleaf`: the SES configuration set whose events go to the webhook |
 | `ANYMAIL_WEBHOOK_SECRET` | none | with bounce handling | `user:password` (random letters and digits) that the provider puts in the webhook URL; empty: no `/anymail/` URLs at all, so no suppression list fills |
 | `ANYMAIL_BREVO_API_KEY` (or the provider's own `ANYMAIL_…` key) | none | with Brevo, Postmark … | the provider's API key; any variable starting `ANYMAIL_` is handed to django-anymail |
@@ -389,8 +394,8 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `SMS_BACKEND` | `console` | for phone log-in and SMS | `msg91` sends SMS (section 15); `console` prints them, and on a server (`DEBUG=0`) turns phone log-in, order SMS and SMS consent links off. Any other value stops the site starting |
-| `MSG91_AUTHKEY` | none | with `msg91` (the site refuses to start without it) | MSG91 → API: create an authkey, with the server's IP whitelisted (section 15) |
-| `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_ORDER_PLACED`, `MSG91_TEMPLATE_ORDER_SHIPPED`, `MSG91_TEMPLATE_ORDER_DELIVERED`, `MSG91_TEMPLATE_PARENT_CONSENT`, `MSG91_TEMPLATE_ORDER_ARRIVING`, `MSG91_TEMPLATE_ORDER_NOT_DELIVERED` | none | one for each kind of SMS wanted | the id MSG91 gives each registered DLT template (texts: RUNBOOK.md "SMS"); the last two are a courier's news (section 21), not sent while empty |
+| `MSG91_AUTHKEY` | none | with `msg91` (the site refuses to start without it) | MSG91 → API: create an authkey, with the server's IP whitelisted (section 15). Settings → Connections → MSG91 may hold it instead (section 25, item 7) |
+| `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_ORDER_PLACED`, `MSG91_TEMPLATE_ORDER_SHIPPED`, `MSG91_TEMPLATE_ORDER_DELIVERED`, `MSG91_TEMPLATE_PARENT_CONSENT`, `MSG91_TEMPLATE_ORDER_ARRIVING`, `MSG91_TEMPLATE_ORDER_NOT_DELIVERED` | none | one for each kind of SMS wanted | the id MSG91 gives each registered DLT template (texts: RUNBOOK.md "SMS"); the last two are a courier's news (section 21), not sent while empty. An approved template of the panel's registry (Settings → Message templates) is used first; these ids are its fallback |
 | `SMS_DAILY_CAP` | `500` | no | SMS sent per day at most (India time), the last line behind the fixed limits per number, account and purpose; counted in the database (RUNBOOK.md "SMS") |
 
 ### Sign-in providers and Turnstile
@@ -404,14 +409,14 @@ list any variable its clip task comes to need. After a change: `docker compose u
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | none | to take online payments | API keys (`rzp_test_…` until going live; Dashboard → Account & Settings → API Keys); empty: the payment page says online payment is not set up |
-| `RAZORPAY_WEBHOOK_SECRET_TEST`, `RAZORPAY_WEBHOOK_SECRET` | none | for webhooks | the secrets typed when creating the Test Mode and the Live Mode webhook; the one of the keys' mode is checked; empty: every webhook is refused (section 12) |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | none | to take online payments | API keys (`rzp_test_…` until going live; Dashboard → Account & Settings → API Keys); empty: the payment page says online payment is not set up. Settings → Connections → Razorpay may hold the keys instead: while an account there has them, they apply and these stand aside (section 25, item 7) |
+| `RAZORPAY_WEBHOOK_SECRET_TEST`, `RAZORPAY_WEBHOOK_SECRET` | none | for webhooks | the secrets typed when creating the Test Mode and the Live Mode webhook; the one of the keys' mode is checked; empty: every webhook is refused (section 12). With the panel's keys the webhook's secret is the account's (Connections → Razorpay → Webhooks → "Rotate the token"), the previous one still accepted for 24 hours |
 | `SHOP_OPEN` | `1` | no | 0: only staff use the cart, checkout and payment ("Shop opens soon"), for Razorpay's review on test keys |
 | `SHOP_COD_ENABLED` | `0` | no | 1: offer cash on delivery (accounts with a confirmed email address, two orders on their way each) |
 | `SHOP_COD_MAX_VALUE` | `1500` | no | the largest cash-on-delivery order, in rupees, shipping included |
 | `SHOP_RETURN_DAYS` | `15` | no | days after delivery a customer may ask to send books back (the website's return form); staff may file one later for them |
 | `SHOP_COD_HIGH_VALUE_INR` | `1000` | no | a cash-on-delivery order worth this many rupees or more counts towards its risk score (insights/jobs/risk.py) |
-| `SHOP_COD_HIGH_RISK_HOLD` | `1` | no | 1: a cash-on-delivery order scored high waits on hold ("payment check") until staff release it; the panel may switch it (`PUT staff/settings/SHOP_COD_HIGH_RISK_HOLD/`) |
+| `SHOP_COD_HIGH_RISK_HOLD` | `1` | no | 1: a cash-on-delivery order scored high waits on hold ("payment check") until staff release it; the panel switches it (Settings → "A cash-on-delivery order scored high risk waits on hold for a check"; `PUT staff/settings/SHOP_COD_HIGH_RISK_HOLD/`) |
 | `SHOP_BANK_REFUND_DAYS` | `3` | no | the days FINANCE has to transfer a refund by bank or UPI (its inbox item's due time) |
 | `SHOP_STUCK_PAYMENT_MINUTES` | `15` | no | an online payment started or authorised this many minutes ago on an order still unpaid counts as stuck (the panel's Finance today and its payments' "Stuck" tab; shop/README.md "Finance"). Razorpay's settlements are fetched every morning at 03:15 with the keys in force (no setting of their own; `ERP_SYNC_SETTLEMENTS` posts them to ERPNext) |
 | `SHOP_LOW_STOCK` | `5` | no | each morning at 8 the SALES role is emailed the books with fewer copies (RUNBOOK.md "Stock, stock alerts and the low-stock email"); also the dashboard's "running out" |
@@ -488,6 +493,7 @@ and section 17).
 | `JWT_SIGNING_KEY` | `SECRET_KEY` | no | the key the API's tokens are signed with; changing it logs every app out, not the website (RUNBOOK.md) |
 | `API_THROTTLE_ANON`, `API_THROTTLE_USER`, `API_THROTTLE_AUTH` | `200/minute`, `600/minute`, `30/minute` | no | API rate limits per client address (anonymous), per user, and for log-in, sign-up, codes, passwords, data export and deletion |
 | `API_THROTTLE_ORDER_LOOKUP`, `API_THROTTLE_PAYMENT`, `API_THROTTLE_COUPON` | `10/hour`, `30/minute`, `10/hour` | no | guests' order lookup per address; starting and confirming payments; coupon codes tried per user |
+| `API_THROTTLE_IMPERSONATE` | `20/hour` | no | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address |
 | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS`, `API_THROTTLE_LEARN_QUIZ` | `5/hour`, `5/hour`, `600/hour` | no | book codes tried per user and per client address (raise the second before a teacher has a classroom redeem together), and quiz answers per user |
 
 ### Logging and Sentry
@@ -534,7 +540,7 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_POLICIES` | none | before staff start | the policies staff acknowledge, each version once, as `key=version` pairs (`acceptable_use=2026-10,childrens_data=2026-10,confidentiality=2026-10,incident_reporting=2026-10`, research 6); a new version asks everyone again (the manifest's `policies_due`). Publish the texts where staff read them (the panel links them by key) |
 | `STAFF_BREAK_GLASS_HOURS` | `2` | no | a break-glass session (a superuser's) ends this many hours after its log-in however busy; it gives its reason first (`POST /api/v1/staff/session/reason/`), and the owners are told at its start and its end (RUNBOOK.md "Break-glass accounts") |
 | `STAFF_ALERT_EMAILS` | every active member of OWNER | recommended | who gets the owners' alerts at once (a break-glass log-in, a privileged role given, an override, an API key, an impersonation, maintenance on, an incident, a staff lock-out or offboarding, a broken audit chain or a failed export), comma separated |
-| `STAFF_PANEL_URL` | `SITE_URL` | with the panel | the panel's address (`https://admin.examleaf.in`): staff invitations link to its `/invite/<token>/` page |
+| `STAFF_PANEL_URL` | `SITE_URL` | with the panel | the panel's address (`https://admin.examleaf.in`): staff invitations link to its `/invite/<token>/` page, which neither the console nor the website has yet (RUNBOOK.md "Staff accounts" gives a role another way) |
 | `STAFF_CHANGE_REQUEST_HOURS`, `STAFF_DORMANT_DAYS` | `24`, `45` | no | how long a change request waits before it expires; after how many days without a log-in the access review flags a member of staff |
 | `STAFF_TEST_MODE` | `DEBUG`'s | on staging | `1` on any deployment that is not the production site: the panel shows its TEST band (the manifest's `flags.test_mode`) |
 | `STAFF_AUDIT_RETENTION_DAYS`, `STAFF_AUDIT_MONEY_RETENTION_FY` | `730`, `8` | no | the audit log's retention (`manage.py purge_audit`): days of the general chain (365 at least), financial years of the money chain (8 at least); the site refuses to start below |
@@ -1078,17 +1084,19 @@ cancels one real parcel.
    Settings → API → Add New API User, with an email address that is not the account's own login, the modules the site
    uses (orders, couriers, tracking, NDR, billing and wallet, pickup addresses) and "Buyer's Details Access" allowed
    (the label needs the address). The password is shown once: copy it.
-3. **The account in the admin.** Admin → Integrations → Integration accounts → Add: provider Shiprocket, mode
-   **test**, enabled; "Replace the credentials" `{"email": "<API user>", "password": "<its password>"}`. Save, then
-   the action "Test the connection" ("Connected: wallet balance ₹…", answered by the recorded double in test mode).
-   Book a few parcels of test orders through `/api/v1/shipping/` (API.md "Shipping (staff)") to see the flow. For
-   real parcels: add a second account with mode **live** and the same credentials, disable the test one, enable the
-   live one (one enabled per provider), test the connection (the real wallet balance this time).
+3. **The account in the panel.** Settings → Connections → Shiprocket → "Replace the keys" for the mode **Test** with
+   the API user's email and password: they are tested first ("Connected: wallet balance ₹…", answered by the recorded
+   double in test mode) and kept only if the test passes; then Mode → Test. ADMIN or an owner does it. Book a few
+   parcels of test orders through `/api/v1/shipping/` (API.md "Shipping (staff)") to see the flow. For real parcels:
+   "Replace the keys" for the mode **Live** with the same credentials and Mode → Live (one account is in use for each
+   provider), and "Test the connection" (the real wallet balance this time). The Django admin does the same as the
+   break-glass way: Admin → Integrations → Integration accounts → Add, "Replace the credentials"
+   `{"email": "<API user>", "password": "<its password>"}`, the action "Test the connection".
 4. **The pickup address.** In Shiprocket: Settings → Pickup Addresses, our address with the nickname we will use
    ("Primary"). Then `POST /api/v1/shipping/pickup-locations/sync/` (or add it in Admin → Shipping → Pickup locations
    with the same nickname and PIN), the default one.
-5. **The webhook.** Admin → Integration accounts → the live account → the action "New webhook token": the token is
-   shown once. In Shiprocket: Settings → API → Webhooks, URL `https://<domain>/api/hooks/parcel-events/` (Shiprocket
+5. **The webhook.** Settings → Connections → Shiprocket → Webhooks → "Rotate the token" (in the admin: the live
+   account's action "New webhook token"): the token is shown once. In Shiprocket: Settings → API → Webhooks, URL `https://<domain>/api/hooks/parcel-events/` (Shiprocket
    refuses a URL with "shiprocket", "kartrocket", "sr" or "kr" in it: this one has none; the domain must not either),
    the token as the security token, enabled. Caddy already sends `/api/` to Django. Without a token set, every
    webhook is refused (403); the previous token keeps working for 24 hours after a new one is made.
@@ -1197,14 +1205,17 @@ The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../ex
    `erp-sync@examleaf.in` with the EL Sync role only; `bench --site <site> execute
    frappe.core.doctype.user.user.generate_keys --args "['erp-sync@examleaf.in']"` prints its `api_key` and
    `api_secret` once. Set `examleaf_sync_user_restrict_ip` there to the platform's egress addresses.
-2. **The integration account.** Admin → Integrations → Integration accounts → Add: provider ERPNext, mode **test**
-   for the staging site (shadow mode, Phase B) or **live** for production's, enabled (one enabled per provider);
-   "Replace the credentials" with `{"api_key": "…", "api_secret": "…", "base_url": "http://<erpnext service>:8080",
-   "site_name": "erp.examleaf.in"}`: the in-cluster address of ERPNext's gunicorn service (the platform reaches it
-   inside the cluster, never over the internet), and the site's name, sent as `X-Frappe-Site-Name` because the
-   service's host name is not the site's. Then the action "Test the connection" ("Connected: ERPNext answered the
-   ping (erp.examleaf.in, examleaf_erp …)").
-3. **The webhook secret.** The same account → the action "New webhook token": shown once. In ERPNext's site config:
+2. **The integration account.** Settings → Connections → ERPNext → "Replace the keys" for the mode **Test** (the
+   staging site, shadow mode, Phase B) or **Live** (production's), with the API key, the API secret, the address
+   (`http://<erpnext service>:8080`: the in-cluster address of ERPNext's gunicorn service, which the platform reaches
+   inside the cluster, never over the internet) and the site's name (`erp.examleaf.in`, sent as `X-Frappe-Site-Name`
+   because the service's host name is not the site's). They are tested first ("Connected: ERPNext answered the ping
+   (erp.examleaf.in, examleaf_erp …)") and kept only if the test passes; then Mode → Test or Live (one is in use at a
+   time). The Django admin does the same as the break-glass way (Admin → Integrations → Integration accounts → Add,
+   "Replace the credentials" with `{"api_key": …, "api_secret": …, "base_url": …, "site_name": …}`, "Test the
+   connection").
+3. **The webhook secret.** The same page → Webhooks → "Rotate the token" (in the admin: the account's action "New
+   webhook token"): shown once. In ERPNext's site config:
    `bench --site <site> set-config examleaf_webhook_secret '<it>'` and `examleaf_webhook_base
    'http://<platform web service>:8000/api/hooks/erp-events/'` (inside the cluster: Caddy is not on that path, so add
    the service's host name to `ALLOWED_HOSTS`; the six webhooks stay off until both are set). Plain http is fine there:
@@ -1212,7 +1223,7 @@ The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../ex
    (RESILIENCE.md 9.3.1); through the public address they come over https as before. A new token later: the
    previous one is accepted for 24 hours, so set the new one in ERPNext within that time (RUNBOOK.md, "ERPNext").
 4. **The switches** (section 13, "ERPNext"; each also a feature flag the panel can set without a deploy, with its
-   history: `PUT /api/v1/staff/flags/<name>/`): `ERP_ENABLED=1`, then the flows `ERP_SYNC_CATALOGUE`,
+   history: Settings → "The ERPNext sync", or `PUT /api/v1/staff/flags/<name>/`): `ERP_ENABLED=1`, then the flows `ERP_SYNC_CATALOGUE`,
    `ERP_SYNC_INVOICES`, `ERP_SYNC_PAYMENTS`, `ERP_SYNC_DELIVERIES`, `ERP_SYNC_SETTLEMENTS`, and the reads
    `ERP_PULL_STOCK`, `ERP_PULL_B2B`. `ERP_STOCK_PROJECTION` stays off until the cut-over (shadow mode: ERPNext's
    stock is compared, never used). `ERP_ALERT_EMAILS` to FINANCE's addresses.
@@ -1269,3 +1280,54 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
 | 07:10 | `staff.tasks.check_scripts` | the checkout's and the console's sign-in's scripts compared with the day before |
 | Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk events |
 | Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days |
+
+## 26. Phase B settings by module
+
+Phase B's settings are in section 13's tables, each once, with its default and whether it is required. This section
+gathers them by module, for whoever sets up one module at a time, and says what is left to do before the module is used.
+It adds no setting.
+
+**Three kinds of setting**
+
+- **Environment only.** Set in `.env`; the next restart (`docker compose up -d`) reads it.
+- **Environment, then the panel.** `.env` (or the default) stands until ADMIN or an owner sets a value on the panel's
+  Settings page, with a reason, now or from a date. The panel's value wins from then on (a minute at most) until the
+  setting is put back to "the environment's value". The page keeps the history of each, and each change is a
+  `setting.changed` event in the audit log. They are `SHOP_OPEN`, `SHOP_COD_ENABLED`, `SHOP_COD_HIGH_RISK_HOLD`,
+  `SHOP_GST_QRMP`, `PARENTAL_CONSENT_MODE`, `WEB_COURSE`, `SUPPORT_INTERMEDIARY_RULES`, `DATA_PROTECTION_OFFICER`,
+  `CERT_IN_POINT_OF_CONTACT`, the four disclosures that begin with the seller's details (below) and the nine ERPNext
+  switches of section 24, which are feature flags with the environment's value under them. Razorpay's and MSG91's keys
+  can move to the panel too, by their own rule (section 25, item 7).
+- **Panel only.** No variable. The second table gives the value each starts with.
+
+**By module** (the heading in brackets is the table of section 13 that holds the setting):
+
+| Module | Settings | Before the module is used |
+|---|---|---|
+| Orders and Finance | `SHOP_RETURN_DAYS`, `SHOP_COD_HIGH_VALUE_INR`, `SHOP_COD_HIGH_RISK_HOLD`, `SHOP_BANK_REFUND_DAYS`, `SHOP_STUCK_PAYMENT_MINUTES` ("Razorpay and the shop") | Nothing is required: the defaults are the plan's. Razorpay's keys and webhook secret may move to Settings → Connections (section 25, item 7); the going-live steps of section 12 hold either way |
+| Tax | `SHOP_SERIES_FROM_FY`, `SHOP_SERIES_PREFIXES`, `SHOP_HSN_DIGITS`, `SHOP_GST_QRMP` ("Tax") | Before 1 April 2027 the CA confirms the prefixes (`docs/decisions.md`, section B); the server refuses to start when two clash. The HSN and SAC master and its dated rates are in the database, kept from the panel (RUNBOOK.md "Tax: rates, documents, series") |
+| Catalogue | `SHOP_PRIOR_PRICE_FROM`, `SHOP_DARK_PATTERN_PHRASES` ("Catalogue") | Nothing is required. The date is the law's (`docs/decisions.md`, section D); the phrases are the guardrail of offers, banners and coupons |
+| Content | `CONTENT_LEGAL_DEPOSIT_DAYS` ("Content") | Have the lawyer check the days against the Act; the reminder is an inbox item for CONTENT_EDITOR, ADMIN and the owners (RUNBOOK.md "Legal deposits") |
+| Course | `WEB_COURSE` ("Core"); `STAFF_THROTTLE_CODE_LOOKUP` ("Staff") | `WEB_COURSE` stays off until the website's course pages are wanted (section 18); switch it on the Settings page (The course) |
+| Support | `SUPPORT_EMAIL` ("Email"); `SUPPORT_COPY_TO_EMAIL`, `SUPPORT_COMPLAINT_COPY_FROM`, `SUPPORT_INTERMEDIARY_RULES`, `SUPPORT_MAIL_MAX_BYTES`, `MSG91_TEMPLATE_TICKET_ACK`, `API_THROTTLE_SUPPORT_MAIL`, `API_THROTTLE_SUPPORT_REQUEST` ("Support") | Set `SUPPORT_EMAIL`, point the mailbox's forwarder at the support address (RUNBOOK.md "Support") and keep `SUPPORT_COPY_TO_EMAIL=1` until it runs. An acknowledgement by SMS needs its DLT template and `MSG91_TEMPLATE_TICKET_ACK` (or the registry, below). `SUPPORT_INTERMEDIARY_RULES` goes on only when counsel says so |
+| Customers | `API_THROTTLE_IMPERSONATE` ("REST API") | Nothing is required |
+| Legal and privacy | `DATA_PROTECTION_OFFICER`, `CERT_IN_POINT_OF_CONTACT` ("Staff"); the disclosures and `NCH_STATUS`, `NCH_SINCE` (second table); `PARENTAL_CONSENT_MODE` ("Core") | Before going live set the two contacts and fill the Disclosures page; the website shows each disclosure that is set and nothing that is empty |
+| Staff | `STAFF_PASSKEY_ROLES`, `STAFF_THROTTLE_BULK`, `STAFF_THROTTLE_TEST_SEND` ("Staff") | Passkeys before the panel opens for OWNER, ADMIN and FINANCE (section 25, item 1). Phase A's, which the panel needs before staff start: `STAFF_POLICIES` (before staff start), `STAFF_PANEL_URL` (with the panel), `STAFF_GOOGLE_DOMAIN` with its OAuth client (with Google for staff, section 15) |
+| Settings and connections | `INTEGRATION_WEBHOOK_SILENCE_HOURS`, `SES_SNS_TOPIC_ARN`, `API_THROTTLE_SMS_EVENTS` ("Staff") | MSG91's delivery reports and SES's notifications (section 25, items 2 and 3). The registry of message templates (Settings → Message templates) comes before the `MSG91_TEMPLATE_*` ids, which stay as its fallback (`ops/README.md` "The template registry") |
+| System | `BACKUP_KEEP_DAYS`, `BACKUP_STALE_HOURS` ("Backups"); `LOG_TIME_SOURCE`, `DEPENDENCY_REPORT_PATH` ("Staff") | `LOG_TIME_SOURCE` before going live; load CI's dependency report at each deploy (section 25, item 6) |
+| Home and reports | `INSIGHTS_MIN_CELL`, `INSIGHTS_MIN_CELL_CLASS` ("Insights"); `STAFF_THROTTLE_REPORTS` ("Staff") | Nothing is required; neither minimum goes below 5 |
+| ERPNext shadow run | `ERP_INSTANCE_PREFIX` ("ERPNext") | Give a staging platform its own ERPNext site and a prefix such as `staging-`; the switches follow section 24, step 4 |
+
+**Panel only**, with no variable (Settings, or Legal and privacy → Disclosures for the disclosures, which are edited
+together with one reason; `staff.manage_settings`):
+
+| Setting | Starts as | What it does |
+|---|---|---|
+| `MAINTENANCE_MODE`, `MAINTENANCE_BANNER` | off; empty | Sets `maintenance` (`on`, the banner's text) in `GET /api/v1/config/` for the clients to draw, and nothing else at the merge of Phase B (RUNBOOK.md "The system pages"). `staff.toggle_maintenance`: ADMIN and the owners; the owners are told when it goes on |
+| `NCH_STATUS`, `NCH_SINCE` | `not_joined`; empty | Whether ExamLeaf has applied to (`applied`) or joined (`member`) the National Consumer Helpline's convergence programme, and since when (`YYYY-MM-DD`); the website's disclosures say so. The lawyer's question (`docs/decisions.md`, section B) |
+| `DISCLOSURE_OPERATING_ADDRESS`, `DISCLOSURE_CARE_HOURS`, `DISCLOSURE_GRIEVANCE_OFFICER`, `DISCLOSURE_GRIEVANCE_DESIGNATION`, `DISCLOSURE_GRIEVANCE_CONTACT`, `DISCLOSURE_NODAL_CONTACT`, `DISCLOSURE_RETURNS_PAGE`, `DISCLOSURE_RIGHTS_TEXT` | empty; `refunds` for the returns page | The e-commerce disclosures (E-Commerce Rules r.4) that the website draws from `config/` (`disclosures`), each left out while it is empty: where the company works from, customer care's hours, the Grievance Officer's name, designation, email address and phone number, the nodal contact person resident in India, which page holds the return and refund terms (`refunds`, `shipping` or `terms`), and how to make a request about one's personal data |
+| `DISCLOSURE_LEGAL_NAME`, `DISCLOSURE_REGISTERED_ADDRESS`, `DISCLOSURE_CARE_PHONE`, `DISCLOSURE_CARE_EMAIL` | `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_PHONE`, `SUPPORT_EMAIL` (else `SELLER_EMAIL`) | The same disclosures' first four: the environment's value stands until the panel sets one, and a `[placeholder]` counts as empty |
+
+Everything that waits on an adviser's answer (the series prefixes, the QRMP choice, `NCH_STATUS`,
+`SUPPORT_INTERMEDIARY_RULES`, `PARENTAL_CONSENT_MODE`, the legal deposit's days) keeps the build's choice until the answer
+comes; `docs/decisions.md` names each with the setting that carries it.
