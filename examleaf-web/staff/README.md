@@ -600,11 +600,10 @@ no customer list (the orders show what they need).
 
 ## Not built yet
 
-The panel itself (Next.js); the orders, catalogue and course modules' own endpoints (their permissions are in the
-catalogue); bulk actions beyond the change requests' (a
-bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
-site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync (the
-person's ERPNext tab says what to apply by hand); the
-Django admin's own step for a break-glass session's reason; the website's page that posts an impersonation token, and
-its banner (examleaf-frontend); notes in a data request's access export, and their edits; changing a customer's email address on their behalf ("Phase B: customers" says why); holding the panel shut
-until the policies due are acknowledged (the manifest says which; the console decides).
+Replaying a Razorpay webhook from its body (the site keeps only the event's id and hash: `system/reconcile/` asks
+Razorpay again instead); ERPNext's role sync (the person's ERPNext tab says what to apply by hand); the Django
+admin's own step for a break-glass session's reason; notes in a data request's access export, and their edits;
+changing a customer's email address on their behalf ("Phase B: customers" says why); holding the panel shut until
+the policies due are acknowledged (the manifest says which; the console decides). The panel (`examleaf-admin`), the
+modules' endpoints and bulk jobs, and the website's page that takes an impersonation token, with its banner
+(`examleaf-frontend`), are built.

@@ -1236,8 +1236,9 @@ of the run's book sold from the run's day until the next run of that book, the c
 ("revoked"), the codes voided before use ("void"), the activation rate and the districts. **Reports → Book codes**
 (`/reports/codes/`; `staff.view_insights` and the codes' own permission, so ADMIN, the owners and the auditor) is the
 same by print run with the last 7 days and the districts the redemptions came from, counted each night (02:15, the job
-`code_activation`), and its "revoked" is the codes voided before use. Both hide a district under 10 redemptions
-("fewer than 10"), and neither names a person.
+`code_activation`); its "sold" is the book's copies sold in all, every run of it together, and its "revoked" is the
+codes voided before use (the other report's "void"). Both hide a district under 10 redemptions ("fewer than 10":
+the first report's 10 is fixed, the second follows `INSIGHTS_MIN_CELL`), and neither names a person.
 
 A print run printed by mistake, or leaked: its page → **Void the run** (ADMIN, OWNER; its label typed): every unused
 code stops working at once, the codes already redeemed keep what they opened, the printer's file is deleted and the
@@ -1385,8 +1386,9 @@ captured, a refund on the day it was processed, a day is a day in India, a test-
    and a report says "Data as of" and its period.
 2. A cell that says "fewer than 10" is hidden on purpose (`INSIGHTS_MIN_CELL`, `INSIGHTS_MIN_CELL_CLASS`); nothing in the
    panel shows a smaller group, and no total includes what is hidden.
-3. Course health is worked out each night at 03:15 (`dj insights_run course_health`); "Data as of" is that night's. A
-   report that says a source is "not set up" (the settlements) waits for that module.
+3. Course health is worked out each night at 03:15 (`dj insights_run course_health`); "Data as of" is that night's.
+   Reports → Settlements lists what Finance → Settlements holds for the period (live keys only): it is empty until a
+   day has been fetched, and says "not set up" only where the platform has no Finance module at all.
 4. A report to take away: Reports → the report → Export (a CSV job; above your limit ADMIN approves it first). The
    file ends with who made it and when, and the audit log has `report.exported`.
 

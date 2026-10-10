@@ -42,11 +42,26 @@ The panel draws what the staff API answers and decides nothing itself; every rul
   the owners are told. A run is marked dispatched once; voiding it voids its unused codes (redeemed ones keep what they
   opened); one code can be voided alone. The lookup reads a code by its digest and answers in one line; it is audited
   by the code's keyed hash and throttled (`STAFF_THROTTLE_CODE_LOOKUP`).
+- **The codes report** (`codes.report()`, `GET course/codes/report/`, the console's `/course/report/`; plan 5.16) is
+  this module's own. It is worked out when asked, for the newest 200 print runs the reader's subjects reach, and gives
+  each run: the codes printed; the copies of its book sold online (the book's lines, and those of a bundle holding it,
+  in the orders that count, from the run's day until the next run of that book; ERPNext's copies for schools and
+  distributors are not in it yet); the codes activated; "revoked", the access a code opened that staff took back
+  (an entitlement of source book code with its `revoked_at`); "void", the codes voided before use; the activation
+  rate; and the districts of the redemptions (the redeemer's last order of the code's subject, by its PIN code), one
+  under `MIN_CELL` (10, a constant of `codes.py`) shown as "fewer than 10". The insights app has another codes
+  report, `GET reports/codes/` (the console's `/reports/codes/`, `insights/README.md` "Home and Reports"), and both
+  stay. Theirs is by print run too, with the last 7 days and the districts as the nightly job counted them (its
+  minimum is the setting `INSIGHTS_MIN_CELL`); its "sold" is the book's copies sold in all, every run of it together,
+  and its "revoked" is the codes voided before use, which this report calls "void". Its "sold" and "revoked"
+  columns were empty until this module recorded the book of a run (`CodeBatch.product`) and the voided codes
+  (`BookCode.voided_at`); they are filled now.
 - **Fraud rules** (`insights/jobs/fraud.py`, hourly): failed codes per account, address and device, a spike, one
   account redeeming many codes, one code tried by many accounts, a run redeemed before it was dispatched (a leak);
   keyed hashes only, each signal an inbox item (`fraud_signal`), the urgent ones emailed within the hour.
 - **Learners**: no list of learners exists and nothing ranks them. Support opens one learner's page at a time (from a
-  ticket, an access row or a code), and every opening is a `sensitive_read`. A learner under 18, or of unknown age,
+  ticket, an access row, a code or the customer's record, whose Course section links to it), and every opening is a
+  `sensitive_read`; the page links back to the customer's record for whoever may read customers. A learner under 18, or of unknown age,
   gets a usage summary: counts and the week last active, never times or a trail (DPDP Act s.9(3), plan 10.1).
 
 ## What each role's pages do

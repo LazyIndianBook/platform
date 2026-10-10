@@ -143,8 +143,8 @@ A signal seen again updates the open one; once acknowledged (admin action), it c
 signal is an inbox item of kind `fraud_signal` (for `staff.acknowledge_signal`), closed when the signal is
 acknowledged; the panel's print run page lists the signals that name it. The email to `INSIGHTS_ALERT_EMAILS` lists
 the night's new or grown signals and the print runs to act on; the book codes' rules run again every hour
-(`code_fraud_rules`, at :40), and a new spike of failures or a leak is emailed within that hour. Not yet, for want of
-data: repeated COD refusals (no parcel outcome: the shipping app).
+(`code_fraud_rules`, at :40), and a new spike of failures or a leak is emailed within that hour. Not built: repeated
+COD refusals (the shipping app records a parcel returned to origin, and no rule counts them yet).
 
 ### Course health (`course_health`, 03:15)
 
@@ -167,8 +167,12 @@ are not learners.
 - `insights.jobs.risk.rto_risk(order, history)`: a cash-on-delivery order's risk of coming back unpaid. The PIN code's
   return rate smoothed toward its district's (20 parcels' weight), the customer's earlier returns, a first COD order,
   the order's value, a PIN code missing from the directory or in another state: **high** from 4 points (prepaid only,
-  or confirm by SMS or WhatsApp), **medium** from 2 (a call), **low** (ship). `history` (`RtoHistory`) is what the
-  shipping app will fill from its parcels' outcomes; zeros until then.
+  or confirm by SMS or WhatsApp), **medium** from 2 (a call), **low** (ship). `history` (`RtoHistory`) is what
+  `history_for(order)` reads from the shipping app's parcels of the last 365 days: the cash-on-delivery ones
+  delivered or returned to origin, to the order's PIN code and to its district, and the customer's earlier returns
+  (matched by account, email address, or keyed hashes of the phone number and the address, compared and never
+  kept) and earlier cash-on-delivery orders. The Orders module scores each such order with it when it is placed
+  (`shop.services.assess_risk`). Zeros stand for a PIN code with no outcomes yet.
 - `insights.jobs.risk.score_account(signals)` and `score_accounts(kind, accounts)`: a school's or distributor's
   score (ordered or adopted last year, verified teachers, codes redeemed nearby, a sample followed up, Class 12 pupils,
   months without contact), into `AccountScore`. No data source yet: the schools and distributors will be ERPNext's.
@@ -188,7 +192,8 @@ today and tickets breached (the Support list's own filters), reports open and it
 to approve, bank refunds to mark paid, unmatched settlement items and COD overdue. Home, the reports and the Django
 admin's dashboard call them; nothing else counts the same thing (`shop/templatetags/shop.py` is built on them, and
 `insights.jobs.counted_orders` is `metrics.live_orders`). A metric whose source is not installed (Finance's
-settlements, Support, Content, Course) raises `Absent`: Home leaves its card out, a report says "not set up".
+settlements, Support, Content, Course) raises `Absent`: Home leaves its card out, a report says "not set up". At the
+merge of Phase B all four are installed, so none does.
 
 **Test mode is kept out by construction.** Every order a number stands on comes from `live_orders()`, and what hangs on
 an order (a payment, a refund, a parcel's remittance, a refund waiting for approval) is narrowed through its order's
@@ -207,14 +212,28 @@ Cards fail one by one: a number that cannot be worked out is a card with an `err
 **The reports** (`GET reports/…`, `staff.view_insights` and the data's own `view_` permission, named through a callable
 permission so that a refusal names the one missing): sales by product, subject, class, board, edition and period (day,
 week, month; the period at most 13 months); sales by state (the place of supply), district and PIN code; codes by batch
-(printed, activated, the activation rate; sold and revoked once the course module records them) and by district; the
+(printed, activated, activated in the last 7 days, the activation rate, sold and revoked) and by district; the
 course health above; cash on delivery (what is outstanding by how late, what was remitted and the difference);
-Razorpay's settlements (the Finance module's `shop.Settlement`, "not set up" until it is there); and the print-run sum
+Razorpay's settlements (the Finance module's `shop.Settlement`, the live ones of the period, newest first); and the
+print-run sum
 recomputed (`POST reports/print-run/`: the critical ratio `Cu / (Cu + Co)` of `stats.py` from the net price, print
 cost and salvage typed, and the season's demand from the newest forecast at that percentile, less the copies in
 stock and on order: net 195, cost 60, salvage 5 give 0.7105, the 71st percentile; nothing is stored). The cohorts, the
 forecasts and the nightly print-run advice stay `insights/api.py`'s. Every report answers `definition`, each column's
 definition, `as_of` (and `computed_at` where a night's job made the rows), `test_mode` and its `rows`.
+
+**Two codes reports exist, and both stay.** This one (`GET reports/codes/`, the console's `/reports/codes/`;
+`staff.view_insights` with `learn.view_bookcode`, so ADMIN, the owners and the auditor) counts every code by print
+run, with the last 7 days, and the districts as `code_activation` counted them each night (`?batch=` narrows them; a
+district under `INSIGHTS_MIN_CELL` is hidden). Its "sold" is the copies of the book the run is printed in, sold in
+all (every run of that book together, from `learn.CodeBatch.product`; a run with no book has none) and its
+"revoked" is the codes voided before use (`BookCode.voided_at`). Both columns were empty until the Course module
+recorded the book of a run and the voided codes; they are filled now. The Course module's own report
+(`GET course/codes/report/`, the console's `/course/report/`; `learn/README.md` "The codes report", for whoever reads
+the print runs, `learn.view_codebatch`) is worked out when asked, run by run: its "sold" counts the run's own window
+(until the next run of the book, a bundle holding it included), its "revoked" is the access a code opened that
+staff took back, its "void" is what this report calls "revoked", and its districts follow a fixed 10 rather than
+the setting.
 
 **The minimum cell** (`cells.py`, the settings `INSIGHTS_MIN_CELL` (10: districts, PIN codes, states, cohorts, searches)
 and `INSIGHTS_MIN_CELL_CLASS` (5: a chapter's or a class's learners); neither below 5, `insights.E001`): a cell standing
@@ -279,14 +298,17 @@ FINANCE member's the money and the queues of refunds, bank transfers, settlement
   the owners, AUDITOR) reads, `staff.acknowledge_signal` (ADMIN, the owners) acknowledges a fraud signal there and in
   the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals file staff inbox
   items (`fraud_signal`), closed by the acknowledgement.
-- `RtoHistory` waits for the shipping app's parcel outcomes (delivered, returned to origin, lost; the RTO reason); the
-  repeated-refusal rule and the RTO model wait for the same.
-- The reports read other modules' models by name, lazily, and are silent where the model is not installed: the
-  Finance module's `shop.Settlement` (its `lines` give a settlement's refunds; `reports.SETTLEMENT_FIELDS` lists the
-  field names tried) and `shop.SettlementLine` (the unmatched-items card: a line matched to no payment, refund or
-  payment link, adjustments apart), and the Course module's `learn.CodeBatch` (its `label` and `product`: a batch's
-  title, for the copies sold) and `BookCode.voided_at` (the codes revoked). `insights/tests/test_other_modules.py` builds
-  stand-ins with those names and is the test that the two sides still fit once the modules are merged; if a module names
-  a field otherwise, `reports.py` and `metrics.py` are the places to say so.
+- `RtoHistory` is filled by `history_for()` from the shipping app's parcels (delivered or returned to origin; the RTO
+  reason and a lost parcel are not read); the repeated-refusal rule and a model after about 200 outcomes are not
+  built.
+- The reports read other modules' models by name, lazily, and are silent where the model is not installed (all are,
+  at the merge of Phase B): the Finance module's `shop.Settlement` (its `lines` give a settlement's refunds;
+  `reports.SETTLEMENT_FIELDS` lists the field names tried, the real model's among them; its refunds are summed from
+  its lines) and
+  `shop.SettlementLine` (the unmatched-items card: a line matched to no payment, refund or payment link, adjustments
+  apart), and the Course module's `learn.CodeBatch` (its `label` and `product`: a batch's title, for the copies sold)
+  and `BookCode.voided_at` (the codes revoked). `insights/tests/test_other_modules.py` runs the reports on stand-ins of
+  the Finance models and is the test that the two sides still fit; if a module names a field otherwise, `reports.py`
+  and `metrics.py` are the places to say so.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the
   integrations; `AccountScore` from its schools and distributors; a batch's dispatch date from its Book Code Batch.

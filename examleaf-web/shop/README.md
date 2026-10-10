@@ -82,8 +82,8 @@ The console's pages are `examleaf-admin/src/app/(panel)/orders/` (its README "Ro
 
 ## Not built
 
-Exchanges (a return is refunded and the customer orders again); the customer page (P10); couriers' bookings and labels
-(the shipping app). The payments list and payment links are Finance's (below), the invoice and credit-note registers
+Exchanges (a return is refunded and the customer orders again). The customer's page is the Customers module's
+(`staff/README.md` "Phase B: customers"), couriers' bookings and labels the shipping app's. The payments list and payment links are Finance's (below), the invoice and credit-note registers
 Tax's; the HSN master and the series are below ("Tax"), prices and stock ("Catalogue").
 
 ## Tax
@@ -182,7 +182,7 @@ then). Their totals are filled on first use (`tax.fill_totals`: the monitor's fi
 
 | Permission | Who | What |
 |---|---|---|
-| `shop.view_hsncode` | FINANCE, AUDITOR, ADMIN, OWNER | the master, a code's history and products, the products that disagree |
+| `shop.view_hsncode` | FINANCE, AUDITOR, ADMIN, OWNER; SALES and CONTENT_EDITOR read it only | the master, a code's history and products, the products that disagree |
 | `shop.change_hsncode` | FINANCE, ADMIN, OWNER | a new code with its first rate, a new dated rate |
 | `shop.view_documentseries` | FINANCE, AUDITOR, ADMIN, OWNER | the documents, a document with its lines and PDF, Table 13 |
 | `shop.view_taxthreshold` | FINANCE, AUDITOR, ADMIN, OWNER | the threshold card, the calendar |
@@ -198,8 +198,9 @@ What the panel's Tax module (`examleaf-admin`, `/tax/`) does for each role:
   writes nothing.
 - **ADMIN and OWNER** do what FINANCE does; ADMIN also approves an export above FINANCE's row limit, and switches
   `SHOP_GST_QRMP` in Settings.
-- The other roles do not see the module. The catalogue's product pages (P4) show each product's code, treatment, the
-  CA's note and the red chip from the same fields.
+- **SALES** and **CONTENT_EDITOR** hold `shop.view_hsncode` alone, so they see the module's HSN and SAC pages and
+  nothing else of it (no documents, series, calendar or export); no other role sees the module. The catalogue's
+  product pages show each product's code, treatment, the CA's note and the red chip from the same fields.
 
 ### Inbox, jobs, settings
 
