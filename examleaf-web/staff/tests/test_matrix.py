@@ -693,6 +693,8 @@ def reach(method, url, perm, subtests):
         with subtests.test(who=who):
             response = getattr(signed_in(user), method)(url, {}, format="json")
             assert response["Cache-Control"] == "no-store", (who, url)  # every answer, the refusals too
+            policy = response.get("Content-Security-Policy") or response["Content-Security-Policy-Report-Only"]
+            assert "frame-ancestors 'none'" in policy, (who, url)  # never framed (report-only under DEBUG)
             denied = AuditEvent.objects.filter(action="authz_fail", actor_id=user.pk)
             if all(user.has_perm(each) for each in perms):
                 assert response.status_code != 403, (who, response.status_code, response.content[:200])
