@@ -1,20 +1,58 @@
 # Handover: where the ExamLeaf work stands and how to resume it
 
-Written 9 October 2026 at the end of a long Claude Code session and brought up to date on 10 October 2026 at the end
-of the Phase B session. Everything below is in this repository: the Answer Script redesign and Phase A were merged
-into `main` (fast-forward) and pushed to `origin` (github.com/LazyIndianBook/platform) on 9 October 2026; Phase B
-was built on the integration branch `phase-b` on 10 October 2026 and merged into `main` the same way (section 4 says
-where that stands). A new person with their own Claude Code can resume from this file alone: it says what exists,
-what is verified, what was in flight when the session ended, what to do next and in which order, and which
-decisions only the business owner can take.
+![Phase B](assets/badges/phase-b-merged.svg) ![For the owner](assets/badges/audience-owner.svg) ![Status](assets/badges/status-merged.svg)
+
+A new person with their own Claude Code can resume from this file alone: it says what exists, what is verified, what
+was in flight when the session ended, what to do next and in which order, and which decisions only the business
+owner can take. It was written 9 October 2026 at the end of a long Claude Code session and brought up to date on 10
+October 2026 at the end of the Phase B session. Everything below is in this repository: the Answer Script redesign
+and Phase A were merged into `main` (fast-forward) and pushed to `origin` (github.com/LazyIndianBook/platform) on 9
+October 2026; Phase B was built on the integration branch `phase-b` on 10 October 2026 and merged into `main` the
+same way (section 4 says where that stands).
+
+> [!NOTE]
+> **At a glance**
+> - Both bodies of work are on `main`: the Answer Script redesign and Phase A since 9 October 2026, Phase B since 10
+>   October 2026. Nothing was in flight when the session ended (section 4).
+> - Every suite was run on the merged head: the backend on SQLite and on PostgreSQL 17, the console's and the
+>   website's unit and Playwright tests, ruff and the migrations' check (section 4 has the counts).
+> - Next, in order: close Phase B on `main`, the operations set-up with the owner's accounts, ERPNext on a real
+>   cluster, then Phases C to E (section 5).
+> - The decisions only the owner can take, and the CA's and the lawyer's questions, are in `docs/decisions.md`
+>   (section 6).
+
+**Contents**
+
+- [1. The two bodies of work on this branch](#1-the-two-bodies-of-work-on-this-branch)
+- [2. Components and where each lives](#2-components-and-where-each-lives)
+- [3. What Phase A delivered](#3-what-phase-a-delivered-all-merged-all-tests-green-at-the-merge), and [what Phase B delivered](#what-phase-b-delivered-merged-on-the-integration-branch-phase-b-every-modules-tests-green-at-its-merge)
+- [4. In flight when the session ended](#4-in-flight-when-the-session-ended)
+- [5. What to do next, in order](#5-what-to-do-next-in-order-the-plans-section-9-has-the-detail)
+- [6. Decisions only the owner can take](#6-decisions-only-the-owner-can-take-plan-section-10-has-recommendations)
+- [7. Known gaps and follow-ups](#7-known-gaps-and-follow-ups-small-deliberate)
+- [8. Conventions used, so the history stays consistent](#8-conventions-used-so-the-history-stays-consistent)
+- [Related documents](#related-documents)
 
 ## 1. The two bodies of work on this branch
+
+```mermaid
+timeline
+    title The work so far and the dates ahead
+    8 October 2026 : The repository, split out of the books' repository
+    9 October 2026 : The Answer Script redesign : Phase A, the panel's foundations
+    10 October 2026 : Phase B, the panel's own modules
+    1 January 2027 : The amended E-Commerce Rules
+    1 April 2027 : FY 2027-28, a document series per type : The ERPNext cut-over
+    13 May 2027 : The DPDP Rules, verifiable parental consent
+```
+
+*The three days of the work, all of it on `main` now, and the dates the law sets that sections 5 and 6 work towards.*
 
 1. **The "Answer Script" redesign of the public site** (`examleaf-frontend/`): finished and verified. Report with
    before/after screenshots and numbers: `docs/design/answer-script-implementation.md`. Design sources:
    `implementation/design/*.dc.html`, plan `implementation/README_IMPLEMENTATION.md`.
 2. **The Admin Control Panel** (the business's back office): planned in full, Phases A and B built and merged, Phases
-   C to E pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,650 lines; sections 9 and 10 are the phases and the
+   C to E pending. Plan: `docs/examleaf-admin-control-panel-plan.md` (1,784 lines; sections 9 and 10 are the phases and the
    owner's decisions). Research behind it: `docs/research/2026-10-09-admin-control-panel/` (seven reports, each with a
    numbered sources file; index row in `docs/research/README.md`).
 
@@ -145,6 +183,23 @@ tests and 47 Playwright tests (the course pages with `WEB_COURSE=1`); ruff and t
 
 ## 5. What to do next, in order (the plan's section 9 has the detail)
 
+```mermaid
+flowchart TB
+    S1[1. Close Phase B on main<br/>every suite once more] --> S2[2. Operations set-up<br/>the owner's accounts, INTEGRATION_KEYS]
+    S2 --> S2b[Phase B's first-deploy steps<br/>DEPLOYMENT.md section 26]
+    S2b -.->|before 1 January 2027| A1[The dark-pattern self-audit]
+    S2b -.->|before 1 April 2027| A2[The CA's document series prefixes]
+    S2b --> D{First deploy}
+    D -->|one machine| C1[Compose]
+    D -->|a cluster| C2[The chart]
+    C1 --> S3[3. ERPNext on a real cluster<br/>the ERP_SYNC_* flags one at a time]
+    C2 --> S3
+    S3 --> CO([The cut-over, 1 April 2027])
+    CO --> S4[4. Phases C to E<br/>the plan's sections 9.3 to 9.5]
+```
+
+*The order of the steps below; the dotted lines are the first-deploy steps the law dates.*
+
 1. **Close Phase B on `main`**: run every suite once more (`docs/phase-b-integration/tools/integrate.sh check` and
    `pg`; the console's `npm run test:e2e` in mock mode and with `E2E_STAFF_API=real`; the website's `npm run test:e2e`
    with `DJANGO_PYTHON` and `DJANGO_DATABASE_URL` set as CI sets them). The decisions register (`docs/decisions.md`)
@@ -161,38 +216,46 @@ tests and 47 Playwright tests (the course pages with `WEB_COURSE=1`); ruff and t
    cluster, build the image, switch ERPNext on in the chart, create the site, run the bootstrap Job, create the
    `erp-sync@` API key, turn on the `ERP_SYNC_*` flags one at a time and watch `erp_status` and the nightly
    reconciliation; cut-over planned for 1 April 2027 (plan 9.3).
-4. **Phases C to E**: the plan's sections 9.4 to 9.6 (the B2B channel on ERPNext's price lists and stock, predictive
+4. **Phases C to E**: the plan's sections 9.3 to 9.5 (the B2B channel on ERPNext's price lists and stock, predictive
    analytics graduating to statistical methods once two seasons exist, the DPDP deadline of 13 May 2027 for
    verifiable parental consent, access reviews). Build them as Phase B was built (`docs/phase-b-integration/`).
 
 ## 6. Decisions only the owner can take (plan section 10 has recommendations)
 
 `docs/decisions.md` is the register: every decision of plan section 10.1 with its status, what the code does today
-and the setting that carries the answer. The ones that matter first: the thresholds (refund caps per role, export
-and bulk limits: `accounts/roles.py` `ROLE_LIMITS`, placeholders today); Gyan Post eligibility; the Shiprocket plan;
-the WhatsApp provider (MSG91 recommended; off); Sentry or GlitchTip; Tally export or Zoho; the CA's questions (the GST
-treatment of a book sold with a printed course code, "Exempted" or "Nil-Rated" for HSN 4901, one document series or
-two and their prefixes, who files GSTR-1 and the QRMP choice, the fee's GST, rounding, returned COD parcels) and the
-lawyer's (the legal form under E-Commerce Rule 4(1)(a), the National Consumer Helpline status, whether reviews make
-ExamLeaf an intermediary, the children's-data analytics, the educational-institution question).
+and the setting that carries the answer.
+
+> [!WARNING]
+> **The thresholds come first, and they are placeholders today.** The refund caps per role and the export and bulk
+> limits are `ROLE_LIMITS` in `accounts/roles.py`: above them, money and data wait for a second person.
+
+The others that matter first: Gyan Post eligibility; the Shiprocket plan; the WhatsApp provider (MSG91 recommended;
+off); Sentry or GlitchTip; Tally export or Zoho; the CA's questions (the GST treatment of a book sold with a printed
+course code, "Exempted" or "Nil-Rated" for HSN 4901, one document series or two and their prefixes, who files GSTR-1
+and the QRMP choice, the fee's GST, rounding, returned COD parcels) and the lawyer's (the legal form under E-Commerce
+Rule 4(1)(a), the National Consumer Helpline status, whether reviews make ExamLeaf an intermediary, the children's-data
+analytics, the educational-institution question).
+
+> [!IMPORTANT]
+> **Three answers have a date the law sets.** The legal form before 1 January 2027 (the lawyer), the document series'
+> prefixes before 1 April 2027 (the CA), and the method of verifiable parental consent before 13 May 2027 (the lawyer).
 
 ## 7. Known gaps and follow-ups (small, deliberate)
 
-- The chart has no books volume: the panel's Content imports run under compose (the worker mounts the books) but not
-  on Kubernetes yet. The import's commit mode needs `git` in the image; without it the folder's fingerprint stands in
-  for the commit, which is honest but cannot name a commit.
-- The System page reads the ERPNext apps' versions from a checkout the image lacks (CI could pass them in).
-- The two codes reports answer different questions on purpose (the Course module's by print run and its own
-  window; the reports module's with the districts and the title's total): each says which in its definitions.
-- The website's Playwright course tests skip unless the backend runs with `WEB_COURSE=1`; the website's Playwright
-  needs `DJANGO_PYTHON` and `DJANGO_DATABASE_URL` (CI sets them; a bare `npm run test:e2e` writes into the dev
-  database).
-- The console's Playwright journeys are not in CI (the unit checks are); the console's end-to-end database keeps
-  what a cut-off run left, and each seed clears its own kind first.
-- From before: an abandoned break-glass session sends no end alert; the Django admin does not ask the break-glass
-  reason; Shiprocket answer shapes marked `_inferred` need checking against a live account; `insights` thresholds are
-  starting values; the three-node HA run, the autoscaler, synchronous replication and ERPNext on Kubernetes are
-  untested; `kind` was not run for Phase B.
+| Gap | Where | What to do |
+|---|---|---|
+| The chart has no books volume: the panel's Content imports run under compose (the worker mounts the books) but not on Kubernetes yet | `deploy/kubernetes/` (`PAPERS_ROOT` is unset in the chart's values) | import with `--root` in a pod until the chart mounts the books (the chart's `values.yaml` says how) |
+| The import's commit mode needs `git` in the image; without it the folder's fingerprint stands in for the commit, which is honest but cannot name a commit | the backend's image | put `git` in the image when an import must name its commit |
+| The System page reads the ERPNext apps' versions from a checkout the image lacks | `staff/system_api.py` (`examleaf-erp/image/apps.json`) | CI could pass them in |
+| The two codes reports answer different questions on purpose (the Course module's by print run and its own window; the reports module's with the districts and the title's total) | the Course module, the reports module | nothing: each says which in its definitions |
+| The website's Playwright course tests skip unless the backend runs with `WEB_COURSE=1`; the website's Playwright needs `DJANGO_PYTHON` and `DJANGO_DATABASE_URL` (a bare `npm run test:e2e` writes into the dev database) | `examleaf-frontend/` | set them as CI sets them |
+| The console's Playwright journeys are not in CI (the unit checks are); the console's end-to-end database keeps what a cut-off run left, and each seed clears its own kind first | `examleaf-admin/`, `.github/workflows/ci.yml` | run them locally, as the console's README ("Tests") says |
+| From before: an abandoned break-glass session sends no end alert | `staff/` | an owner or the auditor reads what the session did within 24 hours (RUNBOOK.md "Break-glass accounts") |
+| From before: the Django admin does not ask the break-glass reason | the Django admin | give the reason in the panel first, in the same browser on the admin host (the same section) |
+| From before: Shiprocket answer shapes marked `_inferred` need checking against a live account | `shipping/carriers/recorded/shiprocket.json` | check them against a live account |
+| From before: `insights` thresholds are starting values | `insights/` | review them each month in season (`insights/README.md`, "The monthly review") |
+| From before: the three-node HA run, the autoscaler, synchronous replication and ERPNext on Kubernetes are untested | `deploy/kubernetes/` (`values-ha.yaml`) | run them on three real nodes |
+| From before: `kind` was not run for Phase B | `deploy/kubernetes/TESTING.md` | run it: `TESTING.md` lists what that run should check |
 
 ## 8. Conventions used, so the history stays consistent
 
@@ -215,3 +278,14 @@ ExamLeaf an intermediary, the children's-data analytics, the educational-institu
 - Guardrails kept throughout: the backend decides everything (the console only draws the manifest); no sample values
   shipped; every URL kept; private pages `noindex`; never show PAID before the server confirms; no emoji, gradients,
   glow or blur in the UI; copy as written.
+
+## Related documents
+
+- [The documentation map](README.md): every document, by audience and by component.
+- [Decisions register](decisions.md): each decision's status, what the code does today and the setting that carries
+  the answer.
+- [The panel's plan](examleaf-admin-control-panel-plan.md): the phases (section 9) and the decisions (section 10).
+- [Changelog](../examleaf-web/CHANGELOG.md): what each phase delivered, with the tests at each merge.
+- [Phase B integration](phase-b-integration/README.md): the briefs, the merge order and the merge tools.
+- [Runbook](../examleaf-web/RUNBOOK.md) and [Deployment](../examleaf-web/DEPLOYMENT.md): operating and deploying it.
+- [Role guides](guides/roles/README.md): one page per staff role.
