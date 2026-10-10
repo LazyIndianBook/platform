@@ -11,7 +11,8 @@ Sections 1 to 12 are the first deployment, in order. After them: 13 every settin
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
 18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
 (the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log, 24 ERPNext, 25 the
-staff, settings and integrations, and system pages (Phase B).
+staff, settings and integrations, and system pages (Phase B), 26 what the rest of Phase B adds to a first deployment
+or an upgrade: a checklist, the periodic tasks and the files.
 
 ## 1. Accounts you need
 
@@ -91,6 +92,7 @@ SES_SECRET_ACCESS_KEY=...
 DEFAULT_FROM_EMAIL=ExamLeaf <noreply@examleaf.in>
 WEB_CONCURRENCY=3
 LEARN_CODE_SECRET=<python3 -c "import secrets; print(secrets.token_urlsafe(50))">   # the book codes' key: set once, never change (section 18)
+INTEGRATION_KEYS=<python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())">   # the integration accounts' and the tickets' key; keep a copy (section 22)
 
 SENTRY_DSN=...                       # optional
 BACKUP_BUCKET=examleaf-backups       # optional, with AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, BACKUP_ENDPOINT_URL
@@ -98,8 +100,9 @@ BACKUP_AGE_RECIPIENT=age1...         # with a bucket: the uploaded dumps are enc
 ```
 
 With `DEBUG=0` the site refuses to start while `SECRET_KEY` is the example's (`dev-…`) or shorter than 50 characters,
-and the web container stops at `migrate` (system check `learn.E001`) while `LEARN_CODE_SECRET` is empty; with `DEBUG=1`
-it refuses any `ALLOWED_HOSTS` but `localhost`, `127.0.0.1`, `[::1]` and `*.localhost`. `.env.example` ships `DEBUG=1`:
+and the web container stops at `migrate` (system checks `learn.E001` and `support.E001`) while `LEARN_CODE_SECRET` or
+`INTEGRATION_KEYS` is empty; with `DEBUG=1` it refuses any `ALLOWED_HOSTS` but `localhost`, `127.0.0.1`, `[::1]` and
+`*.localhost`. `.env.example` ships `DEBUG=1`:
 a copy of it is a development file. Do not copy the `#` comments of the block above into `.env`: django-environ keeps
 them as part of the value, and a key followed by a comment is no longer a key. `ALLOWED_HOSTS` must include `DOMAIN`:
 the web container's health check sends it as the Host.
@@ -136,7 +139,8 @@ first time), and every member of staff sets up an authenticator app (or a passke
 (RUNBOOK.md, "Staff accounts"). In the admin: fill in the square-bracket placeholders of the five legal pages (Pages),
 create staff accounts and give them roles (Users → action "Give role …"), and look at Periodic tasks (the daily jobs
 run between 03:00 and 04:30 India time, the hourly stock alerts, the 08:00 low-stock email and the 18:00 revision
-reminders; README.md lists them). The revision course's first content is section 18; the shop's is section 12.
+reminders; README.md lists them). The revision course's first content is section 18; the shop's is section 12. The
+panel's pages (the disclosures, the connections, the templates, the system page) need the steps of section 26 once.
 
 ## 7. Check
 
@@ -179,7 +183,12 @@ records: keep them eight years) and, without buckets, the product pictures and t
 `media-*.tgz` yourself); an invoice that is missing is made again by the daily clean-up, or by hand:
 `docker compose exec web python manage.py shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"`.
 With the buckets of section 17 the invoices, credit notes and quotations are in the private bucket instead, which these
-backups do not cover.
+backups do not cover. Phase B's files are in the same place (section 26: the returns' photographs, the tickets'
+attachments, the dark-pattern audit's signed certificate, the legal-deposit proofs) and the database names them by
+path, so a restored database without them has names that lead nowhere: back the volume up as above, and copy the
+bucket to a second one (rclone, leaving out `staff/jobs/`) or switch on its versioning with a rule that expires the old
+versions of `staff/jobs/` after a day. That prefix holds a week's result files, and the book codes' file for 24 hours,
+on purpose: a copy of it would keep the codes in the clear.
 
 The bucket also gets the erasure ledger, a small file per erased account under `erasures/` (a keyed hash of the
 address, never the address: `manage.py reapply_erasures` erases those accounts again after a restore, RUNBOOK.md):
@@ -214,10 +223,10 @@ For a hard limit in days use the journald driver instead (`logging: {driver: jou
 `MaxRetentionSec=180day` in `/etc/systemd/journald.conf`). Celery task results are in the admin (Celery Results →
 Task results) for a week; errors go to Sentry when it is set.
 
-For the Kubernetes chart's next pass (not changed here): the kubelet rotates a container's log at
-`containerLogMaxSize` (10Mi by default) and keeps `containerLogMaxFiles` (5): set `50Mi` and `10` in the nodes'
-kubelet configuration (k3s: `--kubelet-arg=container-log-max-size=50Mi --kubelet-arg=container-log-max-files=10`), and
-ship the pods' logs off the node (the same 180 days, a year from 13 May 2027).
+On Kubernetes the kubelet rotates a container's log at `containerLogMaxSize` (10Mi by default) and keeps
+`containerLogMaxFiles` (5): set `50Mi` and `10` in the nodes' kubelet configuration (k3s: `kubelet-arg` in
+`/etc/rancher/k3s/config.yaml`), and ship the pods' logs off the node (the same 180 days, a year from 13 May 2027);
+`deploy/kubernetes/README.md` "Logs and time" has the steps, and the nodes' NTP beside them.
 
 ## 11. Updates
 
@@ -230,8 +239,10 @@ git -C /srv/books pull && docker compose exec web python manage.py import_papers
 Importing again is safe at any time: it changes only the questions and solutions whose Markdown changed (the rest are
 left alone, so the admin's history shows real edits), takes off the site the questions that left a paper (they stay in
 the database and the panel) and leaves a draft saved in the panel alone; nothing else is touched. The panel's Content →
-Imports does the same per subject, a dry run first (RUNBOOK.md "Content"); it needs the books checkout and git in the
-web container.
+Imports does the same per subject, a dry run first (RUNBOOK.md "Content"). It is a staff job, so it runs in the
+`worker` container, which mounts the books' folder as `web` does (`BOOK_SOURCE`), and reads `PAPERS_ROOT` there. Its
+commit field reads that commit with `git`, which the image does not carry (the page says so): leave it empty and the
+folder as it is is imported.
 
 The site is down for the few seconds the web container takes to restart: Docker gives it 40 seconds to stop, gunicorn's
 30 for the requests in progress, and the Celery workers five minutes to finish their tasks (a task cut short anyway runs
@@ -328,11 +339,11 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SITE_URL` | `http://localhost:8000` | required on a server | `https://examleaf.in`, no trailing slash: the base of the QR codes and of the links in emails and SMS, and the host of the passkeys. `export_qr` refuses localhost and http. Printed in the books: final before printing |
 | `CSRF_TRUSTED_ORIGINS` | `SITE_URL` | no | origins trusted for form posts, comma separated; add others only if the site is served under several names |
 | `DOMAIN` | none | required (compose) | the domain Caddy serves and gets its certificate for: `examleaf.in` (`localhost` for a local run); compose refuses to start without it |
-| `PAPERS_ROOT` | `Class 12` beside this repository when it is there (compose: `/book`) | no | a checkout of the books repository `LazyIndianBook/Class-12-Assam` (the folder that holds `production/`, the Markdown papers), for `import_papers` and `import_chapter_insights`; without it they stop and say so (`--root` gives it on the command line, `--fixtures` imports the test papers) |
+| `PAPERS_ROOT` | `Class 12` beside this repository when it is there (compose: `/book`) | no | a checkout of the books repository `LazyIndianBook/Class-12-Assam` (the folder that holds `production/`, the Markdown papers), for `import_papers`, `import_chapter_insights` and the panel's Content imports (a staff job, so read in the `worker`, which compose gives the same mount as `web`); without it they stop and say so (`--root` gives it on the command line, `--fixtures` imports the test papers) |
 | `BOOK_SOURCE` | `../../Class 12` | required to import on a server | compose only: the books checkout on the host (`/srv/books`, section 4), its `production/` mounted read-only at `/book/production` |
 | `SOLUTIONS_REQUIRE_LOGIN` | `1` | no | 1: solutions for signed-in students; 0: for everyone (README.md, "Open or registered solutions") |
 | `PARENTAL_CONSENT_MODE` | `declared` | no | `declared`: the parent ticks the sign-up box; `verified`: the parent also confirms by a link sent by email, or by SMS to an Indian mobile number when SMS are on (section 14; before May 2027) |
-| `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy stops bodies over 10 MB (500 MB only on the clip and revision admin pages, for signed-in staff) |
+| `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy and the chart's ingress stop bodies over 10 MB (500 MB only on the clip and revision admin pages, for signed-in staff). The largest file the panel takes is 5 MiB (a return's photograph, the dark-pattern certificate, a legal-deposit proof, a parcel's photograph); a product picture and the catalogue's import file 2 MiB; the support mailbox's hook a whole email, up to `SUPPORT_MAIL_MAX_BYTES` |
 
 ### Database, cache and queue
 
@@ -442,7 +453,7 @@ The panel's Catalogue module (`shop/staff_catalogue.py`, `shop/README.md` "Catal
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
-| `INTEGRATION_KEYS` | none | once an integration account exists (the web container then refuses to migrate, and so to start, without it: `integrations.E001`) | Fernet keys, separated by commas, newest first, that encrypt the credentials and tokens of the integration accounts (Shiprocket's API user); make one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`; a value that is not such a key stops the site starting. Kept with the other secrets: a database backup is unreadable without it (RUNBOOK.md "Integration keys") |
+| `INTEGRATION_KEYS` | none | required on a server (the web container refuses to migrate, and so to start, without it: `support.E001`, and `integrations.E001` once an integration account exists) | Fernet keys, separated by commas, newest first, that encrypt the credentials and tokens of the integration accounts (Shiprocket's API user) and the email addresses and mobile numbers of the support tickets' requesters; make one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`; a value that is not such a key stops the site starting. Kept with the other secrets: a database backup is unreadable without it (RUNBOOK.md "Integration keys") |
 | `INTEGRATIONS_CONNECT_TIMEOUT`, `INTEGRATIONS_READ_TIMEOUT` | `5`, `20` | no | seconds a call to a provider waits to connect, then for its answer |
 | `INTEGRATIONS_RETENTION_DAYS` | `90` | no | the call log, the inbound events and the dead letters dealt with go after this many days |
 | `SHIPPING_PACKING_GRAMS` | `50` | no | the packing's weight, added to the books' (`Product.weight_grams`, which must be filled in) |
@@ -476,6 +487,8 @@ and section 17).
 | `LEARN_PUBLIC_VIDEO` | `0` | no | 1: processed clips go to the public bucket (plain links on `PUBLIC_MEDIA_DOMAIN`, cached by Cloudflare: cheaper, but anyone with a link can watch); 0: the private storage, links signed for 10 minutes. Run `reprocess_clips --all` after changing it |
 | `LEARN_FREE_PREVIEW` | `1` | no | 1: the first clip of every revision, any clip marked as a free preview, and the first chapter's flash cards are free to any signed-in student |
 | `LEARN_ACCESS_DAYS` | `365` | no | days a book code or a purchase opens the course for, from that day |
+| `APP_LINK_ANDROID`, `APP_LINK_IOS` | empty | no | the app's pages on Google Play and the App Store, for `GET /api/v1/config/` (`app_links`); empty until the app is out |
+| `WEB_COURSE` | `0` | no | 1: the revision course's pages on the website (`config/` `web_course`); 0: the course is in the app only |
 | `LEARN_CODE_SECRET` | none | required on a server | the key of the book codes' hashes: random, 50 characters or more, like `SECRET_KEY`; set it once, before the first print run, and never change it (printed codes would stop working); with `DEBUG=0` and no value `migrate` stops (check `learn.E001`), so the web container does not start, and `make_book_codes` refuses |
 | `FCM_SERVICE_ACCOUNT_JSON` | none | for the daily reminders | the Firebase service account's JSON on one line, or the path of the file inside the container (section 15, "Firebase"); empty: no reminders are sent |
 
@@ -516,7 +529,7 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
-| `BACKUP_BUCKET` | none | recommended | the private bucket that receives the database dumps; without it they stay on the server's disk (section 9) |
+| `BACKUP_BUCKET` | none | recommended | the private bucket that receives the database dumps; without it they stay on the server's disk (section 9). The site reads and writes it too: the panel's System page lists each source's newest backup, and the audit log (`audit/`, daily) and the erasure ledger (`erasures/`) are copied there; without it those are not copied off the server |
 | `BACKUP_ENDPOINT_URL` | none (AWS) | with R2 or B2 | the bucket's S3 endpoint, e.g. `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | with `BACKUP_BUCKET` | the backup bucket's keys (the media buckets have `S3_*`, SES has `SES_*`) |
 | `BACKUP_KEEP_DAYS` | `30` | no | days of local dumps kept (match the Privacy Policy); the panel's backups page shows it |
@@ -547,6 +560,7 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_GOOGLE_AUTO_STAFF` | `0` | no | `1`: a Workspace account of the domain with no ExamLeaf account signs up through Google as a member of staff with no role (an owner gives one); off, the account must exist already and be staff |
 | `STAFF_PASSKEY_ROLES` | `OWNER,ADMIN,FINANCE` | no | the roles that add a passkey or security key before the staff API opens for them (`403 passkey_required`; section 25) |
 | `STAFF_THROTTLE_BULK`, `STAFF_THROTTLE_TEST_SEND` | `20/hour`, `10/hour` | no | bulk actions started per member of staff; templates sent to oneself (an SMS costs money) |
+| `API_THROTTLE_IMPERSONATE` | `20/hour` | no | the website's acceptance of an impersonation token (`account/impersonate/`), per client address |
 | `STAFF_THROTTLE_REPORTS` | `60/minute` | no | the panel's reports (`staff/reports/…`) per member of staff or API key: each is a heavy query by nature |
 | `STAFF_THROTTLE_CODE_LOOKUP` | `120/hour` | no | book codes looked up in the panel's Course module per member of staff (`learn/README.md`): enough for a support shift, too few to try codes at random |
 | `INTEGRATION_WEBHOOK_SILENCE_HOURS` | `24` | no | a provider's webhook silent this long while its account is in use is flagged (Razorpay: an inbox item) |
@@ -580,6 +594,7 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `CONTENT_LEGAL_DEPOSIT_DAYS` | `30` | no | days after a book's publication within which a copy is due at each of the four public libraries (the Delivery of Books and Newspapers (Public Libraries) Act; to be verified against the Act): the legal deposit inbox item's due date |
+
 ### Support
 
 `support/README.md`; RUNBOOK.md "Support" for the support mailbox's forwarder. The tickets' requester details are
@@ -591,7 +606,7 @@ migrate (`support.E001`), so it does not start. The support address itself is `S
 | `SUPPORT_COPY_TO_EMAIL` | `0` | no | `1`: the support address also gets each contact-form message, Reply-To the sender, as before tickets (keep it on until the mailbox's forwarder runs) |
 | `SUPPORT_COMPLAINT_COPY_FROM` | `2027-01-01` | no | from this day (India) the acknowledgement carries a copy of the complaint as recorded (the E-Commerce Rules as amended) |
 | `SUPPORT_INTERMEDIARY_RULES` | `0` | no | `1`: grievance tickets also get the IT Rules' 24-hour acknowledgement and 15-day resolution; only once counsel says the reviews make ExamLeaf an intermediary. Also a panel setting, which wins while set |
-| `SUPPORT_MAIL_MAX_BYTES` | `10485760` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above) |
+| `SUPPORT_MAIL_MAX_BYTES` | `10485760` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above); Caddy's and the ingress's 10 MB (10,000,000 bytes) apply first, so one between the two is refused there, the same 413 |
 | `MSG91_TEMPLATE_TICKET_ACK` | none | for acknowledgements by SMS | the DLT template of `ticket_ack` ("ExamLeaf: we have your request {#var#}."): used only when a ticket has no email address; without it such a ticket's acknowledgement is noted by staff |
 | `API_THROTTLE_SUPPORT_MAIL`, `API_THROTTLE_SUPPORT_REQUEST` | `120/minute`, `10/hour` | no | the support mailbox's hook per client address; new requests from My requests per account |
 
@@ -891,6 +906,12 @@ and their sizes, link-preview pictures) are served by Django under `/shop/media/
 the three bucket variables (section 15, "Cloudflare R2") the private files go to the private bucket, reached only by
 links the site signs for 5 minutes, and the public ones to the public bucket on `PUBLIC_MEDIA_DOMAIN`, cached a year
 as immutable (a new upload never reuses a name). The CSP allows the media domain for images.
+
+**What Phase B keeps there** is listed in section 26, with who deletes each and when: the panel's result files and the
+book codes' file (the app deletes them; no bucket rule is needed and none should be relied on, and a bucket with
+versioning must not keep their old versions), a catalogue import's file (the bucket's rule for `staff/imports/`),
+returns' photographs, tickets' attachments, the signed dark-pattern certificate, the legal-deposit proofs and CI's
+dependency report.
 
 **Videos in a bucket.** The app gets links signed for 10 minutes; playlists are read through the site, segments and the
 poster redirect to the bucket's own signed link. The staff player (`/learn/preview/<clip>/`) fetches segments from the
@@ -1251,12 +1272,31 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
    the page reads each source's newest object and its `.sha256` sidecar, which `upload_backup` now writes.
 5. **The time source.** `LOG_TIME_SOURCE` says where the server's clock is synchronised from (CERT-In asks for NTP to
    NIC's or NPL's servers, or the cloud's time service): `chronyc tracking` on the host, or the cloud's documentation.
-6. **The dependency report.** CI's `dependency-audit` job uploads `dependency-report.json` (pip-audit and npm audit);
-   the deploy loads the latest one: `docker compose exec web python manage.py load_dependency_report
-   dependency-report.json` (into `DEPENDENCY_REPORT_PATH` in the private storage). The page says when it is older
-   than 8 days.
+6. **The dependency report.** CI's `dependency-audit` job audits the backend, the website and the console (pip-audit
+   and `npm audit` on both lockfiles), makes `dependency-report.json` of them and keeps it 90 days as the artifact
+   `dependency-report`; it runs on every push to main that touches the site, every Monday and on demand (Actions,
+   "examleaf-web", Run workflow). The deploy loads the latest one into the private storage (`DEPENDENCY_REPORT_PATH`),
+   where the System page reads it and says when it is older than 8 days; the file must be inside the container, so:
+
+   ```sh
+   # on your computer (GitHub's CLI, logged in), then the file to the server
+   gh run download "$(gh run list --repo LazyIndianBook/platform --workflow ci.yml --branch main --status completed --limit 1 --json databaseId --jq '.[0].databaseId')" --repo LazyIndianBook/platform --name dependency-report
+   scp dependency-report.json examleaf@<server>:/srv/examleaf/
+   # on the server, in /srv/examleaf/examleaf-web
+   docker compose cp ../dependency-report.json web:/tmp/dependency-report.json
+   docker compose exec web python manage.py load_dependency_report /tmp/dependency-report.json
+   ```
+
+   (The chart: `deploy/kubernetes/README.md` "Upgrades and migrations", with `kubectl cp`.) A critical advisory is due
+   in 7 days from the day it was first seen; the Monday 09:00 check opens an inbox item while the report is stale. An
+   audit that could not run (the registry did not answer) makes no artifact, the report step being strict: the newest
+   artifact is never a clean-looking report of nothing, and a run without one is the day to run it again.
 7. **Razorpay's and MSG91's keys** may move from `.env` to the panel (`integrations/README.md` "Precedence"): the first
    keys pasted there must be of the mode `.env` runs, and take over at once.
+8. **The site's own address, from the containers.** The Hardening check fetches the console's `robots.txt` and the daily
+   scripts inventory the checkout's and the console's sign-in pages, through `SITE_URL` and `STAFF_PANEL_URL`, from the
+   `web` and `worker` containers (pods). They must reach that public address from inside (on a single server, back
+   through the host to Caddy); where they cannot, those two pages say they could not read it, nothing else breaks.
 
 **The beat entries** (India's time):
 
@@ -1269,3 +1309,156 @@ Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `op
 | 07:10 | `staff.tasks.check_scripts` | the checkout's and the console's sign-in's scripts compared with the day before |
 | Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk events |
 | Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days |
+
+## 26. Phase B: what a first deployment, or an upgrade to it, adds
+
+The Admin Control Panel's Phase B modules (orders, finance, tax, catalogue, content, course, support, customers, legal
+and privacy, staff, settings and connections, system, home and reports, the ERPNext shadow run) add tables, settings,
+periodic tasks, files and a few steps only a person can do. Sections 1 to 12 stay as they are; this is what is added to
+them, for a new server and for one that already runs. Every setting is in section 13, `.env.example` and, for the
+cluster, the chart's `values.yaml`.
+
+### Before the release starts
+
+- [ ] **`INTEGRATION_KEYS`** is in `.env` (the cluster: the env Secret). From this release the support tickets keep their
+      requesters' email addresses and mobile numbers encrypted with it, so `migrate` stops without it (`support.E001`)
+      even where no integration account exists, and the web container restarts in a loop. Make one (section 13,
+      "Integrations and shipping") and keep a copy with the other secrets.
+- [ ] **The SMS templates' ids** (`MSG91_TEMPLATE_OTP` and the others) are in `.env` before the first start: the
+      migration `ops.0006_phase_b_settings` copies the ones the environment names into the panel's template registry,
+      once. Ones added later are entered in the panel (Settings → Templates); the environment's stay the fallback for a
+      kind the registry has no row for.
+- [ ] **A value the server cannot read stops it**: `SHOP_SERIES_FROM_FY`, `SHOP_SERIES_PREFIXES`, `SHOP_HSN_DIGITS`,
+      `SHOP_DARK_PATTERN_PHRASES`, `INSIGHTS_MIN_CELL` and `INSIGHTS_MIN_CELL_CLASS` below 5, and the dates
+      `SHOP_PRIOR_PRICE_FROM` and `SUPPORT_COMPLAINT_COPY_FROM` that are not `YYYY-MM-DD`. Before
+      `docker compose up -d`, `docker compose run --rm --no-deps web python manage.py check` reads them.
+- [ ] **Passkeys.** The members of OWNER, ADMIN and FINANCE add a passkey or a security key on the website's Security
+      page (`/account/security/`) before the deploy; until they do, the panel opens only for that (section 25, step 1).
+- [ ] **The books' folder.** `BOOK_SOURCE` as in section 4: `docker compose up -d` recreates `worker` with the mount
+      that `web` has, which the panel's Content imports need.
+
+### At the first start
+
+Nothing to do by hand. `migrate` applies about forty migrations; the HSN and SAC master with its dated rates
+(`shop.0021_phase_b_tax`) and the SMS template registry are seeded by them, the historical orders and documents are
+given their place of supply, series and type, and the roles are brought up to date after it, as before. The new
+documents' series begin with the financial year in `SHOP_SERIES_FROM_FY`; until then `EL` holds every invoice and `CN`
+the credit notes.
+
+### In the panel, once it is up (OWNER or ADMIN)
+
+- [ ] **Legal and privacy → Disclosures**: the legal name, the registered address and the one it works from, customer
+      care (phone, email, hours), the Grievance Officer (name, designation, contact), the nodal contact person resident
+      in India (before 1 January 2027), the page of the return terms, the DPDP contact person
+      (`DATA_PROTECTION_OFFICER`), CERT-In's point of contact (`CERT_IN_POINT_OF_CONTACT`, never on the website), the
+      text on rights requests and the National Consumer Helpline's status. Until the panel sets them, the seller's
+      details (`SELLER_*`, `SUPPORT_EMAIL`) stand for the name, the address, the phone and the email.
+- [ ] **Settings → Connections**, a card per provider. Razorpay's and MSG91's keys may stay in `.env` or move to the panel
+      (Replace the keys: tested before they are kept; the first ones must be of the mode `.env` runs). MSG91's delivery
+      reports: its card's New token, then in MSG91 the delivery report webhook
+      `https://examleaf.in/api/hooks/sms-events/` with the header `X-Webhook-Token: <it>`. SES: `SES_SNS_TOPIC_ARN`
+      (section 25, step 3). A Razorpay webhook silent for `INTEGRATION_WEBHOOK_SILENCE_HOURS` opens an inbox item.
+- [ ] **The support mailbox**: the `support_mail` integration account and the forwarder that posts the support address's
+      mail to `/api/hooks/support-mail/` (RUNBOOK.md "Setting up the support mailbox"). Keep `SUPPORT_COPY_TO_EMAIL=1`
+      until it runs, so the mailbox still gets the contact form's messages.
+- [ ] **Settings → Templates**: each SMS template's DLT and MSG91 ids, category and approval; the acknowledgement of a
+      ticket by SMS is `MSG91_TEMPLATE_TICKET_ACK`.
+- [ ] **The series prefixes.** The CA confirms the seven prefixes (tax invoice, bill of supply, invoice-cum-bill of
+      supply, credit note, debit note, receipt voucher, refund voucher): `SHOP_SERIES_PREFIXES` in `.env` before 1 April
+      2027, when the financial year 2027-28 (`SHOP_SERIES_FROM_FY`) starts the series. Two capitals or figures each, all
+      different, never `TC`, and not ERPNext's B2B prefixes. A year's series never changes once it has a document.
+- [ ] **The dependency report**: load CI's (section 25, step 6); the page is empty and the Monday check complains
+      until then.
+- [ ] **The restore drill**: do one (RUNBOOK.md "A restore drill") and record it (System → Backups → Record a drill: the
+      backup's name, the engine, the result, the minutes). The page says "never proven" until then, and the legal
+      calendar lists the next one each quarter.
+- [ ] **The time source and the logs**: `LOG_TIME_SOURCE` and the host's NTP (section 23, step 6); the logs' caps and
+      their copy off the server for 180 days, a year from 13 May 2027 (section 10).
+- [ ] **The backups bucket** (`BACKUP_BUCKET`): the System page's Backups reads it, the audit log and the erasure ledger
+      are copied to it each night (sections 9 and 23); the object lock on `audit/`, the 30-day lifecycle rule on
+      `database/`, and `erasures/` kept.
+- [ ] **The private bucket**: a lifecycle rule deleting `staff/imports/` after 2 days; no versioning on `staff/jobs/`
+      (the table below).
+- [ ] **Switches the panel changes with a reason**: `SHOP_GST_QRMP`, `SHOP_COD_HIGH_RISK_HOLD` and
+      `SUPPORT_INTERMEDIARY_RULES` (on counsel's word only) are also settings of the panel, which win once set.
+
+### The dates the law sets
+
+- [ ] **1 December 2026** the year's dark-pattern self-audit opens as an inbox item; **before 1 January 2027** it is
+      completed in Legal and privacy → Dark-pattern audit (a finding and a fix for each of the CCPA's 13 patterns, the
+      certificate's text and its signed copy as a PDF, PNG or JPEG of 5 MB at most). The audit shows on the website
+      from its `effective_from`.
+- [ ] **1 January 2027** the amended E-Commerce Rules: the disclosures above, the lowest price of the 30 days before a
+      reduction (`SHOP_PRIOR_PRICE_FROM`), a copy of the complaint in its acknowledgement
+      (`SUPPORT_COMPLAINT_COPY_FROM`). Move the two dates only if the rules' date moves.
+- [ ] **1 April 2027** the new series (above).
+- [ ] **13 May 2027** the DPDP Rules: a data request is answered within 90 days instead of a month
+      (`STAFF_DPDP_RULES_FROM`), the logs are kept a year, and `PARENTAL_CONSENT_MODE=verified` is on before it (section
+      14).
+
+### The periodic tasks Phase B added
+
+Beat writes them into its tables at start (India's time; `settings.py` `CELERY_BEAT_SCHEDULE`); each is described in its
+app's README. **All run on the default queue** (`celery`): none runs FFmpeg or reads a video, so the `worker`'s command
+(compose and the chart) needs no `--queues` and the media worker is unchanged (only `learn.tasks.process_clip` is on
+`media`). The files they make (PDFs, CSVs, a zip) are made inside the panel's jobs (`staff.tasks.run_job`), on the same
+queue, as invoices are. "Default" is 270 s soft and 300 s hard, "long" 1,500 and 1,800 (RESILIENCE.md, 4.4); a
+test holds every task's limits under the broker's visibility timeout.
+
+| When | Task | Does | Limit |
+|---|---|---|---|
+| every 5 minutes | `learn.tasks.publish_due` | the course's revisions approved for a time that has come go live, once each | default |
+| every 15 minutes | `support.tasks.watch_clocks` | the tickets' legal clocks: a warning at three quarters, a breach flagged once, resolved tickets closed after 4 days | default |
+| every hour (:20) | `learn.tasks.purge_code_files` | the printers' files of book codes deleted after their 24 hours | default |
+| every hour (:25) | `integrations.tasks.watch_webhooks` | a webhook silent too long while in use (section 25) | default |
+| every hour (:40) | `insights.tasks.code_fraud_rules` | the book codes' fraud rules, their inbox items and the urgent ones' email | default |
+| every hour (:50) | `staff.tasks.check_backups` | the backups bucket read again (section 25) | default |
+| 00:01 | `pages.tasks.publish_due` | a legal page's version published for that day put in force | default |
+| 01:45 | `shop.tasks.watch_tax_thresholds` | the year's turnover against the GST thresholds, large invoices to another state, parcels needing an e-way bill | long |
+| 02:20 | `content.tasks.flag_items` | the item analysis's flags join the triage queue | default |
+| 02:30 | `shop.tasks.reconcile_payments` | online orders still awaiting payment asked of Razorpay | long |
+| 03:05 | `accounts.tasks.copy_erasure_ledger` | the erasure ledger's lines not yet in the backups bucket copied | default |
+| 03:15 | `shop.tasks.fetch_settlements` | yesterday's Razorpay settlements fetched, matched, posted | long |
+| 03:15 | `insights.tasks.course_health` | the course's use by subject and chapter | long |
+| 03:45 | `support.tasks.purge` | tickets in spam for 30 days deleted with their files | default |
+| 03:50 | `ops.tasks.check_templates` | SMS templates idle 75 days or due for their yearly self-certification (section 25) | default |
+| 04:10 | `ops.tasks.trim_expired` | the retention schedule's blanking (`examleaf/retention.py`) | long |
+| 04:10 | `content.tasks.purge_spam` | reported mistakes kept as spam for 30 days deleted | default |
+| 04:20 | `ops.tasks.purge_expired` | the retention schedule's deleting | long |
+| 04:30 | `learn.tasks.purge_bin` | the course's bin emptied after 30 days, a clip's files with it | long |
+| 05:50 | `ops.tasks.sync_ses_suppressions` | SES's suppression list copied (section 25) | long |
+| 07:00 | `staff.tasks.remind_dark_pattern_audit` | from 1 December, the self-audit's inbox item (once a year) | default |
+| 07:00 | `content.tasks.check_legal_deposits` | one inbox item per published book whose copies are not all recorded | default |
+| 07:10 | `staff.tasks.check_scripts` | the checkout's and the console's sign-in's scripts compared with the day before | long |
+| 08:00 | `shop.tasks.send_held_sms` | the order SMS held through the night (none goes from 21:00 to 08:00) | default |
+| Mondays 08:00 | `shop.tasks.weekly_staff_grants` | the owners' email of the week's staff discounts, offline payments and ₹0 orders | long |
+| Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk audit events | long |
+| Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days | default |
+
+### New paths and body limits
+
+Every new path of Phase B is under `/api/` (the staff API, `/api/v1/me/tickets/`, `/api/v1/me/nominee/`,
+`/api/v1/reports/`, `/api/v1/errata/`, a page's versions, an order's returns, the two webhooks
+`/api/hooks/support-mail/` and `/api/hooks/sms-events/`) or `/admin/` (the models registered for superusers), which the
+Caddyfile's Django matcher and the chart's ingress send to `web` already: nothing to change there, and none of the
+websites' proxy lists (`src/lib/site.ts`) needs a prefix. The staff endpoints all answer on the admin host only
+(`staff/middleware.py` `STAFF_APIS` covers `/api/v1/staff/`; a test walks every route to be sure). The 10 MB cap holds
+the largest upload (5 MiB, section 13) with room; an email to the mailbox's hook between 10,000,000 bytes and
+`SUPPORT_MAIL_MAX_BYTES` is refused at the edge instead of by Django.
+
+### The private storage
+
+`MEDIA_ROOT` (the `media` volume) or the private bucket (section 17) holds, besides the earlier files:
+
+| Where | What | Who deletes it, and when |
+|---|---|---|
+| `staff/jobs/<id>/` | the panel's jobs' result files: exports, reports, the GSTR-1 zip, packing slips, coupon codes, and the print run's book codes in the clear | the app: a week after the job (`staff.tasks.expire_access`, nightly); the codes' file 24 hours after it was made (`learn.tasks.purge_code_files`, hourly) or at once when its batch is voided. No bucket rule is needed, none should be relied on, and a versioned bucket must not keep the old versions (the codes in the clear) |
+| `staff/imports/products/` | a catalogue import's file between its dry run and its apply (2 MiB at most, no personal data) | its apply; one never applied leaves it: give `staff/imports/` a lifecycle rule of 2 days |
+| `shop/returns/<id>/` | a returned parcel's photographs, taken at the inspection (5 MB each) | nothing yet: no clean-up reaches them |
+| `support/` | the attachments of the mails that became tickets | the ticket's purge (spam after 30 days) or its requester's erasure; otherwise kept with the ticket |
+| `compliance/dark-patterns/` | the year's signed audit certificate | replaced by the next upload; otherwise kept |
+| `content/legal-deposits/` | a deposit's proof (a receipt, a scan) | kept |
+| `ops/dependency-report.json` | CI's dependency report (`DEPENDENCY_REPORT_PATH`) | replaced by each load |
+
+In the backups bucket, besides `database/`: `audit/YYYY/MM/` (the audit log, daily; an object lock for as long as the
+money events are kept) and `erasures/` (one small file per erased account, kept at least as long as the oldest backup).
