@@ -137,11 +137,11 @@ review (P14; `docs/security/phase-b-authorization-review.md`), each followed by 
 application (the consolidated CHANGELOG entry's "At the integration" paragraph lists them). The briefs the packages were
 built from and the merge tools are in `docs/phase-b-integration/`.
 
-Verified on the merged head before the merge into `main` (the exact counts are in the CHANGELOG's consolidated
-entry): the backend suite on SQLite and on PostgreSQL 17, the console's lint, formatting, types and Vitest, its
-Playwright journey in mock mode and against a seeded Django (the invitation accepted, the Orders, Finance, Home and
-reports, Catalogue, Course and Customers journeys among them), the website's lint, types, Vitest and Playwright
-(the course pages with `WEB_COURSE=1`), ruff and the migrations' check.
+Verified on the merged head before the merge into `main`: the backend suite on SQLite (2,510 passed, 13 skipped,
+6,961 subtests) and on PostgreSQL 17 (2,522 passed, 1 skipped); the console's lint, formatting, types and 355 unit
+tests, its 23 Playwright tests in mock mode and 20 against a seeded Django (the invitation accepted, the Orders,
+Finance, Home and reports, Catalogue, Course and Customers journeys among them); the website's lint, types, 230 unit
+tests and 47 Playwright tests (the course pages with `WEB_COURSE=1`); ruff and the migrations' check.
 
 ## 5. What to do next, in order (the plan's section 9 has the detail)
 

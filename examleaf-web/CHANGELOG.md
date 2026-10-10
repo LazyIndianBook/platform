@@ -126,6 +126,10 @@ details; a content import without git stands the folder's fingerprint in for the
 of dry runs never applied are purged; a dependency report whose audit did not run is refused; the support mailbox
 hook's limit is the edge's. The deployment carried every setting, task and file through compose, the chart and CI
 (DEPLOYMENT.md section 26; `.github/workflows/ci.yml` now runs the console's checks and a weekly strict audit).
+On the head merged into `main`: 2,510 backend tests passed and 13 skipped on SQLite (6,961 subtests), 2,522 passed
+and 1 skipped on PostgreSQL 17; the console's 355 unit tests, 23 Playwright tests in mock mode and 20 against a
+seeded Django; the website's 230 unit tests and 47 Playwright tests with the course pages on; ruff, the migrations'
+check, lint, formatting and types clean in every component.
 
 ## Phase B, security review (10 October 2026)
 
