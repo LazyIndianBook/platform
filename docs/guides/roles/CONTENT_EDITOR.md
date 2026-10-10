@@ -1,7 +1,15 @@
 # Content editor (CONTENT_EDITOR)
 
-Role guide. Written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the panel's People → Roles
-page (`/people/roles/`) is the running truth. The index is [README.md](README.md).
+![For staff](../../assets/badges/audience-staff.svg) ![Component](../../assets/badges/component-console.svg) ![Phase B](../../assets/badges/phase-b-merged.svg)
+
+The one-page guide for a member of staff who holds CONTENT_EDITOR: what the role can and cannot do, its limits, the pages it
+uses and its first day. It is written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the
+panel's People → Roles page (`/people/roles/`) is the running truth, and the index of every role is
+[README.md](README.md).
+
+| Refund | Offline payment | Discount | Export | Bulk action | Signed out after | Second factor |
+|---|---|---|---|---|---|---|
+| ₹0 | ₹0 | 0% | 0 rows | 200 rows | 30 minutes idle, 8 hours in all | an authenticator app or a passkey |
 
 ## Who this is for
 
@@ -71,9 +79,10 @@ My account → "Your limits" shows them.
 
 ## Your first day
 
-1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with the email and password an owner
-   gave you ([README.md](README.md) "Before a person's first day"); if the console says "Set up two-step sign-in first",
-   follow its link, scan the QR code with an authenticator app and keep the ten recovery codes offline.
+1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with your email address and the
+   password you chose when you accepted the invitation ([README.md](README.md) "Before a person's first day"); if the
+   console says "Set up two-step sign-in first", follow its link, scan the QR code with an authenticator app and keep
+   the ten recovery codes offline.
 2. Read and acknowledge each policy the console shows.
 3. Open My account: your role, "Your limits" and where you are signed in. Ask an owner which subjects are yours (they see
    your scopes in People → your page → Access; you do not have that page).
@@ -85,3 +94,12 @@ My account → "Your limits" shows them.
 "Content" (all of it: importing papers, a wrong solution reported, undoing a publish, QR codes for print, legal
 deposits); "The revision course" (uploading and publishing a revision, a clip that failed); "The shop" ("Categories,
 collections, attributes"); "Data requests and privacy" ("Legal holds, policy versions …"); "The inbox".
+
+## Related documents
+
+- [Role guides](README.md): every role, who can do what by module, and the first day.
+- [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md): the procedures this page names.
+- [The staff app](../../../examleaf-web/staff/README.md): the approvals, who asks and who approves.
+- [Decisions register](../../decisions.md): the limits above are placeholders until the owner sets them.
+- [The content app](../../../examleaf-web/content/README.md): drafts, review, errata and imports.
+- [The course app](../../../examleaf-web/learn/README.md): the outline, revisions and the quiz bank.

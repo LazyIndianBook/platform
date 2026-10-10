@@ -1,7 +1,15 @@
 # Auditor (AUDITOR)
 
-Role guide. Written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the panel's People → Roles
-page (`/people/roles/`) is the running truth. The index is [README.md](README.md).
+![For staff](../../assets/badges/audience-staff.svg) ![Component](../../assets/badges/component-console.svg) ![Phase B](../../assets/badges/phase-b-merged.svg)
+
+The one-page guide for a member of staff who holds AUDITOR: what the role can and cannot do, its limits, the pages it
+uses and its first day. It is written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the
+panel's People → Roles page (`/people/roles/`) is the running truth, and the index of every role is
+[README.md](README.md).
+
+| Refund | Offline payment | Discount | Export | Bulk action | Signed out after | Second factor |
+|---|---|---|---|---|---|---|
+| ₹0 | ₹0 | 0% | 5,000 rows | 0 rows | 30 minutes idle, 8 hours in all | an authenticator app or a passkey |
 
 ## Who this is for
 
@@ -60,9 +68,10 @@ My account → "Your limits" shows them.
 
 ## Your first day
 
-1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with the email and password an owner
-   gave you ([README.md](README.md) "Before a person's first day"); if the console says "Set up two-step sign-in first",
-   follow its link, scan the QR code with an authenticator app and keep the ten recovery codes offline.
+1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with your email address and the
+   password you chose when you accepted the invitation ([README.md](README.md) "Before a person's first day"); if the
+   console says "Set up two-step sign-in first", follow its link, scan the QR code with an authenticator app and keep
+   the ten recovery codes offline.
 2. Read and acknowledge each policy the console shows.
 3. Open My account: your role (and the date it ends, if it does) and where you are signed in.
 4. Open the Audit trail and tick "Break-glass only": that is the review the RUNBOOK asks for within 24 hours of any
@@ -73,3 +82,11 @@ My account → "Your limits" shows them.
 
 "Staff accounts" ("Break-glass accounts": the 24-hour review), "The system pages", "Data requests and privacy" ("The
 retention tasks"), "The inbox", and any section for a module you review.
+
+## Related documents
+
+- [Role guides](README.md): every role, who can do what by module, and the first day.
+- [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md): the procedures this page names.
+- [The staff app](../../../examleaf-web/staff/README.md): the approvals, who asks and who approves.
+- [Decisions register](../../decisions.md): the limits above are placeholders until the owner sets them.
+- [Security review of Phase B](../../security/phase-b-authorization-review.md): what the audit log and the access log record.

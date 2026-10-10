@@ -1,7 +1,15 @@
 # Reviewer (REVIEWER)
 
-Role guide. Written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the panel's People → Roles
-page (`/people/roles/`) is the running truth. The index is [README.md](README.md).
+![For staff](../../assets/badges/audience-staff.svg) ![Component](../../assets/badges/component-console.svg) ![Phase B](../../assets/badges/phase-b-merged.svg)
+
+The one-page guide for a member of staff who holds REVIEWER: what the role can and cannot do, its limits, the pages it
+uses and its first day. It is written from `accounts/roles.py` and `staff/catalogue.py` at the merge of Phase B; the
+panel's People → Roles page (`/people/roles/`) is the running truth, and the index of every role is
+[README.md](README.md).
+
+| Refund | Offline payment | Discount | Export | Bulk action | Signed out after | Second factor |
+|---|---|---|---|---|---|---|
+| ₹0 | ₹0 | 0% | 0 rows | 0 rows | 30 minutes idle, 8 hours in all | an authenticator app or a passkey |
 
 ## Who this is for
 
@@ -59,9 +67,10 @@ permissions. My account → "Your limits" shows it.
 
 ## Your first day
 
-1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with the email and password an owner
-   gave you ([README.md](README.md) "Before a person's first day"); if the console says "Set up two-step sign-in first",
-   follow its link, scan the QR code with an authenticator app and keep the ten recovery codes offline.
+1. Sign in at `https://admin.<domain>/sign-in/` with your work Google account, or with your email address and the
+   password you chose when you accepted the invitation ([README.md](README.md) "Before a person's first day"); if the
+   console says "Set up two-step sign-in first", follow its link, scan the QR code with an authenticator app and keep
+   the ten recovery codes offline.
 2. Read and acknowledge each policy the console shows.
 3. Open My account: your role and where you are signed in. Ask an owner which subjects are yours.
 4. Open the Inbox: the reviews and revisions waiting, the mistakes to triage.
@@ -71,3 +80,12 @@ permissions. My account → "Your limits" shows it.
 
 "Content" ("Importing papers after the books changed", "A reader reported a wrong solution", "Undoing a publish");
 "The revision course" ("Uploading and publishing a revision"); "The inbox".
+
+## Related documents
+
+- [Role guides](README.md): every role, who can do what by module, and the first day.
+- [RUNBOOK.md](../../../examleaf-web/RUNBOOK.md): the procedures this page names.
+- [The staff app](../../../examleaf-web/staff/README.md): the approvals, who asks and who approves.
+- [Decisions register](../../decisions.md): the limits above are placeholders until the owner sets them.
+- [The content app](../../../examleaf-web/content/README.md): drafts, review, publishing and imports.
+- [The course app](../../../examleaf-web/learn/README.md): a revision's review and publish.
