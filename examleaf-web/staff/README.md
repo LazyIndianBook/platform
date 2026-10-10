@@ -326,7 +326,9 @@ the permissions `staff.publish_course` (medium), `staff.make_book_codes` (high) 
 - **Data requests** (`DataRequest`): access, correction, erasure, nomination, grievance, complaint, by any channel,
   acknowledged within `STAFF_DATA_REQUEST_ACK_HOURS` (48, the E-Commerce Rules) and answered within a month (the SPDI
   and E-Commerce Rules), from `STAFF_DPDP_RULES_FROM` (13 May 2027) within `STAFF_DPDP_RESPONSE_DAYS` (90, DPDP r.14(3));
-  a grievance or complaint keeps the month (the strictest clock that applies). The answer's text carries the contact
+  a grievance or complaint keeps the month (the strictest clock that applies). Its requester (where to answer) is masked
+  in every answer and revealed as a customer's contact is (`data-requests/<id>/reveal/`: a reason, a re-authentication,
+  the reveals' rate, a `sensitive_read`). The answer's text carries the contact
   block (`DATA_PROTECTION_OFFICER`). An access request's data goes by email to the account's own address, never to
   staff. An erasure is dry-run first (`privacy.erasure_report`: what goes, what stays and why, what stops it: an order
   on its way, a refund under way, an unverified requester, a child without the parent's confirmation, a member of

@@ -1764,8 +1764,10 @@ class DataRequestViewSet(
             "staff.handle_data_request",
         ),
         "export": "staff.export_personal_data",
+        "reveal": "staff.reveal_contact",
     }
     reauth = ("erase",)
+    throttle_scopes = {"reveal": "staff_reveal"}
     http_method_names = ["get", "post", "patch"]
 
     def get_queryset(self):
@@ -1797,6 +1799,23 @@ class DataRequestViewSet(
 
     def _event(self, data_request, verb, **kwargs):
         audit.record(f"data_request.{verb}", request=self.request, target=data_request, **kwargs)
+
+    @extend_schema(
+        request=s.ReasonSerializer,
+        responses=inline_serializer("DataRequestRequester", {"requester": serializers.CharField()}),
+    )
+    @action(detail=True, methods=["post"])
+    def reveal(self, request, *args, **kwargs):
+        """The requester's address or number, masked everywhere else, to answer them: a reason, a re-authentication,
+        staff_reveal's rate, a `sensitive_read` (a child's account marked so)."""
+        data_request, data = self.get_object(), s.ReasonSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        account = data_request.user
+        details = {"what": "reveal", "fields": ["requester"], "request": data_request.pk}
+        audit.record("sensitive_read", request=request, target=account or data_request,
+                     reason=data.validated_data["reason"],
+                     details={**details, "child": bool(account and account.is_minor)})  # fmt: skip
+        return Response({"requester": data_request.requester})
 
     @extend_schema(request=None, responses=s.DataRequestSerializer)
     @action(detail=True, methods=["post"])

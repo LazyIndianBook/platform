@@ -2083,7 +2083,8 @@ minutes.
 | POST | `users/<id>/password-reset/` | `staff.initiate_password_reset` | allauth's reset email to the account's address |
 | POST | `users/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | 202: another person approves |
 | POST | `users/<id>/impersonate/` (`reason`, `ticket`), `…/impersonate/end/` (`token`) | `staff.impersonate_user` | a 15-minute token that the website's `account/impersonate/` takes once, from a browser on the website's host (never staff or a child); its end, which ends the website's session too |
-| GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks |
+| GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks; the `requester` masked in every answer |
+| POST | `data-requests/<id>/reveal/` (`reason`) | `staff.reveal_contact` (re-authenticated, `staff_reveal`'s rate) | `{"requester"}`: the address or number to answer, a `sensitive_read` |
 | POST PATCH | `data-requests/`, `data-requests/<id>/` | `staff.handle_data_request` | record one; change its notes, assignee, details |
 | POST | `data-requests/<id>/acknowledge/`, `…/verify-identity/` (`note`), `…/close/` (`outcome`, `response`) | `staff.handle_data_request` | its steps |
 | GET | `data-requests/<id>/response/`, `data-requests/<id>/erasure-report/` | `staff.view_datarequest` | the answer's text with the contact block; the erasure's dry run |
@@ -2427,6 +2428,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/data-requests/{id}/erasure-report/` | `staff.view_datarequest` |  |  | 200 `ErasureReport` |
 | POST | `staff/data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
 | GET | `staff/data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
+| POST | `staff/data-requests/{id}/reveal/` | `staff.reveal_contact` |  | `ReasonRequest` | 200 `DataRequestRequester` |
 | POST | `staff/data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
 | GET | `staff/erp/cursors/` | `erp.view_sync` | `cursor`, `page_size` |  | 200 `PaginatedErpCursorList` |
 | GET | `staff/erp/dead-letters/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `page_size` |  | 200 `PaginatedErpOutboxList` |
@@ -2931,6 +2933,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
 - **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **DataRequestRequester**: `requester` string (required)
 - **DataRequestStartRequest**: `kind` DataRequestKindEnum (required); `summary` string
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DeadLetterStateEnum**: one of `open`, `replayed`, `discarded`

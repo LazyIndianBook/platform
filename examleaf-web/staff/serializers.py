@@ -36,7 +36,7 @@ from .models import (
     StaffOffboarding,
     StaffScope,
 )
-from .privacy import mask_email, mask_ip, mask_phone
+from .privacy import mask_contact, mask_email, mask_ip, mask_phone
 
 User = get_user_model()
 
@@ -775,13 +775,18 @@ class DataRequestSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A member of staff.")
         return user
 
+    def to_representation(self, instance):
+        """The requester's address or number masked in every answer (reveal/ shows it, with a reason)."""
+        data = super().to_representation(instance)
+        data["requester"] = mask_contact(instance.requester)
+        return data
+
 
 class DataRequestListSerializer(DataRequestSerializer):
     requester = serializers.SerializerMethodField(help_text="masked in lists")
 
     def get_requester(self, request) -> str:
-        contact = request.requester
-        return mask_email(contact) if "@" in contact else mask_phone(contact)
+        return mask_contact(request.requester)
 
 
 class VerifyIdentitySerializer(serializers.Serializer):

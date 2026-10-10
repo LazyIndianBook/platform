@@ -126,6 +126,7 @@ ENDPOINTS = [
     ("get", "data-requests/{erasure}/erasure-report/", "staff.view_datarequest"),
     ("post", "data-requests/{erasure}/erase/", "staff.handle_data_request"),
     ("post", "data-requests/{request}/export/", "staff.export_personal_data"),
+    ("post", "data-requests/{request}/reveal/", "staff.reveal_contact"),
     ("get", "incidents/", "staff.view_incident"),
     ("get", "incidents/{incident}/", "staff.view_incident"),
     ("post", "incidents/", "staff.manage_incident"),
@@ -789,12 +790,12 @@ def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses
     assert AuditEvent.objects.filter(action="authz_fail", actor_id=student.pk).exists()
 
 
-def rows_with_objects():
-    """Every row of the tables as (method, URL), its objects made (each table's own)."""
+def rows_with_objects(made=None):
+    """Every row of the tables as (method, URL), its objects made (each table's own; the staff table's `made`)."""
     from erp.tests.test_matrix import ENDPOINTS as ERP_ENDPOINTS
     from erp.tests.test_matrix import objects as erp_objects
 
-    made, app, erp = objects(), app_objects(), erp_objects()
+    made, app, erp = made or objects(), app_objects(), erp_objects()
     return [
         *[(m, STAFF + p.format(**made)) for m, p, _ in [*ENDPOINTS, *ANY_STAFF_ENDPOINTS]],
         *[(m, "/api/v1/" + p.format(**app)) for m, p, _ in APP_ENDPOINTS],
