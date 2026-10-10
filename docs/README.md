@@ -122,6 +122,16 @@ mindmap
 
 </div>
 
+## For contributors and the records beside the code
+
+| Document | What it holds |
+|---|---|
+| [The console's resilience](../examleaf-admin/RESILIENCE.md), [the website's](../examleaf-frontend/RESILIENCE.md) | what keeps each Next.js app answering when Django is slow or gone |
+| [The console's agent rules](../examleaf-admin/AGENTS.md), [the website's](../examleaf-frontend/AGENTS.md) | the Next.js 16 rules an agent reads before touching either app |
+| [The Frappe app](../examleaf-erp/apps/examleaf_erp/README.md) | what `examleaf_erp` adds to ERPNext: doctypes, fixtures, the sync API, the GST rules |
+| [The legal pages' drafts](../examleaf-web/pages/drafts/terms.md) | terms, [privacy](../examleaf-web/pages/drafts/privacy.md), [refunds](../examleaf-web/pages/drafts/refunds.md), [shipping](../examleaf-web/pages/drafts/shipping.md) and [contact](../examleaf-web/pages/drafts/contact.md), as the site's pages were seeded |
+| [The redesign's implementation plan](../implementation/README_IMPLEMENTATION.md), [its prompt](../implementation/CLAUDE_CODE_PROMPT.md) | the Answer Script redesign's working files |
+
 ## Where the work stands
 
 ```mermaid

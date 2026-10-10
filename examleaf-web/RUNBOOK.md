@@ -277,10 +277,11 @@ parts), Offboarding and ERPNext. Each role's guide is in `../docs/guides/roles/`
 1. **New member of staff.** An owner: People → "Invite a staff member" with their work email address, a role and the
    reason. An invitation to OWNER, ADMIN, FINANCE or AUDITOR waits for a second person (ADMIN or another owner) in
    Approvals. The audit log has `staff.invited` (and `staff.invite.requested` and `.approved` when it waited). The
-   colleague gets an email with a link that works once,
-   for 7 days (the console's form says 72 hours: the code's 7 days stand). **The page behind that link is not built.**
-   The email points at `/invite/<token>/` on the panel's host, which neither `examleaf-admin` nor the website has; the
-   API behind it (`POST /api/v1/staff/invites/accept/`) is there. Until the page is, give the role another way:
+   colleague gets an email with a link that works once, for 7 days: `/invite/<token>/` on the panel's host, where they
+   choose the name the console shows and a password (an address that has an account already signs in first and
+   opens the link again), then sign in and are sent to set up two-step sign-in before anything opens
+   (`POST /api/v1/staff/invites/accept/` behind it; the audit log has `staff.invite_accepted`). Without the panel,
+   give the role another way:
    - With Google for staff on (`STAFF_GOOGLE_DOMAIN`, DEPLOYMENT.md section 15) and `STAFF_GOOGLE_AUTO_STAFF=1`, the
      colleague signs in once with "Continue with Google" and a member of staff with no role is made for them. People
      lists them; an owner opens their page → Access → "Grant a role" (the role, an end date if it is temporary, the

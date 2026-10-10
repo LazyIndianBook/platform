@@ -100,18 +100,29 @@ nav:
           - Operations and messages: examleaf-web/ops/README.md
           - ERPNext sync: examleaf-web/erp/README.md
           - ERPNext shadow run: examleaf-web/erp/SHADOW-RUN.md
+      - The legal pages' drafts:
+          - Terms: examleaf-web/pages/drafts/terms.md
+          - Privacy: examleaf-web/pages/drafts/privacy.md
+          - Refunds: examleaf-web/pages/drafts/refunds.md
+          - Shipping: examleaf-web/pages/drafts/shipping.md
+          - Contact: examleaf-web/pages/drafts/contact.md
       - Security reviews:
           - Phase B authorization review: docs/security/phase-b-authorization-review.md
           - Phases 1 to 4: examleaf-web/SECURITY_REVIEW.md
           - Phases 5 and 6: examleaf-web/SECURITY_REVIEW_PHASE5_6.md
   - Frontends:
       - Staff console: examleaf-admin/README.md
+      - The console's resilience: examleaf-admin/RESILIENCE.md
+      - The console's agent rules: examleaf-admin/AGENTS.md
       - Website: examleaf-frontend/README.md
+      - The website's resilience: examleaf-frontend/RESILIENCE.md
+      - The website's agent rules: examleaf-frontend/AGENTS.md
       - Frontend architecture: docs/examleaf-frontend-architecture.md
   - ERPNext:
       - Back office: examleaf-erp/README.md
       - Sync API: examleaf-erp/API.md
       - Upgrades: examleaf-erp/UPGRADE.md
+      - The Frappe app: examleaf-erp/apps/examleaf_erp/README.md
   - Deployment:
       - Kubernetes chart: deploy/kubernetes/README.md
       - Chart testing: deploy/kubernetes/TESTING.md
@@ -143,3 +154,5 @@ nav:
           - Components: docs/design/components.md
           - Coverage matrix: docs/design/coverage-matrix.md
           - Resources brief: docs/design/resources-brief.md
+          - Implementation plan: implementation/README_IMPLEMENTATION.md
+          - The redesign's prompt: implementation/CLAUDE_CODE_PROMPT.md
