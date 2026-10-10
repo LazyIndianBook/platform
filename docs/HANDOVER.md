@@ -19,16 +19,18 @@ ended, what to do next and in which order, and which decisions only the business
 
 | Directory | What | How to verify |
 |---|---|---|
-| `examleaf-web/` | Django 6.1 backend: the platform (accounts, content, learn, practice, shop) plus the Phase A apps `staff/`, `shipping/`, `integrations/`, `insights/`, `erp/` | `cd examleaf-web && .venv/bin/python -m pytest -q -p no:cacheprovider` (last runs on the final head: 1,030 passed, 11 skipped on SQLite; 1,040 passed, 1 skipped on PostgreSQL); `ruff check . && ruff format --check .`; `manage.py makemigrations --check` |
-| `examleaf-frontend/` | Next.js 16 public site | `npm run lint && npm run format:check && npm run typecheck && npm test` (180 unit tests); Playwright needs the seeded backend (`scripts/e2e-backend.sh`, README "Tests") |
-| `examleaf-admin/` | Next.js 16 staff console at `admin.<domain>` | same four commands (62 unit tests); `npx playwright test --project=chromium` in mock mode (`STAFF_API_MOCK=1`) or against a seeded Django (its README) |
+| `examleaf-web/` | Django 6.1 backend: the platform (accounts, content, learn, practice, shop) plus the Phase A apps `staff/`, `shipping/`, `integrations/`, `insights/`, `erp/` and Phase B's `support/` (the panel's other modules live inside these apps) | `cd examleaf-web && .venv/bin/python -m pytest -q -p no:cacheprovider` (at the merge of Phase B: 1,888 passed, 13 skipped on SQLite, 5,427 subtests; Phase A's final head had 1,030 passed, 11 skipped on SQLite and 1,040 passed, 1 skipped on PostgreSQL); `ruff check . && ruff format --check .`; `manage.py makemigrations --check` |
+| `examleaf-frontend/` | Next.js 16 public site | `npm run lint && npm run format:check && npm run typecheck && npm test` (228 Vitest tests at the merge of Phase B; 180 at Phase A's); Playwright needs the seeded backend (`scripts/e2e-backend.sh`, README "Tests") |
+| `examleaf-admin/` | Next.js 16 staff console at `admin.<domain>` | same four commands (350 Vitest unit tests at the merge of Phase B; 62 at Phase A's); `npx playwright test --project=chromium` in mock mode (`STAFF_API_MOCK=1`: 23 tests) or against a seeded Django (`E2E_STAFF_API=real npx playwright test --project=real`; its README) |
 | `examleaf-erp/` | ERPNext v16: the private Frappe app `examleaf_erp`, the image build, the dev stack | `cd examleaf-erp/compose && ./dev.sh up && ./dev.sh new-site && ./dev.sh test` (58 tests; needs Docker and about 3 GB RAM); contract in `examleaf-erp/API.md` |
 | `deploy/kubernetes/` | Helm umbrella chart `examleaf-platform` (CloudNativePG, Traefik, cert-manager, mariadb-operator and frappe/helm for ERPNext, HA profile, alerts) | `make lint`; `make kind-up && make kind-install` for a one-node test cluster (README.md, TESTING.md records three runs) |
 | `examleaf-web/docker-compose.yml` + `Caddyfile` | the simple production deployment (Caddy, web, worker, beat, media-worker, frontend, optional `admin` profile) | `examleaf-web/DEPLOYMENT.md` |
 
 Every app has a README of its own; `examleaf-web/API.md` documents every endpoint (the staff section is generated and a
 test fails if it drifts from the code); `examleaf-web/CHANGELOG.md` lists what each piece added; `RUNBOOK.md` the
-operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new apps).
+operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new apps, 25 and 26 Phase B's). The one-page
+guide of each role is in `docs/guides/roles/` and the owner's, the CA's and the lawyer's open decisions in
+`docs/decisions.md`.
 
 ## 3. What Phase A delivered (all merged, all tests green at the merge)
 
@@ -67,6 +69,61 @@ operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new ap
   migrations, 15 Prometheus rules). Not yet run on three real nodes.
 - **Backend fixes found on the way**: `/health/` no longer flaps (`examleaf/health.py`); the frontend's health probe
   sends the forwarded host (a 503 bug with DEBUG=0).
+
+### What Phase B delivered (merged on the integration branch `phase-b`; every module's tests green at its merge)
+
+The panel's own modules, each with its endpoints in `/api/v1/staff/…`, its pages in the console and its README (the
+plan's section 9.2; `examleaf-web/CHANGELOG.md` has one entry for each module and a consolidated one above them):
+
+- **Orders** (`shop/staff_orders.py`, `shop/README.md`): the list with tabs and a search for a person that is recorded
+  by its hash, an order's record with the next step and a timeline, refunds by line or by bank transfer through the
+  approvals, returns (asked for on the website or by staff; deciding is apart from receiving), staff orders and quotes
+  with the discount rule's answer shown first, the packing room (queue, slips, 4×6 labels, pick list, bulk jobs), the
+  cash-on-delivery risk hold, and every status message recorded and held overnight.
+- **Finance** (`shop/staff_finance.py`, `shop/settlements.py`): Finance today, payments with the stuck ones asked of
+  Razorpay again, refunds and offline payments with their approvals, payment links (a B2B invoice of ERPNext too), and
+  Razorpay's settlements fetched each morning, matched by Razorpay's id and posted to ERPNext once.
+- **Tax** (`shop/tax.py`, `shop/staff_tax.py`): the HSN and SAC master with dated rates, a bundle's treatment, the
+  billing state, shipping that follows the goods, one number series for each document type from 1 April 2027, the
+  credit notes' cut-off, cancelling a document, the threshold monitor, the calendar and the GSTR-1 files as a job.
+- **Catalogue** (`shop/staff_catalogue.py`): each part of a product by its own permission (the page, the prices
+  through an approval, the tax, the stock), the courier's data, versions, the prior price from 1 January 2027, coupons
+  and offers with the dark-pattern guardrails as validation, a school's single-use codes, the shelves, and the import
+  and export as jobs.
+- **Content** (`content/`): drafts reviewed and published by a second person with a rollback, reader-reported
+  mistakes and errata, imports from the books repository as jobs, the legal deposits and their reminder.
+- **Course** (`learn/`): the outline and its moves, review and scheduled publish, a 30-day bin, the quiz bank,
+  access granted and revoked (one or many), print runs of book codes made by a job and voided, the fraud rules, and a
+  learner's page that is logged and shows a child only counts.
+- **Support** (the new `support/` app): tickets with a number and the legal clocks in calendar time, the support
+  mailbox, saved replies, the actions on a customer's orders from a ticket, the grievance register, and "My requests"
+  on the website.
+- **Customers** (`staff/customers.py`): tabs and badges, a merged timeline, what they bought, every look a logged
+  read (a child's marked), the children waiting for a parent with each link sent, a consent recorded by hand, and
+  bulk actions that are checked first.
+- **Legal and privacy** (`staff/privacy_api.py`, `examleaf/retention.py`): the compliance cockpit, legal holds that the
+  erasure obeys, the retention schedule in code with its nightly clean-up, numbered policy versions, the e-commerce
+  disclosures, the dark-pattern self-audit, nominees, and the one audience function that keeps children out of
+  marketing.
+- **Staff, settings and connections, system**: the role catalogue, a person's access, offboarding as a checklist,
+  passkeys for the privileged roles; settings with their history, the connections page (keys tested before they are
+  kept), the DLT template registry; backups and restore drills, logs and time, dependencies, hardening and the
+  checkout's scripts.
+- **Home and reports** (`insights/`): one definition for each number, test mode kept out by construction, the cards
+  of each role, the reports with a minimum cell of 10 people (5 for a chapter's or class's learners) and any report as
+  a file.
+- **ERPNext in shadow mode**: the sync run against a real ERPNext (the dev stack), every flow, a planted difference,
+  dead letters and the rollback by flag, recorded in `examleaf-web/erp/SHADOW-RUN.md`; the fixes it led to are in the
+  CHANGELOG.
+- **Documents**: a one-page guide for each of the eleven roles (`docs/guides/roles/`), the RUNBOOK rewritten so that
+  every recipe a panel page replaced names the page, with the shell as the break-glass line, the decisions register
+  (`docs/decisions.md`) and DEPLOYMENT.md's settings by module.
+- **Verified at the merge**: the backend 1,888 passed and 13 skipped on SQLite (5,427 subtests); the console 350 Vitest
+  unit tests and 23 Playwright tests in mock mode; the website 228 Vitest tests. Not left to chance: every new
+  endpoint is a row of the authorization matrix (`staff/tests/test_matrix.py`) and the generated reference in API.md
+  is checked against the code.
+- **Not in Phase B, by plan**: the console's Shipping, Marketing and Partners pages (the shipping staff API is built);
+  the ERPNext cut-over and the partners (Phase C); marketing campaigns and the teachers' classes (Phase D).
 
 ## 4. In flight when the session ended
 
