@@ -442,8 +442,14 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
     def done(self, request, *args, **kwargs):
         item = self.get_object()
         item.done_at, item.done_by = item.done_at or timezone.now(), item.done_by or request.user
-        item.save(update_fields=["done_at", "done_by"])
+        with transaction.atomic():
+            item.save(update_fields=["done_at", "done_by"])
+            self.log("inbox.done", item)
         return Response(self.get_serializer(item).data)
+
+    def log(self, action, item, **details):
+        """Each move on an item is an audit event naming it and its kind (titles name no person; none is kept)."""
+        audit.record(action, request=self.request, target=item, details={"kind": item.kind, **details})
 
     @extend_schema(request=s.SnoozeSerializer, responses=s.InboxItemSerializer)
     @action(detail=True, methods=["post"])
@@ -452,7 +458,9 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
         data = s.SnoozeSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         item.snoozed_until = data.validated_data["until"]
-        item.save(update_fields=["snoozed_until"])
+        with transaction.atomic():
+            item.save(update_fields=["snoozed_until"])
+            self.log("inbox.snoozed", item, until=item.snoozed_until)
         return Response(self.get_serializer(item).data)
 
     @extend_schema(request=s.AssignSerializer, responses=s.InboxItemSerializer)
@@ -467,7 +475,9 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
             if assignee is None or not assignee.has_perm(item.permission):
                 raise serializers.ValidationError({"assignee": ["A member of staff who may act on it."]})
         item.assignee = assignee
-        item.save(update_fields=["assignee"])
+        with transaction.atomic():
+            item.save(update_fields=["assignee"])
+            self.log("inbox.assigned", item, assignee=getattr(assignee, "pk", None))
         return Response(self.get_serializer(item).data)
 
 

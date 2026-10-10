@@ -2036,7 +2036,7 @@ minutes.
 | POST | `session/reason/` (`reason`) | a break-glass session | its reason, once, before anything else; the owners are told |
 | GET | `catalogue/` | any member of staff | every catalogued permission (label, area, risk, reauth, approval, alert) and every role (permissions, limits, scopes, conflicts, members) |
 | GET | `inbox/` (`?kind=&mine=&done=&snoozed=`), `inbox/count/` | `staff.view_inbox` | what waits: items assigned to you, or to nobody and needing a permission you hold; open and overdue counts |
-| POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one |
+| POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one (each an audit event: `inbox.done`, `inbox.snoozed`, `inbox.assigned`) |
 | GET | `audit/` (`?actor=&action=&action_prefix=&target_type=&target_id=&outcome=&since=&until=&request_id=&ip=&chain=&permission=&break_glass=&change_request=`), `audit/<id>/` | `staff.view_auditlog` (AUDITOR, OWNER) | the audit log; each read is itself an event; `break_glass` marks a break-glass account's events and an owner's override |
 | POST | `audit/export/` (`filters`) | `staff.export_auditlog` | 200: JSON lines with the hashes, up to 5,000 rows within your `export_rows`; more: 202 and a job (`jobs/`), approved first by ADMIN above your `export_rows` |
 | GET | `jobs/` (`?mine=&state=&kind=`), `jobs/<id>/` | `staff.view_job` | your background jobs (everyone's with `staff.view_system`): `state`, `done` of `total`, the rows' `errors`, `result`, `result_url` |
