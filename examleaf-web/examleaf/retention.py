@@ -179,6 +179,15 @@ SCHEDULE = (
         model="accounts.ParentLinkSend",
         date_field="sent_at",
     ),
+    Rule(
+        "return_photos",
+        "Photographs of what came back in a return (the inspection's evidence), in the private storage",
+        NONE,
+        "No law names them: they are part of the order's dispute record",
+        "With the order's details: deleted when the order is forgotten (eight years after its year, or 30 days "
+        "after an order never paid is cancelled)",
+        enforced_by="ops.tasks.purge_books and shop.tasks.clean_up, nightly (shop.services.forget_orders)",
+    ),
 )
 RULES = {rule.key: rule for rule in SCHEDULE}
 

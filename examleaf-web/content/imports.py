@@ -9,6 +9,7 @@ exactly what its apply would do: created, updated, unchanged, unmatched and remo
 the folder PAPERS_ROOT as it is, or production/<subject>/ of a commit of it (git archive), or the test copies of
 content/fixtures/papers/ on a test site; its apply names the dry run it follows, which read the same commit."""
 
+import hashlib
 import io
 import json
 import re
@@ -301,6 +302,18 @@ def git(root, *args):
     return done.stdout
 
 
+def folder_fingerprint(root, subject):
+    """What production/<subject>/ holds, hashed from each file's path, size and time (no file is read), for the
+    apply's check against its dry run where no git answers (a deployed image mounts the folder alone). Marked
+    "folder:" so it is never mistaken for a commit."""
+    digest = hashlib.sha256()
+    folder = Path(root) / "production" / subject
+    for path in sorted(p for p in folder.rglob("*") if p.is_file()):
+        stat = path.stat()
+        digest.update(f"{path.relative_to(folder)}\0{stat.st_size}\0{stat.st_mtime_ns}\n".encode())
+    return "folder:" + digest.hexdigest()[:40]
+
+
 def head_commit(root):
     """The commit the folder is at, or None (not a git checkout, or no git here)."""
     try:
@@ -365,9 +378,12 @@ def run_job(job, progress):
     as the job's result. An apply refuses to run when the repository moved since its dry run."""
     params = job.params
     root = papers_root(fixtures=params["fixtures"])
-    commit = git(root, "rev-parse", "--verify", f"{params['commit']}^{{commit}}").decode().strip() if (
-        params["commit"]
-    ) else (None if params["fixtures"] else head_commit(root))  # fmt: skip
+    if params["commit"]:
+        commit = git(root, "rev-parse", "--verify", f"{params['commit']}^{{commit}}").decode().strip()
+    elif params["fixtures"]:
+        commit = None
+    else:  # the checkout as it is: its commit, or, where no git answers, the folder's fingerprint
+        commit = head_commit(root) or folder_fingerprint(root, params["subject"])
     if not job.dry_run:
         dry = recent_dry_run(params.get("dry_run_job"))
         if dry is None:

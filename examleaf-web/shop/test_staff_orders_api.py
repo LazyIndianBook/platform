@@ -235,6 +235,21 @@ def test_every_return_transition_has_its_permission_and_the_restock_puts_the_cop
     assert decline.status_code == 400  # refunded: not possible now
 
 
+def test_a_forgotten_order_takes_its_returns_photographs_with_it(rzp, commit):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    with commit():
+        order = delivered(paid((ProductFactory(), 1)))
+    back = services.request_return(order, [{"item": order.items.get().pk, "quantity": 1}], "other")
+    photo = SimpleUploadedFile("parcel.jpg", b"\xff\xd8\xff" + b"0" * 100, content_type="image/jpeg")
+    name = services.add_return_photo(back, photo).photos[0]
+    assert default_storage.exists(name)
+    nine_years_on = timezone.localdate() + timedelta(days=365 * 9)  # past the books' eight years
+    assert services.forget_orders(Order.objects.filter(pk=order.pk), today=nine_years_on) == 1
+    back.refresh_from_db()
+    assert back.photos == [] and not default_storage.exists(name)  # the evidence goes with the details
+
+
 def test_a_return_is_declined_with_its_reason_and_needs_one(rzp, commit):
     with commit():
         order = delivered(paid((ProductFactory(), 1)))

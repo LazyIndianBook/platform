@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 
+import pytest
 from django.conf import settings as django_settings
 from django.core.files.storage import storages
 from django.core.management import call_command
@@ -23,6 +24,14 @@ def test_a_backup_is_uploaded_with_its_sha256_beside_it(settings, tmp_path):
     bucket = storages["backups"]
     checksum = bucket.open("database/examleaf-20261009-020000.dump.sha256").read().decode().split()
     assert checksum == [hashlib.sha256(dump.read_bytes()).hexdigest(), "examleaf-20261009-020000.dump"]
+
+
+def test_a_report_whose_audit_did_not_run_is_not_loaded_as_clean():
+    from staff.system_api import save_dependency_report
+
+    down = {"source": "npm audit console", "path": "x.json", "ok": False, "error": "the registry did not answer"}
+    with pytest.raises(ValueError, match="npm audit console did not run"):
+        save_dependency_report({"generated_at": "2026-10-10T00:00:00Z", "advisories": [], "inputs": [down]})
 
 
 def test_the_ci_report_joins_pip_audits_and_npm_audits_findings(tmp_path):

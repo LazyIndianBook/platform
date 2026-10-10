@@ -13,6 +13,7 @@ from django.core.management import call_command
 from accounts import roles
 from staff.models import Job
 
+from . import imports
 from .conftest import STAFF, events, make_staff, signed_in
 from .imports import FIXTURES
 from .models import Paper, Question, Solution
@@ -91,6 +92,26 @@ def test_only_what_changed_is_written_and_a_removed_question_is_unpublished_not_
     assert Paper.history.count() == history[Paper]
     # back in the repository: shown again
     assert "99" not in [q.label for q in Question.objects.filter(paper__code="PHY-E01", is_published=True)]
+
+
+def test_without_git_an_apply_still_refuses_a_folder_that_changed_since_its_dry_run(
+    importer, settings, tmp_path, monkeypatch, django_capture_on_commit_callbacks
+):
+    """A deployed image mounts the books' folder alone (no git, no .git): the folder's fingerprint stands for the
+    commit, so an apply still notices the folder moved."""
+    shutil.copytree(FIXTURES, tmp_path, dirs_exist_ok=True)
+    settings.PAPERS_ROOT = str(tmp_path)
+    monkeypatch.setattr(imports, "head_commit", lambda root: None)
+    client = signed_in(importer)
+    dry = start(client, {"subject": "physics", "commit": ""}, True, django_capture_on_commit_callbacks)
+    assert dry.state == "done" and dry.result["commit"].startswith("folder:"), dry.errors
+    same = start(client, {"subject": "physics", "commit": ""}, True, django_capture_on_commit_callbacks)
+    assert same.result["commit"] == dry.result["commit"]  # nothing moved: the same fingerprint
+    solutions = tmp_path / "production/physics/papers_md/PHY-E01-solutions.md"
+    solutions.write_text(solutions.read_text().replace("**Ans.** square *(1)*", "**Ans.** a square *(1)*", 1))
+    moved = start(client, {"subject": "physics", "commit": "", "dry_run_job": dry.pk}, False,
+                  django_capture_on_commit_callbacks)  # fmt: skip
+    assert moved.state == "failed" and "moved since the dry run" in moved.errors[0]["message"]
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")

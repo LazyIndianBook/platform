@@ -1023,7 +1023,7 @@ INSTALLED_APPS += ["support"]
 SUPPORT_COPY_TO_EMAIL = env.bool("SUPPORT_COPY_TO_EMAIL", default=False)
 SUPPORT_COMPLAINT_COPY_FROM = date.fromisoformat(env("SUPPORT_COMPLAINT_COPY_FROM", default="2027-01-01"))
 SUPPORT_INTERMEDIARY_RULES = env.bool("SUPPORT_INTERMEDIARY_RULES", default=False)
-SUPPORT_MAIL_MAX_BYTES = env.int("SUPPORT_MAIL_MAX_BYTES", default=10 * 1024 * 1024)
+SUPPORT_MAIL_MAX_BYTES = env.int("SUPPORT_MAIL_MAX_BYTES", default=10_000_000)  # the edge's 10 MB: the same line
 SMS_KINDS.append("ticket_ack")
 MSG91_TEMPLATES["ticket_ack"] = env("MSG91_TEMPLATE_TICKET_ACK", default="")
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(  # noqa: F405

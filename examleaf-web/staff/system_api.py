@@ -309,6 +309,12 @@ def save_dependency_report(report, now=None):
     now = now or timezone.now()
     if not isinstance(report, dict) or not isinstance(report.get("advisories", []), list):
         raise ValueError("Not a dependency report: an object with a list of advisories.")
+    broken = [row for row in report.get("inputs") or [] if isinstance(row, dict) and row.get("ok") is False]
+    if broken:  # CI's script marks an audit that did not run (the registry down): never loaded as a clean report
+        what = "; ".join(
+            f"{row.get('source') or 'an audit'} did not run ({row.get('error') or 'no answer'})" for row in broken
+        )
+        raise ValueError(f"Not a clean report: {what}.")
     seen = {}
     if default_storage.exists(settings.DEPENDENCY_REPORT_PATH):
         try:

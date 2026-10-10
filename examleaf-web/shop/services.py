@@ -685,6 +685,8 @@ def forget_orders(orders, today=None):
     Used by the daily clean-up for orders never paid or placed, and once a year by hand for invoiced orders past their
     eight years (RUNBOOK.md). An order whose tax documents must still be kept (72 months after its year's annual
     return: shop/tax.py `held_orders`, judged on `today`) is left as it is, whoever asks. Returns how many."""
+    from django.core.files.storage import default_storage
+
     pks = list(orders.exclude(email=DELETED).values_list("pk", flat=True))
     held = tax.held_orders(pks, today)
     pks = [pk for pk in pks if pk not in held]
@@ -694,7 +696,11 @@ def forget_orders(orders, today=None):
     Order.history.filter(id__in=pks).update(email=DELETED)
     OrderNote.history.filter(order_id__in=pks).delete()  # staff's notes may name the customer
     OrderNote.objects.filter(order__in=pks).delete()
-    ReturnRequest.objects.filter(order__in=pks).update(note="")  # the customer's words (their history keeps none)
+    returns = ReturnRequest.objects.filter(order__in=pks)
+    for names in returns.exclude(photos=[]).values_list("photos", flat=True):  # the inspection's photographs
+        for name in names:
+            default_storage.delete(name)
+    returns.update(note="", photos=[])  # the customer's words (their history keeps none), the evidence
     return len(pks)
 
 

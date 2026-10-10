@@ -606,7 +606,7 @@ migrate (`support.E001`), so it does not start. The support address itself is `S
 | `SUPPORT_COPY_TO_EMAIL` | `0` | no | `1`: the support address also gets each contact-form message, Reply-To the sender, as before tickets (keep it on until the mailbox's forwarder runs) |
 | `SUPPORT_COMPLAINT_COPY_FROM` | `2027-01-01` | no | from this day (India) the acknowledgement carries a copy of the complaint as recorded (the E-Commerce Rules as amended) |
 | `SUPPORT_INTERMEDIARY_RULES` | `0` | no | `1`: grievance tickets also get the IT Rules' 24-hour acknowledgement and 15-day resolution; only once counsel says the reviews make ExamLeaf an intermediary. Also a panel setting, which wins while set |
-| `SUPPORT_MAIL_MAX_BYTES` | `10485760` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above); Caddy's and the ingress's 10 MB (10,000,000 bytes) apply first, so one between the two is refused there, the same 413 |
+| `SUPPORT_MAIL_MAX_BYTES` | `10000000` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above): the same 10 MB (10,000,000 bytes) as Caddy's and the ingress's cap, which apply first |
 | `MSG91_TEMPLATE_TICKET_ACK` | none | for acknowledgements by SMS | the DLT template of `ticket_ack` ("ExamLeaf: we have your request {#var#}."): used only when a ticket has no email address; without it such a ticket's acknowledgement is noted by staff |
 | `API_THROTTLE_SUPPORT_MAIL`, `API_THROTTLE_SUPPORT_REQUEST` | `120/minute`, `10/hour` | no | the support mailbox's hook per client address; new requests from My requests per account |
 
@@ -1443,8 +1443,8 @@ Every new path of Phase B is under `/api/` (the staff API, `/api/v1/me/tickets/`
 Caddyfile's Django matcher and the chart's ingress send to `web` already: nothing to change there, and none of the
 websites' proxy lists (`src/lib/site.ts`) needs a prefix. The staff endpoints all answer on the admin host only
 (`staff/middleware.py` `STAFF_APIS` covers `/api/v1/staff/`; a test walks every route to be sure). The 10 MB cap holds
-the largest upload (5 MiB, section 13) with room; an email to the mailbox's hook between 10,000,000 bytes and
-`SUPPORT_MAIL_MAX_BYTES` is refused at the edge instead of by Django.
+the largest upload (5 MiB, section 13) with room; the mailbox's hook takes `SUPPORT_MAIL_MAX_BYTES` at most, the
+same 10,000,000 bytes as the edge's cap.
 
 ### The private storage
 

@@ -133,6 +133,19 @@ def test_an_import_runs_dry_then_applies_the_same_file_through_the_panels_rules(
     assert again.status_code == 400  # its file has gone with its apply
 
 
+def test_a_dry_run_never_applied_loses_its_file_once_its_window_is_well_over(django_capture_on_commit_callbacks):
+    capture = django_capture_on_commit_callbacks
+    client = signed_in(make_staff(roles.ADMIN))
+    ProductFactory(slug="physics", title="Physics", weight_grams=300, packaging="flyer")
+    header, *rows = exported_csv(client, capture)
+    dry = upload(client, capture, as_text([header, *rows]))
+    name = catalogue_jobs.upload_name(dry.params["file"])
+    assert catalogue_jobs.purge_import_files() == 0 and default_storage.exists(name)  # within its window: kept
+    Job.objects.filter(pk=dry.pk).update(created=timezone.now() - 3 * catalogue_jobs.APPLY_WITHIN)
+    assert catalogue_jobs.purge_import_files() == 1 and not default_storage.exists(name)
+    assert catalogue_jobs.purge_import_files() == 0  # once
+
+
 def test_an_apply_needs_its_own_finished_dry_run_of_the_same_bytes_within_a_day(django_capture_on_commit_callbacks):
     capture = django_capture_on_commit_callbacks
     client = signed_in(make_staff(roles.ADMIN))

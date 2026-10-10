@@ -411,6 +411,26 @@ def product_import(job, progress):
     return result
 
 
+def purge_import_files(now=None):
+    """The CSVs of dry runs never applied, deleted from the private storage once their window is well over (an
+    applied import's file went at the apply): the dry runs of the last week past twice APPLY_WITHIN. Returns how
+    many files went."""
+    now = now or timezone.now()
+    stale = Job.objects.filter(
+        kind=Job.Kind.PRODUCT_IMPORT,
+        dry_run=True,
+        created__lt=now - 2 * APPLY_WITHIN,
+        created__gte=now - timedelta(days=7),
+    )
+    gone = 0
+    for params in stale.values_list("params", flat=True):
+        name = upload_name(str((params or {}).get("file") or ""))
+        if params.get("file") and default_storage.exists(name):
+            default_storage.delete(name)
+            gone += 1
+    return gone
+
+
 # ---- product_export ----
 
 

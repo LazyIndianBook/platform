@@ -17,7 +17,7 @@ from examleaf.images import og_image
 from integrations.client import IntegrationUnavailable
 from ops.tasks import queue_text_email
 
-from . import invoices, payments, services, tax
+from . import catalogue_jobs, invoices, payments, services, tax
 from .models import (
     Cart,
     CreditNote,
@@ -170,6 +170,7 @@ def clean_up():
     for pk in no_note.filter(Q(credit_note=None) | Q(credit_note__pdf="")).values_list("pk", flat=True):
         generate_credit_note.delay(pk)
     Cart.objects.filter(user=None, modified__lt=timezone.now() - timedelta(days=30)).delete()
+    catalogue_jobs.purge_import_files()  # the product imports' CSVs of dry runs never applied
     WebhookEvent.objects.filter(received_at__lt=timezone.now() - payments.WEBHOOK_MAX_AGE).delete()
     old_payments = Payment.objects.filter(created__lt=timezone.now() - timedelta(days=Payment.PAYLOAD_DAYS))
     old_payments.filter(raw_payload__isnull=False).update(raw_payload=None)
