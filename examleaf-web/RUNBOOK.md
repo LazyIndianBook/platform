@@ -1607,8 +1607,11 @@ glance": a line for each part of the platform (health checks, queues, webhooks, 
 the ERPNext sync, dependencies, hardening, the checkout's scripts, logs and time), each "Good", "Look at it", "Act now"
 or "Not set up", with since when it has been so. The same page has "A stuck online payment" (an order number and "Ask
 Razorpay"; Finance → Payments does the same with the record beside it) and the maintenance switch ("Turn maintenance
-mode on": `staff.toggle_maintenance`, ADMIN and the owners; visitors see the banner and changes close while the console
-stays open; a `setting.changed` event, and the owners are told). The parts below have pages of their own. The roles'
+mode on": `staff.toggle_maintenance`, ADMIN and the owners; a `setting.changed` event, and the owners are told). It
+only sets `maintenance` (`on` and the banner's text) in `GET /api/v1/config/` for the clients to draw: at the merge of
+Phase B the server refuses nothing because of it and the website does not draw the banner (the console's line
+"visitors see the banner and changes are closed" promises more than the code does), so to keep customers out of the
+shop use "The shop is open" (Settings → The shop). The parts below have pages of their own. The roles'
 guides say who may do what; recording a restore drill is `staff.manage_system` (ADMIN, the owners).
 
 ### Backups and restore drills
