@@ -4,11 +4,12 @@ leaves an `authz_fail` event; a role with it never gets 403 (its answer may be 4
 out of its reach, or 200). And every endpoint names a catalogued permission, a view_ one for GET (DRF's pitfall:
 DjangoModelPermissions lets any GET through)."""
 
+from collections import defaultdict
 from datetime import timedelta
 
 import httpx
 import pytest
-from django.urls import URLPattern, URLResolver
+from django.urls import URLPattern, URLResolver, get_resolver, resolve
 from django.utils import timezone
 
 from accounts import roles
@@ -74,7 +75,9 @@ ENDPOINTS = [
     ("post", "change-requests/{change}/execute/", "staff.approve_refund"),  # or its maker
     ("get", "saved-views/", "staff.view_savedview"),
     ("post", "saved-views/", "staff.add_savedview"),
+    ("get", "saved-views/{view}/", "staff.view_savedview"),
     ("patch", "saved-views/{view}/", "staff.change_savedview"),
+    ("put", "saved-views/{view}/", "staff.change_savedview"),
     ("delete", "saved-views/{view}/", "staff.delete_savedview"),
     ("get", "settings/", "staff.view_sitesetting"),
     ("get", "settings/SHOP_OPEN/", "staff.view_sitesetting"),
@@ -115,6 +118,7 @@ ENDPOINTS = [
     ("get", "data-requests/{request}/", "staff.view_datarequest"),
     ("post", "data-requests/", "staff.handle_data_request"),
     ("patch", "data-requests/{request}/", "staff.handle_data_request"),
+    ("put", "data-requests/{request}/", "staff.handle_data_request"),
     ("post", "data-requests/{request}/acknowledge/", "staff.handle_data_request"),
     ("post", "data-requests/{request}/verify-identity/", "staff.handle_data_request"),
     ("post", "data-requests/{request}/close/", "staff.handle_data_request"),
@@ -126,11 +130,13 @@ ENDPOINTS = [
     ("get", "incidents/{incident}/", "staff.view_incident"),
     ("post", "incidents/", "staff.manage_incident"),
     ("patch", "incidents/{incident}/", "staff.manage_incident"),
+    ("put", "incidents/{incident}/", "staff.manage_incident"),
     ("post", "incidents/{incident}/close/", "staff.manage_incident"),
     ("get", "processors/", "staff.view_processorrecord"),
     ("get", "processors/{processor}/", "staff.view_processorrecord"),
     ("post", "processors/", "staff.add_processorrecord"),
     ("patch", "processors/{processor}/", "staff.change_processorrecord"),
+    ("put", "processors/{processor}/", "staff.change_processorrecord"),
     ("delete", "processors/{processor}/", "staff.delete_processorrecord"),
     ("get", "system/", "staff.view_system"),
     ("post", "system/reconcile/", "staff.replay_webhook"),
@@ -171,6 +177,7 @@ ENDPOINTS = [
     ("get", "privacy/dark-pattern-audits/{audit}/", "staff.view_darkpatternaudit"),
     ("post", "privacy/dark-pattern-audits/", "staff.manage_compliance"),
     ("patch", "privacy/dark-pattern-audits/{audit}/", "staff.manage_compliance"),
+    ("put", "privacy/dark-pattern-audits/{audit}/", "staff.manage_compliance"),
     ("post", "privacy/dark-pattern-audits/{audit}/complete/", "staff.manage_compliance"),
     ("get", "privacy/dark-pattern-audits/{audit}/file/", "staff.view_darkpatternaudit"),
     ("post", "privacy/dark-pattern-audits/{audit}/file/", "staff.manage_compliance"),
@@ -325,6 +332,7 @@ ENDPOINTS = [
     ("post", "support/saved-replies/", "support.add_savedreply"),
     ("get", "support/saved-replies/{reply}/", "support.view_savedreply"),
     ("patch", "support/saved-replies/{reply}/", "support.change_savedreply"),
+    ("put", "support/saved-replies/{reply}/", "support.change_savedreply"),
     ("delete", "support/saved-replies/{reply}/", "support.delete_savedreply"),
     ("post", "support/saved-replies/{reply}/restore/", "support.delete_savedreply"),
     ("get", "support/summary/", "support.view_ticket"),
@@ -683,6 +691,7 @@ def reach(method, url, perm, subtests):
     for who, user in people:
         with subtests.test(who=who):
             response = getattr(signed_in(user), method)(url, {}, format="json")
+            assert response["Cache-Control"] == "no-store", (who, url)  # every answer, the refusals too
             denied = AuditEvent.objects.filter(action="authz_fail", actor_id=user.pk)
             if all(user.has_perm(each) for each in perms):
                 assert response.status_code != 403, (who, response.status_code, response.content[:200])
@@ -721,6 +730,7 @@ APP_ENDPOINTS = [  # under /api/v1/: the shipping app's staff endpoints and the 
     ("get", "shipping/pickup-locations/{pickup}/", "staff.view_parcels"),
     ("post", "shipping/pickup-locations/", "staff.manage_pickup_locations"),
     ("patch", "shipping/pickup-locations/{pickup}/", "staff.manage_pickup_locations"),
+    ("put", "shipping/pickup-locations/{pickup}/", "staff.manage_pickup_locations"),
     ("post", "shipping/pickup-locations/sync/", "staff.manage_pickup_locations"),
     *[
         ("get", f"insights/{name}/", "staff.view_insights")
@@ -757,14 +767,26 @@ def test_each_role_reaches_the_shipping_and_insights_endpoints_only_with_their_p
     reach(method, "/api/v1/" + path.format(**app_objects()), perm, subtests)
 
 
-def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses(subtests):
-    for path in ["session/", "catalogue/", "people/me/sessions/", "home/"]:
-        for who in WHO:
-            with subtests.test(path=path, who=who):
-                assert signed_in(make_staff(who)).get(STAFF + path).status_code == 200
-        student = UserFactory()
-        assert signed_in(student).get(STAFF + path).status_code == 403
-        assert AuditEvent.objects.filter(action="authz_fail", actor_id=student.pk).exists()
+ANY_STAFF_ENDPOINTS = [  # every member of staff's own: the manifest, the catalogue, the policies, their own sessions
+    *[("get", path, ANY_STAFF) for path in ["session/", "catalogue/", "home/", "policies/ack/", "people/me/sessions/"]],
+    *[("post", path, ANY_STAFF) for path in ["session/reason/", "policies/ack/", "people/me/sessions/end-others/"]],
+    ("post", "people/me/sessions/1/end/", ANY_STAFF),  # (no such session: 404)
+]
+
+
+ANY_STAFF_IDS = [f"{m} {p}" for m, p, _ in ANY_STAFF_ENDPOINTS]
+
+
+@pytest.mark.parametrize(("method", "path", "perm"), ANY_STAFF_ENDPOINTS, ids=ANY_STAFF_IDS)
+def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses(method, path, perm, subtests):
+    for who in WHO:
+        with subtests.test(who=who):
+            response = getattr(signed_in(make_staff(who)), method)(STAFF + path, {}, format="json")
+            assert response.status_code == 200 if method == "get" else response.status_code != 403, response.content
+            assert response["Cache-Control"] == "no-store"
+    student = UserFactory()
+    assert getattr(signed_in(student), method)(STAFF + path, {}, format="json").status_code == 403
+    assert AuditEvent.objects.filter(action="authz_fail", actor_id=student.pk).exists()
 
 
 def test_signed_out_and_the_apps_tokens_get_nothing():
@@ -838,6 +860,57 @@ ANY_STAFF_PATHS = (  # every member of staff's own: the manifest, the catalogue,
 # slip and hand label (the address whole on each): staff.pack_order.
 BOOKING_READS = {(OrderQuoteView, "GET"), (ShipmentViewSet, "label")}
 BOOKING_READS |= {(OrderViewSet, "packing_slip"), (OrderViewSet, "label")}
+
+
+def staff_endpoints():
+    """{(view, method): its route} for every staff endpoint the URLs have, from the root (the ERPNext sync's under
+    staff/ too): each StaffView's route once per method it serves."""
+
+    def walk(patterns, prefix=""):
+        for pattern in patterns:
+            if isinstance(pattern, URLResolver):
+                yield from walk(pattern.url_patterns, prefix + str(pattern.pattern))
+            elif isinstance(pattern, URLPattern):
+                yield prefix + str(pattern.pattern), pattern.callback
+
+    found, verbs = {}, ("get", "post", "put", "patch", "delete")  # (DRF adds head to a route's actions once asked)
+    for route, callback in walk(get_resolver().url_patterns):
+        cls = getattr(callback, "cls", None)
+        if cls is not None and issubclass(cls, StaffView):
+            methods = getattr(callback, "actions", None) or [verb for verb in verbs if hasattr(cls, verb)]
+            found |= {(callback, method): route for method in methods if method in verbs}
+    return found
+
+
+def tables():
+    """Every row of the authorization tables: (method, its URL with 1 for each object, its permission)."""
+    from erp.tests.test_matrix import ENDPOINTS as ERP_ENDPOINTS
+
+    rows = [*ENDPOINTS, *ERP_ENDPOINTS, *ANY_STAFF_ENDPOINTS]
+    each = defaultdict(lambda: "1")
+    return [(m, STAFF + p.format_map(each), perm) for m, p, perm in rows] + [
+        (m, "/api/v1/" + p.format_map(each), perm) for m, p, perm in APP_ENDPOINTS
+    ]
+
+
+def test_the_tables_hold_every_endpoint_and_nothing_else():
+    """OWASP API5: no staff endpoint outside the matrix (ENDPOINTS, APP_ENDPOINTS, the ERPNext sync's and every staff
+    member's own), no row for an endpoint that is gone."""
+    found = staff_endpoints()
+    rows = {(resolve(url.split("?")[0]).func, method) for method, url, _ in tables()}
+    assert not set(found) - rows, sorted(f"{method} {found[view, method]}" for view, method in set(found) - rows)
+    assert not rows - set(found), sorted(rows - set(found), key=str)
+
+
+def test_every_staff_endpoint_is_404_off_the_admin_host(settings, subtests):
+    """ADMIN_HOSTS: every staff route (the walk's, through the tables) answers 404 on another host, before anything."""
+    settings.ALLOWED_HOSTS, settings.ADMIN_HOSTS = ["examleaf.in", "admin.examleaf.in"], ["admin.examleaf.in"]
+    client, before = signed_in(make_staff(roles.OWNER)), AuditEvent.objects.count()
+    for method, url, _ in tables():
+        with subtests.test(url=url, method=method):
+            response = getattr(client, method)(url, {}, format="json", HTTP_HOST="examleaf.in")
+            assert (response.status_code, response.json()) == (404, {"detail": "Not found."})
+    assert AuditEvent.objects.count() == before  # nothing ran: no refusal, no read
 
 
 def test_api_md_lists_every_staff_endpoint_and_field_as_the_code_has_them():
