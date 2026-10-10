@@ -16,7 +16,8 @@ REPO = "https://github.com/LazyIndianBook/platform/blob/main/"
 SKIP_DIRS = {"node_modules", ".venv", ".next", "site", ".docs-build", "fixtures", ".git", ".claude", "dist", "test-results", ".e2e"}
 ALERT = re.compile(r"^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:> ?.*\n?)*)", re.M)
 ADMONITION = {"NOTE": "note", "TIP": "tip", "IMPORTANT": "important", "WARNING": "warning", "CAUTION": "danger"}
-LINK = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)")
+LINK = re.compile(r"\[((?:[^\[\]]|\[[^\]]*\])*)\]\(([^)\s]+)\)")  # a link, its label possibly an image
+ASSETS = {".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".html"}
 
 
 def documents():
@@ -54,6 +55,12 @@ def code_links(text, path):
             depth = len(path.relative_to(ROOT).parts) - 1
             return f"[{label}]({'../' * depth}repository.md{target[len(file):]})"
         if file.endswith(".md"):
+            return match.group(0)
+        if resolved.suffix.lower() in ASSETS:  # an image or a report beside a document: copied, the link kept
+            if resolved.exists() and not SKIP_DIRS & set(resolved.relative_to(ROOT).parts):
+                target_path = OUT / resolved.relative_to(ROOT)
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(resolved, target_path)
             return match.group(0)
         resolved = (path.parent / file).resolve()
         try:
