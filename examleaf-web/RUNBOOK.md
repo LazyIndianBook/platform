@@ -476,6 +476,7 @@ second delivery or a run by hand does no harm (RESILIENCE.md). The whole schedul
 | 04:10 | `content.tasks.purge_spam` | reported-mistake spam after 30 days | |
 | 04:20 | `ops.tasks.purge_expired` | the SMS log's rows after a year; Razorpay's webhook records and the Celery task results after 7 days; the app's phones silent for 90 days; the orders past their books' period | `retention.purged` |
 | 04:30 | `shop.tasks.clean_up` | cancels orders left unpaid (after asking Razorpay); queues lost refunds, invoices and credit notes again; deletes guest carts idle for 30 days, old stock alerts, webhook payloads and the details of cancelled unsold orders | |
+| 04:30 | `api.tasks.flush_expired_tokens` (scheduled by `api/migrations/0001`, editable in the admin) | the app's refresh tokens past their lifetime and their blacklist entries | |
 | 04:30 | `learn.tasks.purge_bin` | deletes the clips, cards and quiz items 30 days in the bin, with a clip's video | `course.purged` |
 | 04:45 | `integrations.tasks.purge_old_records` | the call log, inbound events and dealt-with dead letters older than `INTEGRATIONS_RETENTION_DAYS` (90) | |
 | hourly :20 | `learn.tasks.purge_code_files` | the printers' files of book codes after their 24 hours | |

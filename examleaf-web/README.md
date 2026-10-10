@@ -494,7 +494,7 @@ worker, and the error pages) are the Next.js frontend's, at the addresses Django
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/shop/media/…` | the public pictures when there are no buckets (only `products/` and `og/`) |
 | `/learn/preview/<clip>/`, `/learn/hls/<token>/<file>` | the staff player for a clip (on the admin's layout); the HLS playlists, segments and poster behind signed links |
-| `/health/`, `/health/web/`, `/health/integrations/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production; the last one for a second monitor: the integrations (`integrations/README.md`) |
+| `/health/`, `/health/web/`, `/health/live/`, `/health/integrations/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production; the last one for a second monitor: the integrations (`integrations/README.md`) |
 | `/api/hooks/parcel-events/` | Shiprocket's tracking webhook (its token in `x-api-key`; `shipping/README.md`), under Caddy's `/api/` |
 | `/api/hooks/erp-events/` | ERPNext's webhook (signed: `X-Frappe-Webhook-Signature`; `erp/README.md`), under Caddy's `/api/` |
 | `/api/hooks/support-mail/` | email to the support address, forwarded (its token in `X-Support-Mail-Token`; `support/README.md`), under Caddy's `/api/` |

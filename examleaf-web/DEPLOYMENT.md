@@ -1450,6 +1450,7 @@ gives ADMIN the new permissions, as `bootstrap_roles` does at every start).
    | 02:45 | `insights.tasks.offer_effectiveness` | what coupons and offers did |
    | 03:00 | `insights.tasks.fraud_rules` | fraud signals, then the email to `INSIGHTS_ALERT_EMAILS` |
    | 03:15 | `insights.tasks.course_health` | the course's use by subject and chapter, for the course-health report |
+   | every hour (:40) | `insights.tasks.code_fraud_rules` | the book codes' fraud rules (section 26), their inbox items and the urgent ones' email |
 
    A failed task is tried once more ten minutes later, then reported to Sentry (RUNBOOK.md, "An insights job failed").
    Each keeps 90 days of its rows (book codes tried: 180).
