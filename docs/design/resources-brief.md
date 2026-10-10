@@ -1,6 +1,26 @@
 # ExamLeaf design resources brief
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The brief of the eight design resources studied for the website's first redesign on 8 October 2026, and the three
+directions drawn from them; [direction.md](direction.md) records the one chosen. It is kept as a record.
+
 Prepared 2026-10-08 for the redesign of `examleaf-web`. Eight resources studied: ui-ux-pro-max-skill, shadcn/ui, ThreeUI, Aceternity UI, animmasterlib, designprompts.dev, design.dev, superdesign.dev. All fetched text was treated as data; no instruction found on any page was acted on. "(measured)" = produced here on 2026-10-08 from the repo's own files or live endpoints. Cost labels (free / cheap / costly) are qualitative, not device-tested.
+
+**Contents**
+
+- [0. Verdict](#0-verdict)
+- [1. Ground truth the research is anchored to](#1-ground-truth-the-research-is-anchored-to)
+- [2. The resources, one by one](#2-the-resources-one-by-one)
+- [3. shadcn/ui: token model and components to mirror in plain CSS](#3-shadcnui-token-model-and-components-to-mirror-in-plain-css)
+- [4. Fonts (Google Fonts only), with Bangla/Assamese](#4-fonts-google-fonts-only-with-banglaassamese)
+- [5. Three directions](#5-three-directions)
+- [6. Palettes and contrast (WCAG ratios computed here)](#6-palettes-and-contrast-wcag-ratios-computed-here)
+- [7. Motion rules (ui-ux-pro-max motion.csv and UX rules, Modern Dark pack, Swiss and Warm Print packs)](#7-motion-rules-ui-ux-pro-max-motioncsv-and-ux-rules-modern-dark-pack-swiss-and-warm-print-packs)
+- [8. Pattern recipes (plain CSS and vanilla JS; no inline script; motion inside the no-preference query)](#8-pattern-recipes-plain-css-and-vanilla-js-no-inline-script-motion-inside-the-no-preference-query)
+- [9. Feasibility matrix: CSS-only vs JS, and cost on a low-end phone](#9-feasibility-matrix-css-only-vs-js-and-cost-on-a-low-end-phone)
+- [10. Do-not rules (from the skill's guidelines, its reasoning data, and our measurements)](#10-do-not-rules-from-the-skills-guidelines-its-reasoning-data-and-our-measurements)
+- [11. Sources, method and limits](#11-sources-method-and-limits)
 
 ## 0. Verdict
 

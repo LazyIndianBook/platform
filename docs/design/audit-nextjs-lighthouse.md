@@ -1,6 +1,26 @@
 # ExamLeaf Next.js frontend: Lighthouse audit (performance, accessibility, best practices, SEO)
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The Lighthouse audit of the Next.js frontend at Phase 8D's build half, 8 October 2026, against the Django site and the
+architecture document's budgets. It is kept as a record; Phase 8F worked through its findings, and its last section,
+"After the fix pass", has the numbers measured after them.
+
 Measured on 8 October 2026 (IST) on the production build of `examleaf-frontend/` (Next.js 16.4.0, Turbopack) at commit `b10bde1` (the Phase 8D build half; the build was made at 16:38 from the working tree as it stood), against the Django backend running from the same tree. Nothing under `examleaf-frontend/` or `examleaf-web/` was edited (the build wrote `examleaf-frontend/.next/`, which git ignores). The keyboard, zoom and axe side is in [audit-nextjs-accessibility.md](audit-nextjs-accessibility.md), the security review in [audit-nextjs-security.md](audit-nextjs-security.md). The Django site's numbers, for comparison, are in [audit-lighthouse.md](audit-lighthouse.md).
+
+**Contents**
+
+- [1. In one minute](#1-in-one-minute)
+- [2. How it was measured](#2-how-it-was-measured)
+- [3. Scores and metrics](#3-scores-and-metrics)
+- [4. The architecture document's budgets](#4-the-architecture-documents-budgets)
+- [5. Against the Django site](#5-against-the-django-site)
+- [6. JavaScript bytes per route](#6-javascript-bytes-per-route)
+- [7. Findings, in priority order](#7-findings-in-priority-order)
+- [8. Index of every audit below 1](#8-index-of-every-audit-below-1)
+- [9. Experiments](#9-experiments)
+- [10. Files](#10-files)
+- [After the fix pass](#after-the-fix-pass)
 
 ## 1. In one minute
 

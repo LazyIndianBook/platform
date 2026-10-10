@@ -1,5 +1,11 @@
 # Parity check: every route of `parity-nextjs.md` answered once
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+The review half of Phase 8D's parity check (8 October 2026): every route of [parity-nextjs.md](parity-nextjs.md)
+requested once against the Next.js frontend's production build, signed out and signed in. It is kept as the record of
+how the new frontend answered the Django site's routes.
+
 Package 8D's parity sanity check (review half), made on 8 October 2026 (IST) against the production build of `examleaf-frontend/` on `http://localhost:3003` with the Django backend on 8103 (the proxy passes Django's prefixes through, as Caddy does). Every route of the tables in [parity-nextjs.md](parity-nextjs.md) was requested once with `curl`-style GETs (redirects not followed), **anonymous** and **signed in** (a temporary non-staff student, deleted afterwards), with real values filled in: the Physics Sample Papers slug, the open paper `PHY-E01`, an order of the student (`EL-2026-000003`, awaiting payment), the token of that order for the guest routes, one saved address, one marks attempt. The routes that the document marks **API** are POST-only pages of the old site: the API endpoint named in its notes was requested with GET and counts as answering when it exists (200, or 401/405 where the method or the sign-in is wrong). That is 123 routes and variants: every row of the document's tables, the variants its notes name (the lowercase code, a wrong order number, a missing attempt, a renamed product's old slug) and a few neighbours (`/account/verify-email/`, `/api/docs/`, the static Open Graph image, `/sitemap-django.xml`). The script is [audit-scripts/nextjs/parity.mjs](audit-scripts/nextjs/parity.mjs) (set-up in its [README](audit-scripts/nextjs/README.md)); the table below is generated from its output.
 
 ## Result

@@ -1,5 +1,11 @@
 # ExamLeaf website: baseline
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+What the Django site was, measured, before the craft pass of 8 October 2026: the checks, the page weights before and
+after the first redesign, and how they were measured. It is kept as a record; the site it measured was replaced by the
+Next.js frontend in Phase 8.
+
 What the site was, measured, before the craft pass. Taken 8 October 2026, 12:54 IST.
 
 **Tree.** The audit began on commit `4e30e59` with 52 uncommitted paths; at 11:45 IST another agent committed that work as `ba0b9dd`; there are 138 uncommitted paths now (git HEAD `ba0b9dd`). Other agents were editing throughout (the redesign stages, the API's parity work, an SMS-limits migration, the stylesheet split), so the checks were run twice, and the page weights and screenshots were taken later on the live tree, with its drift: `site.css` was 78,312, 81,991, 81,909, 54,098, 54,116 bytes at the moments it was read.

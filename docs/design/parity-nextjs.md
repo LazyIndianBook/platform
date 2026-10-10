@@ -1,5 +1,10 @@
 # Parity: the Django site's routes in the Next.js frontend
 
+![Component](../assets/badges/component-website.svg) ![Status](../assets/badges/status-archive.svg) ![For developers](../assets/badges/audience-developers.svg)
+
+Phase 8D's parity map (8 October 2026): every public and student route of the Django site and where the Next.js frontend
+answers it. It is kept as a record; [audit-nextjs-parity.md](audit-nextjs-parity.md) then requested each route once.
+
 Package 8D's parity check (`docs/examleaf-phase8-nextjs-plan.md`) against section 3.1 of `coverage-matrix.md`: every public and student route of the Django site, where the Next.js frontend (`examleaf-frontend/`) answers it, checked on 2026-10-08 against the frontend's working tree and the backend at `533b784`. Statuses: **built** (same path, a page of the frontend), **redirected** (same path, a redirect in `next.config.ts` to where the frontend answers it now), **API** (a form post of the Django page: the frontend's page calls the API instead, so the path needs no page), **Django** (stays with Django behind its Caddy prefix), **not built** (with the reason).
 
 Paths in `src/app/`: `(public)`, `(shop)`, `(account)` and `(auth)` are route groups; `(account)/account/(streamed)/` holds the account pages that wait behind the placeholder (`loading.tsx`), the two that can be missing (an order, a saved attempt) sit outside it so that they answer a real 404.
