@@ -924,6 +924,7 @@ export const en = {
       board: "Through the Data Protection Board",
     } as Record<string, string>,
     requester: "Requester's email address or mobile number",
+    requesterWhat: "the requester's contact",
     userId: "Customer number",
     userIdHelp: "The account it is about, when known (the number in its address: /users/42/).",
     receivedAt: "Received at",

@@ -565,7 +565,7 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_PASSKEY_ROLES` | `OWNER,ADMIN,FINANCE` | no | the roles that add a passkey or security key before the staff API opens for them (`403 passkey_required`; section 25) |
 | `STAFF_THROTTLE_BULK`, `STAFF_THROTTLE_TEST_SEND` | `20/hour`, `10/hour` | no | bulk actions started per member of staff; templates sent to oneself (an SMS costs money) |
 | `STAFF_THROTTLE_REPORTS` | `60/minute` | no | the panel's reports (`staff/reports/…`) per member of staff or API key: each is a heavy query by nature |
-| `STAFF_THROTTLE_CODE_LOOKUP` | `120/hour` | no | book codes looked up in the panel's Course module per member of staff (`learn/README.md`): enough for a support shift, too few to try codes at random |
+| `STAFF_THROTTLE_CODE_LOOKUP` | `120/hour` | no | book codes looked up in the panel per member of staff, the Course module's and a ticket's together (`learn/README.md`): enough for a support shift, too few to try codes at random |
 | `INTEGRATION_WEBHOOK_SILENCE_HOURS` | `24` | no | a provider's webhook silent this long while its account is in use is flagged (Razorpay: an inbox item) |
 | `SES_SNS_TOPIC_ARN` | none | recommended with SES | the SNS topic SES's notifications must come from; each message's signature is verified either way |
 | `LOG_TIME_SOURCE` | none | before going live | where the server's clock is synchronised from (CERT-In: NTP to NIC or NPL, or the cloud's time service), shown on the logs page |

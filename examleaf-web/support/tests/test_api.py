@@ -47,7 +47,8 @@ def paid_order(email="rahul@example.com", price="1500.00", user=None):
     return Order.objects.get(pk=order.pk)
 
 
-def test_the_queue_sorts_by_the_next_legal_clock_and_filters(commit):
+def test_the_queue_sorts_by_the_next_legal_clock_and_filters(commit, settings):
+    settings.SMS_ENABLED = False  # the phone ticket's acknowledgement waits at any hour (by SMS it goes from 08:00)
     support = make_staff(roles.SUPPORT)
     now = timezone.now()
     with commit():
@@ -81,8 +82,11 @@ def test_looking_a_person_up_by_email_or_phone_is_logged_as_a_hash(commit):
         ticket.number
     ]
     assert [row["number"] for row in client.get(TICKETS, {"q": "98640 12345"}).json()["results"]] == [ticket.number]
-    lookups = events("sensitive_read", actor_id=support.pk)
-    assert lookups.count() == 2 and all(event.details["what"] == "lookup" for event in lookups)
+    lookups = events("customer.lookup", actor_id=support.pk)  # the access log's, as the users' and orders' searches
+    assert [(e.details["kind"], e.details["list"], e.details["found"]) for e in lookups] == [
+        ("email", "tickets", 1),
+        ("phone", "tickets", 1),
+    ]
     assert "rahul" not in str(list(lookups.values_list("details", flat=True))).lower()  # the query's keyed hash only
     assert client.get(TICKETS, {"q": "Rahul"}).json()["results"] == []  # names are not searched
 

@@ -300,6 +300,8 @@ def import_row(row, user, job):
 
     slug = row["slug"]
     product = Product.objects.filter(slug=slug).first()
+    if product is not None and not scoped(Product.objects.filter(pk=product.pk), user, "shop.change_product").exists():
+        raise exceptions.PermissionDenied("Not a product you may change: its subject is not one of yours.")
     data = parsed(row)
     if product is not None:
         held = as_row(product)
@@ -318,7 +320,7 @@ def import_row(row, user, job):
             raise exceptions.PermissionDenied(f"Needs {perm}.")
     reason = f"Product import (job #{job.pk})"  # the versions' and a price's approval's
     asked = CatalogueProductWriteSerializer(
-        data={**data, "reason": reason}, product=product, partial=product is not None
+        data={**data, "reason": reason}, product=product, partial=product is not None, user=user
     )
     asked.is_valid(raise_exception=True)
     values = dict(asked.validated_data)

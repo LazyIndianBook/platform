@@ -108,7 +108,7 @@ STAFF_ACTIONS = [
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
     # Tax (shop/staff_tax.py): cancelling an invoice or a credit note (it keeps its number), the GSTR-1 export job
     ("cancel_document", "Cancel an invoice or a credit note (it keeps its number)", TAX, HIGH),
-    ("run_gstr1", "Run the month's GSTR-1 export (the accountant's files)", TAX, MEDIUM),
+    ("run_gstr1", "Run the month's GSTR-1 export (the accountant's files)", TAX, HIGH),  # an export: re-authenticated
     # Legal and privacy (Phase B, staff/privacy_api.py): legal holds, and the compliance duties
     ("manage_holds", "Put legal holds on a person or a record, and release them", PRIVACY, HIGH),
     ("manage_compliance", "Keep the compliance duties: the dark-pattern self-audit and its certificate", PRIVACY, HIGH),
@@ -218,9 +218,11 @@ OTHERS = {
     **_entries(
         "shop",
         [
-            ("export_product", "Export products", CATALOGUE, MEDIUM),
+            ("export_product", "Export products", CATALOGUE, HIGH),  # every export: re-authenticated (plan 9.2)
             ("import_product", "Import products", CATALOGUE, HIGH),
-            ("export_category", "Export categories", CATALOGUE, LOW),
+            ("export_category", "Export categories", CATALOGUE, HIGH),
+            # a coupon's single-use codes, made as a file for a school: money that leaves as a file, as book codes do
+            ("add_couponcode", "Make a coupon's single-use codes as a file", MARKETING, HIGH),
             ("import_category", "Import categories", CATALOGUE, HIGH),
             ("export_order", "Export orders", ORDERS, HIGH),
         ],

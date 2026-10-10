@@ -1276,8 +1276,19 @@ function termsRoute(kit: CatalogueKit, what: "coupon" | "offer"): Response {
   if (method === "GET" && sub === "codes" && what === "coupon") {
     const code = (row as S["CatalogueCoupon"]).code;
     const used = query("used");
+    // an unused single-use code is money anyone could spend: the list shows its prefix and last four alone
+    const masked = (each: (typeof kit.world.codes)[string][number]) =>
+      each.used
+        ? each
+        : {
+            ...each,
+            code: each.code.replace(
+              /^([^-]+-)?(.*)(.{4})$/,
+              (_, prefix, middle, last) => `${prefix ?? ""}${"•".repeat(middle.length)}${last}`,
+            ),
+          };
     return kit.paginate(
-      (kit.world.codes[code] ?? []).filter((each) => !used || String(each.used) === used),
+      (kit.world.codes[code] ?? []).filter((each) => !used || String(each.used) === used).map(masked),
       50,
     );
   }

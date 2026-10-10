@@ -45,7 +45,7 @@ from rest_framework.response import Response
 from rest_framework.settings import api_settings
 
 from accounts import roles
-from api.views import ReauthenticationRequired, exception_handler, recently_authenticated
+from api.views import ReauthenticationRequired, exception_handler
 from examleaf.middleware import BREAK_GLASS, absolute_expiry, idle_limit, needs_passkey
 
 from . import approvals, audit, catalogue, jobs, services
@@ -149,11 +149,6 @@ def coded(exc, context):
         if isinstance(exc, ReauthenticationRequired):
             response.data["flows"] = REAUTH_FLOWS
     return response
-
-
-def require_reauth(request, perm):
-    if catalogue.needs_reauth(perm) and not recently_authenticated(request):
-        raise ReauthenticationRequired()
 
 
 def accepted(change_request, view):
@@ -426,7 +421,7 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return InboxItem.objects.none()
-        user = self.request.user
+        user = self.human()  # a person's work queue: an API key has none
         items = scoped(InboxItem.objects.all(), user, "staff.view_inbox")
         if user.is_superuser:
             return items
@@ -447,8 +442,14 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
     def done(self, request, *args, **kwargs):
         item = self.get_object()
         item.done_at, item.done_by = item.done_at or timezone.now(), item.done_by or request.user
-        item.save(update_fields=["done_at", "done_by"])
+        with transaction.atomic():
+            item.save(update_fields=["done_at", "done_by"])
+            self.log("inbox.done", item)
         return Response(self.get_serializer(item).data)
+
+    def log(self, action, item, **details):
+        """Each move on an item is an audit event naming it and its kind (titles name no person; none is kept)."""
+        audit.record(action, request=self.request, target=item, details={"kind": item.kind, **details})
 
     @extend_schema(request=s.SnoozeSerializer, responses=s.InboxItemSerializer)
     @action(detail=True, methods=["post"])
@@ -457,7 +458,9 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
         data = s.SnoozeSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         item.snoozed_until = data.validated_data["until"]
-        item.save(update_fields=["snoozed_until"])
+        with transaction.atomic():
+            item.save(update_fields=["snoozed_until"])
+            self.log("inbox.snoozed", item, until=item.snoozed_until)
         return Response(self.get_serializer(item).data)
 
     @extend_schema(request=s.AssignSerializer, responses=s.InboxItemSerializer)
@@ -472,7 +475,9 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
             if assignee is None or not assignee.has_perm(item.permission):
                 raise serializers.ValidationError({"assignee": ["A member of staff who may act on it."]})
         item.assignee = assignee
-        item.save(update_fields=["assignee"])
+        with transaction.atomic():
+            item.save(update_fields=["assignee"])
+            self.log("inbox.assigned", item, assignee=getattr(assignee, "pk", None))
         return Response(self.get_serializer(item).data)
 
 
@@ -622,8 +627,7 @@ class ChangeRequestViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveMode
         data = s.AskSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         name = data.validated_data["action"]
-        require_reauth(request, approvals.ACTIONS[name].maker)
-        change_request, created = approvals.ask(
+        change_request, created = approvals.ask(  # (its maker's step-up: approvals.step_up)
             name,
             maker=user,
             target=data.validated_data["target"],
@@ -779,7 +783,7 @@ class SavedViewViewSet(StaffView, viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return SavedView.objects.none()
-        user = self.request.user
+        user = self.human()  # a person's lists: an API key has none
         views = scoped(SavedView.objects.all(), user, "staff.view_savedview")
         if self.action not in ("list", "retrieve"):
             return views.filter(owner=user)
@@ -1770,8 +1774,10 @@ class DataRequestViewSet(
             "staff.handle_data_request",
         ),
         "export": "staff.export_personal_data",
+        "reveal": "staff.reveal_contact",
     }
     reauth = ("erase",)
+    throttle_scopes = {"reveal": "staff_reveal", "export": "staff_export"}
     http_method_names = ["get", "post", "patch"]
 
     def get_queryset(self):
@@ -1803,6 +1809,23 @@ class DataRequestViewSet(
 
     def _event(self, data_request, verb, **kwargs):
         audit.record(f"data_request.{verb}", request=self.request, target=data_request, **kwargs)
+
+    @extend_schema(
+        request=s.ReasonSerializer,
+        responses=inline_serializer("DataRequestRequester", {"requester": serializers.CharField()}),
+    )
+    @action(detail=True, methods=["post"])
+    def reveal(self, request, *args, **kwargs):
+        """The requester's address or number, masked everywhere else, to answer them: a reason, a re-authentication,
+        staff_reveal's rate, a `sensitive_read` (a child's account marked so)."""
+        data_request, data = self.get_object(), s.ReasonSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        account = data_request.user
+        details = {"what": "reveal", "fields": ["requester"], "request": data_request.pk}
+        audit.record("sensitive_read", request=request, target=account or data_request,
+                     reason=data.validated_data["reason"],
+                     details={**details, "child": bool(account and account.is_minor)})  # fmt: skip
+        return Response({"requester": data_request.requester})
 
     @extend_schema(request=None, responses=s.DataRequestSerializer)
     @action(detail=True, methods=["post"])

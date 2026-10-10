@@ -19,6 +19,7 @@ import {
   ResponseText,
   VerifyIdentity,
 } from "@/components/modules/privacy/requests";
+import { RequesterContact } from "@/components/modules/privacy/requester";
 import { Section } from "@/components/shell/page-header";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, recordId, requestTime, staffPage } from "@/lib/api/page";
@@ -64,7 +65,7 @@ export default async function DataRequestPage({ params }: { params: Promise<{ id
     >
       <Facts
         items={[
-          { label: copy.privacy.columns.requester, value: <span className="font-mono">{request.requester}</span> },
+          { label: copy.privacy.columns.requester, value: <RequesterContact request={request} /> },
           {
             label: copy.privacy.account,
             value: request.user ? (

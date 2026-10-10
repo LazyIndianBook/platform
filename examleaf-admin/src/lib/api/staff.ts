@@ -757,6 +757,14 @@ export const releaseHold = (id: number, reason: string) =>
 /** A customer's nominee, its contact masked (the read is recorded). */
 export const getNominee = (user: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/privacy/nominees/{user}/", { ...o, params: { path: { user } } }));
+/** A data request's requester (their address or number, masked everywhere else), with a reason (logged, re-authenticated,
+ *  throttled). */
+export const revealDataRequester = async (id: number, reason: string) =>
+  (
+    await send(undefined, (o) =>
+      api.POST("/api/v1/staff/data-requests/{id}/reveal/", { ...o, params: { path: { id } }, body: { reason } }),
+    )
+  ).requester;
 /** The nominee's contact, with a reason (logged, re-authenticated, throttled). */
 export const revealNominee = async (user: number, reason: string) =>
   (

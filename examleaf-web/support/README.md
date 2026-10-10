@@ -143,8 +143,9 @@ on the requester's own orders (their account's, and a guest's placed with their 
 The scope kind `ticket_category` (`accounts.roles.ROLE_SCOPES`) narrows SALES and CONTENT_EDITOR; a `StaffScope` row of
 that kind narrows one person. Opening a ticket is a `sensitive_read` (of the account's record when there is one, a
 child's said so), and so are revealing the requester's email address or mobile number (a reason, re-authenticated,
-`staff_reveal`'s rate), downloading a file, and looking a person up by email or phone in the queue (the query's keyed
-hash only). The audit log and the inbox name tickets by number and category, never the requester.
+`staff_reveal`'s rate) and downloading a file; looking a person up by email or phone in the queue is the access log's
+`customer.lookup`, as the customers' and orders' searches are (`audit.lookup`: the query's keyed hash and how many it
+found, never the query). The audit log and the inbox name tickets by number and category, never the requester.
 
 **The pages, by role** (for the per-role guides): SUPPORT works the queue (due soonest, mine, unassigned, overdue,
 waiting, all), opens a ticket with the customer beside it, replies (saved replies a keystroke away in the customer's

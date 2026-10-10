@@ -3,8 +3,9 @@
 action's catalogued permission, a re-authentication for the high ones, the admin host only, every refusal an
 `authz_fail` event, cursor pages, no-store. The tickets reach each person through `scoped()`: a SALES member's are the
 order, payment and school-order tickets, a content editor's the content errors (accounts.roles.ROLE_SCOPES). Every
-change is an audit event; opening a ticket, revealing its requester's details, downloading a file and looking a
-person up by email or phone are `sensitive_read` events. The rules themselves are support.services'."""
+change is an audit event; opening a ticket, revealing its requester's details and downloading a file are
+`sensitive_read` events, and looking a person up by email or phone the access log's `customer.lookup` (audit.lookup).
+The rules themselves are support.services'."""
 
 import re
 from datetime import datetime, time, timedelta
@@ -64,11 +65,6 @@ class DueFirst(Cursor):
     ordering = ("next_due_at", "pk")
 
 
-def looked_up(request, **value):
-    """A person looked up by email address or mobile number: the access log has the query's keyed hash only."""
-    audit.record("sensitive_read", request=request, details={"what": "lookup", "in": "tickets", **value})
-
-
 class TicketFilter(django_filters.FilterSet):
     status = django_filters.MultipleChoiceFilter(choices=Ticket.Status.choices, help_text="one or more; spam only so")
     open = django_filters.BooleanFilter(method="filter_open", help_text="true: new, open or waiting (its clocks run)")
@@ -111,12 +107,14 @@ class TicketFilter(django_filters.FilterSet):
         if services.ORDER_NUMBER.fullmatch(value):
             return queryset.filter(order__number__iexact=value)
         if "@" in value:
-            looked_up(self.request, email=value.lower())
-            return queryset.filter(requester_email_hash=contact_hash("email", value.lower()))
-        if phone := normalise_phone(value):
-            looked_up(self.request, phone=phone)
-            return queryset.filter(requester_phone_hash=contact_hash("phone", phone))
-        return queryset.none()
+            kind, value, found = "email", value.lower(), Q(requester_email_hash=contact_hash("email", value.lower()))
+        elif phone := normalise_phone(value):
+            kind, value, found = "phone", phone, Q(requester_phone_hash=contact_hash("phone", phone))
+        else:
+            return queryset.none()
+        queryset = queryset.filter(found)  # a person looked up: the access log's event, the query's keyed hash only
+        audit.lookup(self.request, value, queryset.count(), kind=kind, source="tickets")
+        return queryset
 
     def filter_test(self, queryset, name, value):
         return queryset.filter(order__livemode=False) if value else queryset.exclude(order__livemode=False)
@@ -205,7 +203,7 @@ class TicketViewSet(
         "reveal": "staff_reveal",
         "refund": "staff_money",
         "cancel": "staff_money",
-        "book_code": "staff_search",
+        "book_code": "staff_code_lookup",  # the course's lookup's budget: book codes looked up, per member of staff
     }
 
     def get_queryset(self):

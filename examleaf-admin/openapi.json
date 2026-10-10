@@ -8512,7 +8512,7 @@
         "/api/v1/staff/catalogue/coupons/{code}/codes/": {
             "get": {
                 "operationId": "staff_catalogue_coupons_codes_retrieve",
-                "description": "Its single-use codes, newest first (`?used=`, `?job=` a batch): used or not and by which order's number\n(never who: the order has that).",
+                "description": "Its single-use codes, newest first (`?used=`, `?job=` a batch): used or not and by which order's number\n(never who: the order has that). A code not used yet is a discount anyone may spend: masked here (its batch's\nprefix and last four), whole only in its batch's file, its starter's.",
                 "parameters": [
                     {
                         "in": "path",
@@ -15209,7 +15209,7 @@
         "/api/v1/staff/course/codes/report/": {
             "get": {
                 "operationId": "staff_course_codes_report_retrieve",
-                "description": "The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by\ndistrict with the cells under INSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs.",
+                "description": "The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by\ndistrict with the cells under\nINSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs.",
                 "tags": [
                     "course (staff)"
                 ],
@@ -16976,6 +16976,56 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ResponseText"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/data-requests/{id}/reveal/": {
+            "post": {
+                "operationId": "staff_data_requests_reveal_create",
+                "description": "The requester's address or number, masked everywhere else, to answer them: a reason, a re-authentication,\nstaff_reveal's rate, a `sensitive_read` (a child's account marked so).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this data request.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReasonRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DataRequestRequester"
                                 }
                             }
                         },
@@ -23289,7 +23339,7 @@
         "/api/v1/staff/privacy/deletions/{id}/parent-confirmation/": {
             "post": {
                 "operationId": "staff_privacy_deletions_parent_confirmation_create",
-                "description": "A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach\nthem): staff record it, with where the evidence is; the nightly purge erases it once due.",
+                "description": "A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach\nthem): staff record it, with where the evidence is; the nightly purge erases it once due. The last step before an\nerasure: re-authenticated (research 2.3).",
                 "parameters": [
                     {
                         "in": "path",
@@ -41527,6 +41577,17 @@
                     "kind",
                     "requester",
                     "summary"
+                ]
+            },
+            "DataRequestRequester": {
+                "type": "object",
+                "properties": {
+                    "requester": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "requester"
                 ]
             },
             "DataRequestStartRequest": {

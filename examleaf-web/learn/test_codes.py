@@ -182,7 +182,7 @@ def test_one_code_is_voided_and_a_redeemed_one_is_refused(physics):
     assert plain[1] not in str(event.details) and event.reason == "A photo online"
 
 
-def test_the_lookup_answers_in_one_line_audits_and_is_throttled(physics, settings, support):
+def test_the_lookup_answers_in_one_line_audits_and_is_throttled(physics, monkeypatch, support):
     plain = make_codes(physics, 3, "PHY-2027-4")
     CodeBatch.objects.create(label="PHY-2027-4", subject=physics, printed=3, generated_at=timezone.now())
     child = student(date_of_birth=timezone.localdate().replace(year=timezone.localdate().year - 15))
@@ -209,18 +209,12 @@ def test_the_lookup_answers_in_one_line_audits_and_is_throttled(physics, setting
     assert [event.details["state"] for event in lookups] == ["redeemed", "void", "void", "unused", "unknown"]
     assert not any(code in str(event.details) for event in lookups for code in plain)
     cache.clear()
-    settings.REST_FRAMEWORK = {**settings.REST_FRAMEWORK, "DEFAULT_THROTTLE_RATES": {
-        **settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"], "staff_code_lookup": "2/hour"}}  # fmt: skip
     from rest_framework.throttling import SimpleRateThrottle
 
-    SimpleRateThrottle.THROTTLE_RATES = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
-    try:
-        statuses = [client.post(f"{COURSE}codes/lookup/", {"code": plain[2]}, format="json").status_code
-                    for _ in range(3)]  # fmt: skip
-    finally:
-        from rest_framework.settings import api_settings
-
-        SimpleRateThrottle.THROTTLE_RATES = api_settings.DEFAULT_THROTTLE_RATES
+    # the rates' own dict, put back after the test (rebinding it to a copy left 2 an hour for every later test)
+    monkeypatch.setitem(SimpleRateThrottle.THROTTLE_RATES, "staff_code_lookup", "2/hour")
+    statuses = [client.post(f"{COURSE}codes/lookup/", {"code": plain[2]}, format="json").status_code
+                for _ in range(3)]  # fmt: skip
     assert statuses == [200, 200, 429]
 
 

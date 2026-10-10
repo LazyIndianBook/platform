@@ -369,6 +369,20 @@ def test_a_free_order_always_waits_and_a_small_discount_runs_at_once(commit):
     assert refused.status_code == 400 and "lines" in refused.json()  # 10 in stock: said before anyone approves
 
 
+def test_an_address_without_its_state_takes_an_addresss_own_default_not_a_failure(commit):
+    """The state is optional in an address (Address.state's default); a staff order or a quote's order without one
+    was priced from `address["state"]` and failed with a 500 (the audit trail's walk found it)."""
+    book = ProductFactory(price=Decimal("349"), mrp=Decimal("349"), stock=10)
+    address = {name: value for name, value in ADDRESS.items() if name != "state"}
+    body = {"channel": "phone", "lines": [{"product": book.slug, "quantity": 1}], "email": "a@example.com",
+            "address": address, "send_link": False, "reason": "By phone"}  # fmt: skip
+    with commit():
+        made = signed_in(make_staff(roles.SALES)).post(ORDERS, body, format="json")
+    assert made.status_code == 201, made.content
+    order = Order.objects.get(number=made.json()["result"]["order"])
+    assert order.shipping_address["state"] == "AS"
+
+
 def test_a_quote_becomes_a_staff_order_once(commit):
     book = ProductFactory(slug="chemistry", price=Decimal("300"), mrp=Decimal("300"), stock=50)
     quote = QuoteRequest.objects.create(

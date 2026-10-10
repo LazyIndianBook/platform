@@ -30,7 +30,7 @@ from rest_framework import exceptions, serializers
 
 from accounts import roles
 
-from . import services
+from . import catalogue, services
 from .audit import Outcome, alert, describe_target, plain, record
 from .backends import scoped
 from .models import Approval, ChangeRequest
@@ -998,12 +998,25 @@ def _event(change_request, verb, request=None, **kwargs):
     )
 
 
+def step_up(request, action_name):
+    """A person asking for the action re-authenticated in the last 5 minutes when its maker's permission is high or
+    critical (staff.catalogue), whichever endpoint asks: a refund asked by cancelling a paid order, from a ticket, in
+    the admin, or by starting a job whose rows will ask for it (staff.jobs). No request (a job's own row): nothing to
+    ask. Raises ReauthenticationRequired."""
+    from api.views import ReauthenticationRequired, recently_authenticated
+
+    if request is not None and catalogue.needs_reauth(ACTIONS[action_name].maker):
+        if not recently_authenticated(request):
+            raise ReauthenticationRequired()
+
+
 def ask(action_name, *, maker, target, payload, reason, idempotency_key="", request=None):
     """A ChangeRequest for the action; within the maker's limits it is approved by the rule and run at once. A key
     the maker used before answers that request again (Idempotency-Key). Returns (request, created)."""
     action = ACTIONS[action_name]
     if not maker.has_perm(action.maker):
         raise exceptions.PermissionDenied(f"Needs {action.maker}.")
+    step_up(request, action_name)
     if not str(reason or "").strip():
         raise serializers.ValidationError({"reason": ["Say why."]})
     if idempotency_key and (seen := ChangeRequest.objects.filter(maker=maker, idempotency_key=idempotency_key).first()):

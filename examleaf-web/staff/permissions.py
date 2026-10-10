@@ -150,11 +150,14 @@ class StaffPermission(permissions.BasePermission):
     """The permission the view names for this action (or method); none named is refused (deny by default). A
     break-glass session's reason first (BreakGlassReasonRequired), a privileged member's passkey (PasskeyRequired).
     Then a recent re-authentication when the catalogue's risk says so, or the view's `reauth` actions (approving,
-    running); its `no_reauth` actions skip it (ending an impersonation)."""
+    running; a plain view's methods); its `no_reauth` actions skip it (ending an impersonation)."""
 
     def has_permission(self, request, view):
         perm = view.required_permission(request)
         request._request._staff_perm = "" if perm == ANY_STAFF else perm or ""
+        if isinstance(request.auth, ApiKey) and request.method not in permissions.SAFE_METHODS:
+            self.message = "An API key only reads: every change is a person's."  # (its permissions are view_ ones)
+            return False
         if perm == ANY_STAFF:
             return True
         if request.user.is_superuser and not request.session.get(BREAK_GLASS):
@@ -167,7 +170,7 @@ class StaffPermission(permissions.BasePermission):
         if not request.user.has_perm(perm):
             self.message = f"You need the permission {perm} ({label(perm)})."
             return False
-        name = getattr(view, "action", None)
+        name = getattr(view, "action", None) or request.method  # a viewset's action, a plain view's method
         if (catalogue.needs_reauth(perm) or name in view.reauth) and name not in view.no_reauth:
             if isinstance(request.auth, ApiKey):
                 self.message = f"{perm} is not for API keys."

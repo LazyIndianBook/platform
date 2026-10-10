@@ -261,6 +261,7 @@ const RISKY = new Set([
   ...["staff.record_offline_payment", "shop.export_order"],
   ...["staff.import_content", "staff.export_grievances", "staff.export_report", "staff.verify_consent"],
   ...["shop.import_product", "shop.delete_productimage"], // the catalogue's high ones
+  ...["shop.export_product", "shop.export_category", "shop.add_couponcode", "staff.run_gstr1"], // every export is high
   ...["staff.make_book_codes", "staff.void_book_codes"], // the course: book codes made (high) and voided (critical)
   ...["learn.delete_clip", "learn.delete_flashcard", "learn.delete_quizitem"], // Django's delete verb: high
 ]);
@@ -617,6 +618,7 @@ function permissionFor(context: Context): string | null {
       return get ? "staff.view_note" : "staff.add_note";
     case "data-requests":
       if (get) return "staff.view_datarequest";
+      if (b === "reveal") return "staff.reveal_contact";
       return b === "export" ? "staff.export_personal_data" : "staff.handle_data_request";
     case "incidents":
       return get ? "staff.view_incident" : "staff.manage_incident";
@@ -1670,7 +1672,12 @@ async function route(context: Context): Promise<Response> {
       const row = byId(world.dataRequests, a);
       if (!row) return notFound();
       const label = target("staff.datarequest", row.id, `Data request #${row.id}`);
-      if (method === "GET" && !b) return json(200, row);
+      if (method === "GET" && !b) return json(200, { ...row, requester: mask(row.requester) });
+      if (method === "POST" && b === "reveal") {
+        if (!text(body.reason)) return invalid({ reason: ["Say why you need it."] });
+        record(context, "sensitive_read", { ...label, reason: text(body.reason), details: { what: "requester" } });
+        return json(200, { requester: row.requester });
+      }
       if (method === "GET" && b === "response")
         return json(200, {
           subject: `Your ${row.kind} request (#${row.id})`,

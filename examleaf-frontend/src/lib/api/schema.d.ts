@@ -2708,7 +2708,8 @@ export interface paths {
         };
         /**
          * @description Its single-use codes, newest first (`?used=`, `?job=` a batch): used or not and by which order's number
-         *     (never who: the order has that).
+         *     (never who: the order has that). A code not used yet is a discount anyone may spend: masked here (its batch's
+         *     prefix and last four), whole only in its batch's file, its starter's.
          */
         get: operations["staff_catalogue_coupons_codes_retrieve"];
         put?: never;
@@ -4812,7 +4813,8 @@ export interface paths {
         };
         /**
          * @description The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by
-         *     district with the cells under 10 hidden ("fewer than 10"). Computed when asked; the newest 200 print runs.
+         *     district with the cells under
+         *     INSIGHTS_MIN_CELL hidden (insights.cells.minimum). Computed when asked; the newest 200 print runs.
          */
         get: operations["staff_course_codes_report_retrieve"];
         put?: never;
@@ -5456,6 +5458,26 @@ export interface paths {
         get: operations["staff_data_requests_response_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The requester's address or number, masked everywhere else, to answer them: a reason, a re-authentication,
+         *     staff_reveal's rate, a `sensitive_read` (a child's account marked so).
+         */
+        post: operations["staff_data_requests_reveal_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7707,7 +7729,8 @@ export interface paths {
         put?: never;
         /**
          * @description A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach
-         *     them): staff record it, with where the evidence is; the nightly purge erases it once due.
+         *     them): staff record it, with where the evidence is; the nightly purge erases it once due. The last step before an
+         *     erasure: re-authenticated (research 2.3).
          */
         post: operations["staff_privacy_deletions_parent_confirmation_create"];
         delete?: never;
@@ -13194,7 +13217,7 @@ export interface components {
         };
         CourseReportCell: {
             district: string;
-            /** @description null: fewer than 10 (hidden) */
+            /** @description null: fewer than the minimum, INSIGHTS_MIN_CELL (hidden) */
             activated: number | null;
             hidden: boolean;
         };
@@ -13801,6 +13824,9 @@ export interface components {
             notes?: string;
             /** @description A nominee; a parent's confirmation; holds. */
             details?: unknown;
+        };
+        DataRequestRequester: {
+            requester: string;
         };
         DataRequestStartRequest: {
             kind: components["schemas"]["DataRequestKindEnum"];
@@ -20241,8 +20267,8 @@ export interface components {
             sold: number | null;
             activated: number;
             activated_7d: number;
-            /** @description null until the course module can void codes */
-            revoked: number | null;
+            /** @description codes voided before use; null without the course module */
+            void: number | null;
             /** Format: decimal */
             activation_rate: string | null;
         };
@@ -31322,6 +31348,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResponseText"];
+                };
+            };
+        };
+    };
+    staff_data_requests_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequestRequester"];
                 };
             };
         };

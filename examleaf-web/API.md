@@ -1514,9 +1514,9 @@ the saved replies and the module's numbers. It keeps every rule of the [Staff AP
 member of staff with a second factor (an API key reads only), each action's catalogued permission (area "Support"),
 every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the schema tags it `support (staff)`.
 The tickets reach each person through their scope: a SALES member's are the order, payment and school-order tickets, a
-content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details,
-downloading a file and looking a person up by email or phone are `sensitive_read` events (the lookup's keyed hash,
-never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
+content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details and
+downloading a file are `sensitive_read` events; looking a person up by email or phone is a `customer.lookup` (the
+query's keyed hash and the count found, never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
 `support.replied`, `support.noted`, `support.assigned`, `support.status`, `support.reopened`, `support.acknowledged`,
 `support.action` with the action's name, `support.clock_breached`, `support.saved_reply_*`), naming the ticket by its
 number and never its requester.
@@ -1787,7 +1787,7 @@ shipping rates: who, when, the change request's reason). Money is in rupees as d
 | GET | `stock/` (`?q=&state=&published=`), `stock-alerts/` | `shop.view_product`; `shop.view_stockalert` | the books' copies, the fewest first, with `reserved` (orders placed, not yet shipped) and `awaiting_payment` (orders not yet paid), test orders left out on a live site; the back-in-stock requests by product (`requests`, `last_asked`: never who) |
 | GET POST | `coupons/` (`?q=&state=live\|scheduled\|ended\|inactive&kind=&single_use=`) | `shop.view_coupon`; `shop.add_coupon` | the coupons with their `state`, `uses`, codes; a new one `{"code", "value", …, "reason"}`: the change request, 201 executed within your limit, 202 waiting beyond it |
 | GET PATCH | `coupons/<code>/` | `shop.view_coupon`; `shop.change_coupon` | one coupon; the fields that change and `reason`: 200, or 202 when the discount gets deeper beyond your limit; the code never changes |
-| GET | `coupons/<code>/codes/` (`?used=&job=`), `coupons/<code>/history/` | `shop.view_couponcode`; `shop.view_coupon` | its single-use codes (used, `order`'s number, never who); its versions |
+| GET | `coupons/<code>/codes/` (`?used=&job=`), `coupons/<code>/history/` | `shop.view_couponcode`; `shop.view_coupon` | its single-use codes (used, `order`'s number, never who; one not spent yet masked to its prefix and last four: whole only in its batch's file); its versions |
 | GET POST | `offers/` (`?q=&state=&scope=&combinable=`) | `shop.view_offer`; `shop.add_offer` | the automatic offers; a new one `{"name", "value", …, "reason"}` (201, or 202 beyond your limit) |
 | GET PATCH | `offers/<id>/`, `offers/<id>/history/` | `shop.view_offer`; `shop.change_offer` | one offer and its versions (its scope's products, categories and collections among the changes); a change as for coupons |
 | GET POST | `shipping-rates/` | `shop.view_shippingrate`; `shop.add_shippingrate` | the delivery rates; a new one `{"name", "states", "fee", "free_above", "is_active", "reason"}`: no state in two active rates, one rate at most for every other state |
@@ -2051,7 +2051,7 @@ minutes.
 | POST | `session/reason/` (`reason`) | a break-glass session | its reason, once, before anything else; the owners are told |
 | GET | `catalogue/` | any member of staff | every catalogued permission (label, area, risk, reauth, approval, alert) and every role (permissions, limits, scopes, conflicts, members) |
 | GET | `inbox/` (`?kind=&mine=&done=&snoozed=`), `inbox/count/` | `staff.view_inbox` | what waits: items assigned to you, or to nobody and needing a permission you hold; open and overdue counts |
-| POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one |
+| POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one (each an audit event: `inbox.done`, `inbox.snoozed`, `inbox.assigned`) |
 | GET | `audit/` (`?actor=&action=&action_prefix=&target_type=&target_id=&outcome=&since=&until=&request_id=&ip=&chain=&permission=&break_glass=&change_request=`), `audit/<id>/` | `staff.view_auditlog` (AUDITOR, OWNER) | the audit log; each read is itself an event; `break_glass` marks a break-glass account's events and an owner's override |
 | POST | `audit/export/` (`filters`) | `staff.export_auditlog` | 200: JSON lines with the hashes, up to 5,000 rows within your `export_rows`; more: 202 and a job (`jobs/`), approved first by ADMIN above your `export_rows` |
 | GET | `jobs/` (`?mine=&state=&kind=`), `jobs/<id>/` | `staff.view_job` | your background jobs (everyone's with `staff.view_system`): `state`, `done` of `total`, the rows' `errors`, `result`, `result_url` |
@@ -2098,7 +2098,8 @@ minutes.
 | POST | `users/<id>/password-reset/` | `staff.initiate_password_reset` | allauth's reset email to the account's address |
 | POST | `users/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | 202: another person approves |
 | POST | `users/<id>/impersonate/` (`reason`, `ticket`), `…/impersonate/end/` (`token`) | `staff.impersonate_user` | a 15-minute token that the website's `account/impersonate/` takes once, from a browser on the website's host (never staff or a child); its end, which ends the website's session too |
-| GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks |
+| GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks; the `requester` masked in every answer |
+| POST | `data-requests/<id>/reveal/` (`reason`) | `staff.reveal_contact` (re-authenticated, `staff_reveal`'s rate) | `{"requester"}`: the address or number to answer, a `sensitive_read` |
 | POST PATCH | `data-requests/`, `data-requests/<id>/` | `staff.handle_data_request` | record one; change its notes, assignee, details |
 | POST | `data-requests/<id>/acknowledge/`, `…/verify-identity/` (`note`), `…/close/` (`outcome`, `response`) | `staff.handle_data_request` | its steps |
 | GET | `data-requests/<id>/response/`, `data-requests/<id>/erasure-report/` | `staff.view_datarequest` | the answer's text with the contact block; the erasure's dry run |
@@ -2206,7 +2207,8 @@ run lists `erase` (what goes, with counts), `keep` (what stays, why, until when)
 **API keys.** A key is made by an owner for one integration, with `view_` permissions only, for 12 months at most
 (default), optionally from some addresses (`allowed_ips`, CIDR); its answer holds `key` once. Requests with it carry
 `Authorization: Api-Key <key>`; they are throttled per key, recorded as a service in the audit log, refused anything that
-needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere.
+needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere. A key only reads:
+every POST, PUT, PATCH and DELETE with one is `403` (the inbox and saved views, a person's own, are refused it too).
 
 ### Every staff endpoint and field
 
@@ -2441,6 +2443,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/data-requests/{id}/erasure-report/` | `staff.view_datarequest` |  |  | 200 `ErasureReport` |
 | POST | `staff/data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
 | GET | `staff/data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
+| POST | `staff/data-requests/{id}/reveal/` | `staff.reveal_contact` |  | `ReasonRequest` | 200 `DataRequestRequester` |
 | POST | `staff/data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
 | GET | `staff/erp/cursors/` | `erp.view_sync` | `cursor`, `page_size` |  | 200 `PaginatedErpCursorList` |
 | GET | `staff/erp/dead-letters/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `page_size` |  | 200 `PaginatedErpOutboxList` |
@@ -2945,6 +2948,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
 - **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **DataRequestRequester**: `requester` string (required)
 - **DataRequestStartRequest**: `kind` DataRequestKindEnum (required); `summary` string
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DeadLetterStateEnum**: one of `open`, `replayed`, `discarded`
@@ -3524,19 +3528,25 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 | MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
 | ERPNext's webhook (`POST /api/hooks/erp-events/`), per client address | 600 a minute | `API_THROTTLE_ERP_EVENTS` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| searches for a person (`GET staff/users/`, `staff/orders/`, `staff/support/tickets/`, `staff/finance/payments/`, `staff/course/entitlements/?q=`, `staff/course/learners/<id>/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<id>/reveal/`, `staff/data-requests/<id>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| exports (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, `staff/tax/gstr1/`, `staff/data-requests/<id>/export/`, a print run's codes `staff/course/codes/batches/`, `staff/finance/settlements/fetch/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`, `staff/catalogue/import/`) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| book codes looked up (`staff/course/codes/lookup/` and `staff/support/tickets/<number>/book-code/`: one budget) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
+| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
+| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; refunds, offline payments, staff orders, prices, coupons and offers; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
 | new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
+| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
 | searches that cost a query: customers (`GET staff/users/`), orders, Finance's payments, the support queue and a ticket's book-code lookup, a person searched for among the course's entitlements (`?q=`), a learner's page | 60 a minute | `STAFF_THROTTLE_SEARCH` |
 | reveals of a customer's, a ticket's, a nominee's or a bank refund's payee details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<user>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
 | exports and the files made as jobs (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, the GSTR-1 file, a day of settlements fetched) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
 | bulk actions started (`staff/jobs/` of kind `bulk_action`, and the catalogue's import) | 20 an hour | `STAFF_THROTTLE_BULK` |
-| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
-| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
 | book codes looked up (`POST staff/course/codes/lookup/`) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
 | money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; staff orders, refunds (a bank one marked paid too), offline payments and quotes made into orders; products, coupons and offers made or changed; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
-| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).

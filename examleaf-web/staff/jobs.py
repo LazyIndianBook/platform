@@ -120,7 +120,11 @@ def _event(job, verb, request=None, **kwargs):
 
 def start(kind, params, *, user, dry_run=False, request=None):
     """Store a job and queue it; above the starter's limit (never for a dry run) it waits for an approver first
-    (staff.approve_export: ADMIN, the owners). Returns the job."""
+    (staff.approve_export: ADMIN, the owners). A job whose rows ask for an approvals action as its starter (a
+    cancellation refunds the orders paid online) needs that action's step-up now, as asking for it once would. Returns
+    the job."""
+    if not dry_run and (asked := order_jobs.ASKS.get(kind)):
+        approvals.step_up(request, asked)
     if kind == Job.Kind.AUDIT_EXPORT:
         total = audit_events(user, params["filters"]).count()
     elif kind == Job.Kind.ERP_INITIAL_LOAD:

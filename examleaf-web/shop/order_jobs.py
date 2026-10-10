@@ -32,6 +32,7 @@ PERMISSIONS = {
     Kind.ORDERS_CANCEL: "shop.change_order",
     Kind.ORDERS_EXPORT: "shop.export_order",
 }
+ASKS = {Kind.ORDERS_CANCEL: "order.refund"}  # the approvals action a kind's rows ask for: its step-up at the start
 LIMITS = {**dict.fromkeys([Kind.ORDERS_PACK, Kind.ORDERS_PRINT, Kind.ORDERS_CANCEL], "bulk_rows")}
 LIMITS[Kind.ORDERS_EXPORT] = "export_rows"
 MAX_TARGETS = 1000

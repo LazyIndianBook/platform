@@ -217,7 +217,7 @@ class HoldCreateSerializer(serializers.Serializer):
             if data["user"] is None:
                 raise serializers.ValidationError({"user": ["No such account."]})
             return data
-        found = privacy.find_hold_target(label, data.get("target_id"))
+        found = privacy.find_hold_target(label, data.get("target_id"), user=self.context["request"].user)
         if found is None:
             raise serializers.ValidationError({"target_id": ["No such record."]})
         data["target_type"], data["target_id"] = found[0], str(found[1].pk)
@@ -269,7 +269,7 @@ class LegalHoldViewSet(PrivacyView, mixins.ListModelMixin, mixins.RetrieveModelM
 
     @extend_schema(request=HoldCreateSerializer, responses={201: LegalHoldSerializer})
     def create(self, request, *args, **kwargs):
-        data = HoldCreateSerializer(data=request.data)
+        data = HoldCreateSerializer(data=request.data, context=self.get_serializer_context())
         data.is_valid(raise_exception=True)
         held, user = data.validated_data, data.validated_data.get("user")
         with transaction.atomic():
@@ -405,9 +405,11 @@ class ParentConfirmationSerializer(serializers.Serializer):
 
 class DeletionParentView(PrivacyView, generics.GenericAPIView):
     """A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach
-    them): staff record it, with where the evidence is; the nightly purge erases it once due."""
+    them): staff record it, with where the evidence is; the nightly purge erases it once due. The last step before an
+    erasure: re-authenticated (research 2.3)."""
 
     permissions = {"POST": "staff.handle_data_request"}
+    reauth = ("POST",)
     queryset = DeletionRequest.objects.none()  # (for the schema)
     pagination_class = None
 
