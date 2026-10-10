@@ -41,7 +41,10 @@ config:
   SOLUTIONS_REQUIRE_LOGIN: null  # default 1: solutions for signed-in students; 0: for everyone
   PARENTAL_CONSENT_MODE: null  # default declared (the parent ticks the box); verified: the parent confirms by a link
   DATA_UPLOAD_MAX_MEMORY_SIZE: null  # default 1048576: the largest form or JSON body in bytes, files not counted
-  PAPERS_ROOT: null  # the books checkout for import_papers (README.md "Content"); null: give --root on the command line
+  # The books checkout (the folder that holds production/) that import_papers and the panel's Content imports read.
+  # The panel's imports run in the worker pod: null means none is mounted there, so import with --root in a pod
+  # (README.md "Install", the papers)
+  PAPERS_ROOT: null
   # Database, cache and queue (DATABASE_URL comes from CloudNativePG's Secret)
   CONN_MAX_AGE: null  # default 60: seconds a database connection is kept between requests
   CACHE_URL: null  # null: redis://<release>-redis-cache:6379/0 (the cache Redis below)
@@ -68,6 +71,7 @@ config:
   MSG91_TEMPLATE_PARENT_CONSENT: null
   MSG91_TEMPLATE_ORDER_ARRIVING: null  # a courier's news (shipping): out for delivery (cash on delivery)
   MSG91_TEMPLATE_ORDER_NOT_DELIVERED: null  # and a failed delivery; not sent while empty
+  MSG91_TEMPLATE_TICKET_ACK: null  # a ticket's acknowledgement by SMS, when no email address is known; not sent while empty
   SMS_DAILY_CAP: null  # default 500 SMS a day
   # Sign-in providers and Turnstile (each with its secret half in the Secret)
   GOOGLE_CLIENT_ID: null
@@ -78,6 +82,11 @@ config:
   SHOP_COD_ENABLED: null  # default 0
   SHOP_COD_MAX_VALUE: null  # default 1500 rupees
   SHOP_LOW_STOCK: null  # default 5
+  SHOP_RETURN_DAYS: null  # default 15: days after delivery that a customer may ask to send books back
+  SHOP_COD_HIGH_VALUE_INR: null  # default 1000: rupees at which a cash-on-delivery order counts towards its risk score
+  SHOP_COD_HIGH_RISK_HOLD: null  # default 1: an order scored high waits on hold until staff release it; the panel may switch it
+  SHOP_BANK_REFUND_DAYS: null  # default 3: days FINANCE has to transfer a refund by bank or UPI
+  SHOP_STUCK_PAYMENT_MINUTES: null  # default 15: an online payment this old on an unpaid order is "stuck" (Finance today)
   SELLER_LEGAL_NAME: null  # default ExamLeaf LLP. The seller lines print on every invoice: final before the shop opens
   SELLER_ADDRESS: null  # default "[address], [city], Assam [PIN]"
   SELLER_GSTIN: null  # default empty: "not registered"
@@ -86,6 +95,16 @@ config:
   SELLER_EMAIL: null  # default [email]
   SELLER_PHONE: null  # default [phone]
   SUPPORT_EMAIL: null  # default SELLER_EMAIL: where the contact form's messages go
+  # Tax and catalogue (DEPLOYMENT.md section 13). A value the server cannot read stops it, and so the pods: the migrate
+  # init container fails and the upgrade waits (README.md "Upgrades and migrations")
+  SHOP_SERIES_FROM_FY: null  # default 2027-28: the financial year from which each type of GST document has a series of its own
+  SHOP_SERIES_PREFIXES: null  # type=prefix pairs, default tax_invoice=TI,bill_of_supply=BS,invoice_cum_bill_of_supply=IB,
+  # credit_note=CN,debit_note=DN,receipt_voucher=RV,refund_voucher=RF: the CA confirms them before 1 April 2027 (two
+  # capitals or figures each, all different, never TC)
+  SHOP_HSN_DIGITS: null  # default 4 (4, 6 or 8): figures of an HSN or SAC code on the documents; 6 above Rs 5 crore of turnover
+  SHOP_GST_QRMP: null  # default 1: the returns are quarterly under QRMP; the panel may switch it
+  SHOP_PRIOR_PRICE_FROM: null  # default 2027-01-01 (YYYY-MM-DD): from then a reduced price shows the lowest price of the 30 days before
+  SHOP_DARK_PATTERN_PHRASES: null  # phrase=pattern pairs refused in offers, banners and coupons; six by default (DEPLOYMENT.md)
   # Buckets and media: MEDIA_BUCKET, PUBLIC_MEDIA_BUCKET and PUBLIC_MEDIA_DOMAIN together or not at all
   MEDIA_BUCKET: null  # null: the media volume below
   PUBLIC_MEDIA_BUCKET: null
@@ -117,8 +136,13 @@ config:
   API_THROTTLE_LEARN_REDEEM_ADDRESS: null  # default 5/hour
   API_THROTTLE_LEARN_QUIZ: null  # default 600/hour
   API_THROTTLE_PARCEL_EVENTS: null  # default 300/minute: the couriers' webhook (/api/hooks/parcel-events/), per address
+  API_THROTTLE_SMS_EVENTS: null  # default 300/minute: MSG91's delivery reports (/api/hooks/sms-events/), per address
+  API_THROTTLE_SUPPORT_MAIL: null  # default 120/minute: the support mailbox's hook (/api/hooks/support-mail/), per address
+  API_THROTTLE_SUPPORT_REQUEST: null  # default 10/hour: new requests from My requests, per account
   # Insights, integrations and shipping
   INSIGHTS_ALERT_EMAILS: null  # who gets the nightly fraud signals and print runs, comma separated; none: no email
+  INSIGHTS_MIN_CELL: null  # default 10: a report's cell standing on fewer people or orders is hidden; under 5 the server will not start
+  INSIGHTS_MIN_CELL_CLASS: null  # default 5: the same for a chapter's or a class's learners
   INTEGRATIONS_CONNECT_TIMEOUT: null  # default 5 seconds to reach a provider (Shiprocket)
   INTEGRATIONS_READ_TIMEOUT: null  # default 20 seconds for its answer
   INTEGRATIONS_RETENTION_DAYS: null  # default 90: the call log and the webhooks kept
@@ -156,6 +180,28 @@ config:
   STAFF_DATA_REQUEST_ACK_HOURS: null  # default 48
   DATA_PROTECTION_OFFICER: null  # quoted in every answer to a data request: name, email, phone
   CERT_IN_POINT_OF_CONTACT: null  # in the incident alerts
+  STAFF_PASSKEY_ROLES: null  # default OWNER,ADMIN,FINANCE: roles that add a passkey or security key before the staff API opens
+  STAFF_THROTTLE_BULK: null  # default 20/hour: bulk actions started, per member of staff
+  STAFF_THROTTLE_TEST_SEND: null  # default 10/hour: templates sent to oneself (an SMS costs money)
+  STAFF_THROTTLE_REPORTS: null  # default 60/minute: the panel's reports (each a heavy query), per member of staff or API key
+  STAFF_THROTTLE_CODE_LOOKUP: null  # default 120/hour: book codes looked up in the Course module, per member of staff
+  INTEGRATION_WEBHOOK_SILENCE_HOURS: null  # default 24: a provider's webhook silent this long while its account is in use is flagged
+  SES_SNS_TOPIC_ARN: null  # the SNS topic SES's notifications must come from (recommended with SES)
+  LOG_TIME_SOURCE: null  # where the nodes' clocks are synchronised from (CERT-In), shown on the System page; README.md "Logs and time"
+  DEPENDENCY_REPORT_PATH: null  # default ops/dependency-report.json: where CI's dependency report is kept in the private storage
+  # The backups bucket, read and written by the site's pods (the System page's Backups, and each night the audit log's
+  # and the erasure ledger's copies): these two here, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in the env Secret
+  # (README.md "Backups and restore"). Unset: the page says no bucket is set, and nothing is copied off the cluster
+  BACKUP_BUCKET: null  # the same bucket as postgres.backup.bucket
+  BACKUP_ENDPOINT_URL: null  # the same as postgres.backup.endpointURL
+  BACKUP_KEEP_DAYS: null  # default 30: shown on the System page; keep it equal to postgres.backup.keepDays (the window)
+  BACKUP_STALE_HOURS: null  # default 26: a source with nothing newer opens an inbox item
+  # Content and support (content/README.md, support/README.md; DEPLOYMENT.md "Support")
+  CONTENT_LEGAL_DEPOSIT_DAYS: null  # default 30: days after a book's publication that its copies are due at the four libraries
+  SUPPORT_COPY_TO_EMAIL: null  # default 0: 1 also sends each contact-form message to SUPPORT_EMAIL, until the mailbox's forwarder runs
+  SUPPORT_COMPLAINT_COPY_FROM: null  # default 2027-01-01 (YYYY-MM-DD): from then the acknowledgement carries a copy of the complaint
+  SUPPORT_INTERMEDIARY_RULES: null  # default 0: 1 adds the IT Rules' 24-hour and 15-day clocks to grievances (on counsel's word)
+  SUPPORT_MAIL_MAX_BYTES: null  # default 10485760: the largest email the mailbox's hook takes; ingress.maxBodyBytes (10 MB) applies first
   # The ERPNext sync (examleaf-web/erp/; DEPLOYMENT.md section 24), all off until switched on in its order; each is
   # also a flag the panel can set. The integration account (provider erpnext: api key and secret, base_url
   # http://<release>-erpnext.<namespace>.svc:8080, site name) is made in the admin (README.md "ERPNext").
@@ -180,13 +226,17 @@ config:
 secrets:
   mode: existing
   # The site's secret environment: every key becomes an environment variable of web, worker and beat, as .env does in
-  # docker-compose.yml. Required: SECRET_KEY, LEARN_CODE_SECRET, INTERNAL_API_TOKEN, and INTEGRATION_KEYS before the
-  # first integration account (Shiprocket): once one exists, migrate stops without it (integrations.E001), so web never
-  # starts. As the features need them (DEPLOYMENT.md section 13): INSIGHTS_HASH_SALT (recommended),
+  # docker-compose.yml. Required: SECRET_KEY, LEARN_CODE_SECRET, INTERNAL_API_TOKEN and INTEGRATION_KEYS. The last is
+  # needed from the start, not only once an integration account exists: the support tickets keep their requesters'
+  # contact details encrypted with it, and without it migrate stops (support.E001, and integrations.E001 with an
+  # account), so web's init container never finishes. As the features need them (DEPLOYMENT.md section 13):
+  # INSIGHTS_HASH_SALT (recommended),
   # SECRET_KEY_FALLBACKS, JWT_SIGNING_KEY, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, ANYMAIL_WEBHOOK_SECRET, the
   # provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET, STAFF_GOOGLE_CLIENT_SECRET, TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET,
   # RAZORPAY_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET_TEST, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
-  # PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
+  # PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN, and with
+  # config.BACKUP_BUCKET the backups bucket's AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (a token of its own, not the
+  # one in the backup Secret below: README.md "Backups and restore").
   # The frontend and the admin read INTERNAL_API_TOKEN from it, the media worker SECRET_KEY and the four S3 keys.
   env: ""  # empty: <release>-env
   # The uptime monitor's way through the /health gate (README.md "Health checks"): a Secret of type
