@@ -70,7 +70,7 @@ pydantic_core==2.46.5
 python-crontab==3.4.0
 python-dateutil==2.9.0.post0
 python-ipware==4.1.1
-python-slugify==8.0.4
+python-slugify==9.1.2
 requests==2.34.2
 s3transfer==0.19.2
 segno==1.6.6
