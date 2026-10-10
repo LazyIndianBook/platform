@@ -137,6 +137,10 @@ def test_no_answer_and_no_audit_event_holds_a_secret(providers, subtests):
     secrets = [keys["key_secret"], token["token"], key["key"], key["key"].rsplit("_", 1)[-1], settings.SECRET_KEY]
     extra = ["connections/razorpay/", "connections/msg91/", "connections/msg91/webhooks/", f"api-keys/{key['id']}/"]
     rows = [url for method, url in rows_with_objects() if method == "get"] + [STAFF + path for path in extra]
+    from shop.models import Coupon, CouponCode
+
+    unused = CouponCode.objects.create(coupon=Coupon.objects.get(code="MATRIX10"), code="MATRIX10-SPENDME9")
+    secrets.append(unused.code)  # a single-use code not spent yet: a discount anyone may spend
     for url in rows:
         text = text_of(client.get(url))
         with subtests.test(url=url):
@@ -144,6 +148,20 @@ def test_no_answer_and_no_audit_event_holds_a_secret(providers, subtests):
     logged = json.dumps([[e.changes, e.details, e.reason, e.target_label] for e in AuditEvent.objects.all()])
     assert not [secret for secret in secrets if secret in logged]
     assert ApiKey.objects.get(pk=key["id"]).secret_hash not in text_of(client.get(f"{STAFF}api-keys/"))
+
+
+def test_a_coupons_unused_codes_are_masked_in_its_list():
+    """A coupon's single-use codes are listed for whoever reads coupons (the auditor too): one not spent yet shows its
+    batch's prefix and last four only (whole in its batch's file, its starter's); a spent one shows whole."""
+    from shop.factories import CouponFactory
+    from shop.models import CouponCode
+
+    coupon = CouponFactory(code="CCHS", single_use=True)
+    CouponCode.objects.create(coupon=coupon, code="CCHS-7Q2KX9AB")
+    spent = make_order((ProductFactory(stock=5), 1))
+    CouponCode.objects.create(coupon=coupon, code="CCHS-SPENT123", order=spent)
+    rows = signed_in(make_staff(roles.AUDITOR)).get(f"{STAFF}catalogue/coupons/CCHS/codes/").json()["results"]
+    assert {(row["code"], row["used"]) for row in rows} == {("CCHS-••••X9AB", False), ("CCHS-SPENT123", True)}
 
 
 def changed_nothing(before, after, fields):

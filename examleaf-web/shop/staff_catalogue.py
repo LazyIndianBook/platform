@@ -1550,7 +1550,8 @@ class CouponViewSet(CatalogueView, viewsets.GenericViewSet):
     @action(detail=True, filter_backends=[])
     def codes(self, request, *args, **kwargs):
         """Its single-use codes, newest first (`?used=`, `?job=` a batch): used or not and by which order's number
-        (never who: the order has that)."""
+        (never who: the order has that). A code not used yet is a discount anyone may spend: masked here (its batch's
+        prefix and last four), whole only in its batch's file, its starter's."""
         coupon = self.get_object()
         codes = coupon.codes.select_related("order").order_by("-pk")
         if (used := request.query_params.get("used")) in ("true", "1", "false", "0"):
@@ -1560,7 +1561,7 @@ class CouponViewSet(CatalogueView, viewsets.GenericViewSet):
         page = self.paginate_queryset(codes)
         rows = [
             {
-                "code": code.code,
+                "code": code.code if code.used else f"{code.code.rpartition('-')[0] or '•'}-••••{code.code[-4:]}",
                 "note": code.note,
                 "job": code.job_id,
                 "created": code.created,

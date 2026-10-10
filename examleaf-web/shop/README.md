@@ -355,8 +355,10 @@ ERPNext's stock by warehouse and batch, its B2B price lists and pricing rules co
 - **Coupons**: per cent or rupees off, a minimum on the books they apply to, dates, limits in all and per customer,
   products and categories in or out, a first order only, stacking with the automatic offers or not, and single-use
   codes: a school's batch is a job (`coupon_codes`: how many, a prefix, the school's name), its CSV the school's,
-  `PREFIX-XXXXXXXX` with no 0, O, 1, I or L. A codes-only coupon's own code is refused at the cart; a code is taken by
-  the order made with it, in that order's transaction (one order a code), and a cancelled order frees it. Making a
+  `PREFIX-XXXXXXXX` with no 0, O, 1, I or L (making them is `shop.add_couponcode`, high: re-authenticated; the codes
+  list masks a code not spent yet to its prefix and last four). A codes-only coupon's own code is refused at the cart;
+  a code is taken by the order made with it, in that order's transaction (one order a code), and a cancelled order
+  frees it. Making a
   coupon is `coupon.create`, changing one `coupon.change`: a deeper discount (or one switched back on) beyond the
   maker's limit waits for FINANCE.
 - **Offers** (`offer.create`, `offer.change`): the dark-pattern guardrails are validation, not advice. A countdown needs
