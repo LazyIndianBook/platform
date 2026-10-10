@@ -960,9 +960,11 @@ failed dependency from hanging a request or a worker: every timeout and limit, t
   response): one per request (`examleaf.requests`: the URL pattern, status, milliseconds, the account's id; a warning
   past 2 s), `task_id` inside Celery tasks, gunicorn's own lines; RUNBOOK.md "Reading the logs". Errors go to Sentry
   when `SENTRY_DSN` is set (scrubbed: see "Personal data").
-- **Files.** Uploaded files (invoices, credit notes, quotations, answer-sheet photos, the clips' videos) go to `media/`,
-  never served publicly, or to the private bucket with `MEDIA_BUCKET`; an upload view must check the file's size when it
-  is built.
+- **Files.** Uploaded files (invoices, credit notes, quotations, answer-sheet photos, the clips' videos, and the panel's:
+  a returned parcel's photographs, tickets' attachments, the dark-pattern audit's certificate, legal-deposit proofs, jobs'
+  result files) go to `media/`, never served publicly, or to the private bucket with `MEDIA_BUCKET`; an upload view
+  must check the file's size when it is built (the largest is 5 MiB, under Caddy's 10 MB). DEPLOYMENT.md section 26 lists
+  each with who deletes it, and every periodic task Phase B added with its time and limit.
 
 Running without surprises:
 
