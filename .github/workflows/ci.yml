@@ -40,7 +40,7 @@ jobs:
       DATABASE_URL: postgres://examleaf:examleaf@localhost:5432/examleaf
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -79,7 +79,7 @@ jobs:
         working-directory: examleaf-web
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - uses: actions/setup-node@v5
@@ -129,7 +129,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: examleaf-frontend/package-lock.json
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -189,7 +189,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install mkdocs-material==9.7.7 pymdown-extensions==12.1 pyyaml
