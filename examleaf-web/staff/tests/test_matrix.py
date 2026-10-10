@@ -789,6 +789,47 @@ def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses
     assert AuditEvent.objects.filter(action="authz_fail", actor_id=student.pk).exists()
 
 
+def rows_with_objects():
+    """Every row of the tables as (method, URL), its objects made (each table's own)."""
+    from erp.tests.test_matrix import ENDPOINTS as ERP_ENDPOINTS
+    from erp.tests.test_matrix import objects as erp_objects
+
+    made, app, erp = objects(), app_objects(), erp_objects()
+    return [
+        *[(m, STAFF + p.format(**made)) for m, p, _ in [*ENDPOINTS, *ANY_STAFF_ENDPOINTS]],
+        *[(m, "/api/v1/" + p.format(**app)) for m, p, _ in APP_ENDPOINTS],
+        *[(m, STAFF + p.format(**erp)) for m, p, _ in ERP_ENDPOINTS],
+    ]
+
+
+def test_an_api_key_changes_nothing_and_breaks_no_read(subtests):
+    """API5: an integration's key holding every catalogued view permission of low risk (the most a key may hold:
+    permissions.service_scopes) is refused every change, 403: by the action's permission, or by StaffView.human() where
+    the action names a view_ permission or every staff member's (an inbox item done, a policy acknowledged, a session
+    ended …). Its reads answer, or refuse, but never fail."""
+    import hashlib
+
+    from django.contrib.auth.models import Permission
+    from rest_framework.test import APIClient
+
+    from staff.permissions import service_scopes
+
+    views = Permission.objects.filter(codename__startswith="view_").select_related("content_type")
+    scopes = sorted(perm for p in views if service_scopes([perm := f"{p.content_type.app_label}.{p.codename}"]))
+    secret = "elk_feedc0de_" + "s" * 43
+    ApiKey.objects.create(name="Every view", prefix="feedc0de", secret_hash=hashlib.sha256(secret.encode()).hexdigest(),
+                          scopes=scopes, sponsor=make_staff(roles.OWNER),
+                          expires_at=timezone.now() + timedelta(days=30))  # fmt: skip
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Api-Key {secret}")
+    for method, url in rows_with_objects():
+        with subtests.test(method=method, url=url):
+            response = getattr(client, method)(url, {}, format="json")
+            assert response.status_code < 500, response.content[:300]
+            if method != "get":
+                assert response.status_code == 403, response.content[:300]
+
+
 def test_signed_out_and_the_apps_tokens_get_nothing():
     from rest_framework.test import APIClient
     from rest_framework_simplejwt.tokens import RefreshToken

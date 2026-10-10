@@ -2191,7 +2191,8 @@ run lists `erase` (what goes, with counts), `keep` (what stays, why, until when)
 **API keys.** A key is made by an owner for one integration, with `view_` permissions only, for 12 months at most
 (default), optionally from some addresses (`allowed_ips`, CIDR); its answer holds `key` once. Requests with it carry
 `Authorization: Api-Key <key>`; they are throttled per key, recorded as a service in the audit log, refused anything that
-needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere.
+needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere. A key only reads:
+every POST, PUT, PATCH and DELETE with one is `403` (the inbox and saved views, a person's own, are refused it too).
 
 ### Every staff endpoint and field
 

@@ -155,6 +155,9 @@ class StaffPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         perm = view.required_permission(request)
         request._request._staff_perm = "" if perm == ANY_STAFF else perm or ""
+        if isinstance(request.auth, ApiKey) and request.method not in permissions.SAFE_METHODS:
+            self.message = "An API key only reads: every change is a person's."  # (its permissions are view_ ones)
+            return False
         if perm == ANY_STAFF:
             return True
         if request.user.is_superuser and not request.session.get(BREAK_GLASS):

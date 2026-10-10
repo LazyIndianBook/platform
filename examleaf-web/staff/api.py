@@ -426,7 +426,7 @@ class InboxViewSet(StaffView, mixins.ListModelMixin, viewsets.GenericViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return InboxItem.objects.none()
-        user = self.request.user
+        user = self.human()  # a person's work queue: an API key has none
         items = scoped(InboxItem.objects.all(), user, "staff.view_inbox")
         if user.is_superuser:
             return items
@@ -779,7 +779,7 @@ class SavedViewViewSet(StaffView, viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return SavedView.objects.none()
-        user = self.request.user
+        user = self.human()  # a person's lists: an API key has none
         views = scoped(SavedView.objects.all(), user, "staff.view_savedview")
         if self.action not in ("list", "retrieve"):
             return views.filter(owner=user)
