@@ -1,11 +1,61 @@
 # shop: the Orders module, the tax desk, Finance and the Catalogue of the Admin Control Panel
 
-The staff side of the shop's orders (plan 5.3; the research in `../docs/research/2026-10-09-admin-control-panel/`
-`research-commerce-gst.md` 1 and 6, `research-lms-crm-cms.md` 4.5 and 4.6): finding orders, acting on them, refunds by
-line or by bank, returns, staff orders and quotes, the packing room and its documents, and the cash-on-delivery risk.
-Every rule is the shop's own (`services.py`, the order's state machine); the API checks who may do it and the panel
-draws what the API answers. The shop itself (cart, checkout, Razorpay, invoices) is described in
-[../README.md](../README.md) "Shop"; the endpoints in [../API.md](../API.md) "Orders (staff)".
+[![component: Django backend](../../docs/assets/badges/component-backend.svg)](../README.md) [![phase B: merged](../../docs/assets/badges/phase-b-merged.svg)](../CHANGELOG.md) ![for: developers](../../docs/assets/badges/audience-developers.svg) ![GST: FY 2027-28 series](../../docs/assets/badges/law-gst.svg) ![E-Commerce Rules: 1 January 2027](../../docs/assets/badges/law-ecommerce.svg)
+
+The staff side of the shop, as the Admin Control Panel keeps it: the Orders module, the tax desk, Finance and the
+Catalogue. Every rule is the shop's own (`services.py`, the order's state machine, the approvals); the staff API checks
+who may do it and the panel draws what the API answers. Developers read it for the rules, and each module also says what
+each role's pages do. The shop itself (cart, checkout, Razorpay, invoices) is described in [../README.md](../README.md)
+"Shop"; the endpoints are in [../API.md](../API.md) "Orders (staff)", "Tax (staff)", "Finance (staff)" and "Catalogue
+(staff)".
+
+> [!NOTE]
+> **At a glance**
+> - An order is pending, paid, packed, shipped, delivered, cancelled or refunded; a hold is a flag and a return a
+>   request of its own, and there is no "returned" state: a cash-on-delivery parcel back undelivered is cancelled.
+> - Every refund is an `order.refund` request: within the maker's `refund_inr` it runs at once, above it FINANCE
+>   approves; it goes back through Razorpay, or by bank or UPI marked paid with its UTR, and a credit note follows.
+> - The tax desk decides the GST on a document: dated rates from the HSN and SAC master, a series of its own for each
+>   type of document from FY 2027-28, and credit notes refused after 30 November following the invoice's year.
+> - Finance fetches Razorpay's settlements each morning for yesterday (03:15), matches their lines to our payments and
+>   refunds, and posts a matched settlement to ERPNext once.
+> - In the Catalogue each part of a product has its own permission, and a price beyond the maker's discount limit
+>   waits for FINANCE; from 1 January 2027 a reduced price shows the lowest price of the 30 days before.
+> - Test-mode orders are out of every list, count and the packing queue unless asked for.
+
+## Contents
+
+- [Orders](#orders)
+  - [The order's life](#the-orders-life)
+  - [A refund's path](#a-refunds-path)
+  - [The rules](#the-rules)
+  - [What the pages do for each role](#what-the-pages-do-for-each-role)
+  - [Not built](#not-built)
+- [Tax](#tax)
+  - [The model](#the-model)
+  - [The rules](#the-rules-1)
+  - [Permissions and pages](#permissions-and-pages)
+  - [Inbox, jobs, settings](#inbox-jobs-settings)
+  - [Decisions taken until the CA answers (plan 10.1, 10.2)](#decisions-taken-until-the-ca-answers-plan-101-102)
+- [Finance](#finance)
+  - [The rules](#the-rules-2)
+  - [Permissions and pages](#permissions-and-pages-1)
+  - [Inbox, jobs, settings](#inbox-jobs-settings-1)
+- [Catalogue](#catalogue)
+  - [The rules](#the-rules-3)
+  - [Permissions and pages](#permissions-and-pages-2)
+  - [Jobs, settings, ERPNext](#jobs-settings-erpnext)
+- [Related documents](#related-documents)
+
+## Orders
+
+The staff side of the shop's orders (plan 5.3; the research in
+[research-commerce-gst.md](../../docs/research/2026-10-09-admin-control-panel/research-commerce-gst.md) 1 and 6,
+[research-lms-crm-cms.md](../../docs/research/2026-10-09-admin-control-panel/research-lms-crm-cms.md) 4.5 and 4.6):
+finding orders, acting on them, refunds by line or by bank, returns, staff orders and quotes, the packing room and its
+documents, and the cash-on-delivery risk. Every rule is the shop's own (`services.py`, the order's state machine); the
+API checks who may do it and the panel draws what the API answers. The shop itself (cart, checkout, Razorpay, invoices)
+is described in [../README.md](../README.md) "Shop"; the endpoints in [../API.md](../API.md) "Orders (staff)".
 
 | File | What |
 |---|---|
@@ -18,7 +68,95 @@ draws what the API answers. The shop itself (cart, checkout, Razorpay, invoices)
 | `../staff/approvals.py` | `order.refund` (with lines, a method, a return) and `order.staff_discount` |
 | `../insights/jobs/risk.py` | the COD risk rules: the PIN code's and district's returned parcels, the customer's past returns by keyed hashes, a first COD order, its value, an address no courier could find |
 
-## The rules
+### The order's life
+
+The order's statuses are the shop's own state machine, and the panel only calls its transitions. A hold is a flag on an
+order not yet sent, and a return is a request of its own on a delivered order: neither is a status of the order, which
+has no "returned" state (a cash-on-delivery parcel back undelivered is cancelled).
+
+```mermaid
+stateDiagram-v2
+    state "pending (awaiting payment)" as pending
+    state "return label sent" as label_sent
+    state "inspected: back in stock" as restocked
+    state "inspected: damaged" as damaged
+    state "refunded" as return_refunded
+    state "free" as free
+
+    state "The order's status" as status {
+        [*] --> pending: the order is made
+        pending --> paid: payment captured, or recorded offline
+        pending --> packed: cash on delivery, once placed
+        paid --> packed
+        packed --> shipped
+        shipped --> delivered
+        paid --> delivered: a course alone
+        pending --> cancelled
+        paid --> cancelled
+        packed --> cancelled
+        shipped --> cancelled: a COD parcel back undelivered
+        delivered --> refunded: a refund processed
+        cancelled --> refunded: a refund processed
+    }
+
+    state "A hold: held_at is set, the order cannot be packed" as hold {
+        [*] --> free
+        free --> held: a high COD risk, or staff
+        held --> free: released
+    }
+
+    state "A return: a ReturnRequest on a delivered order" as ret {
+        [*] --> requested: the customer asks, or staff for them
+        requested --> approved
+        requested --> declined
+        approved --> label_sent
+        approved --> received
+        label_sent --> received
+        received --> restocked
+        received --> damaged
+        restocked --> return_refunded
+        damaged --> return_refunded
+    }
+
+    delivered --> requested: a return asked for
+    return_refunded --> refunded: the order's refund names the return
+    note right of refunded
+        Also from paid, packed and shipped,
+        once a refund is processed
+    end note
+    note right of held
+        Only an order not yet sent: pending, paid or packed
+    end note
+```
+
+*An order's statuses, its hold and a return; the return's refund is what turns a delivered order into a refunded one.*
+
+### A refund's path
+
+Every refund, whoever asks for it, is an `order.refund` request: the maker's limit decides whether it runs at once or
+waits for FINANCE, and the method decides who moves the money.
+
+```mermaid
+flowchart TB
+    ask["A refund is asked for: lines, shipping, a method, a return (approvals.ask order.refund)"] --> limit{"Within the maker's refund_inr?"}
+    limit -->|yes| run["It runs at once"]
+    limit -->|no| wait["A change request waits for FINANCE (staff.approve_refund)"]
+    wait -->|"approved: the checker sends back the payload's hash"| run
+    wait -->|"rejected, or expired after 24 hours"| nothing["Nothing is refunded"]
+    run --> method{"The method"}
+    method -->|"source: an online payment"| razorpay["Razorpay: the refund task, normal or optimum speed"]
+    method -->|"bank: COD, a transfer, or an online payment with the customer's agreement"| bank["An inbox item for FINANCE: transfer it, then mark it paid with its UTR"]
+    method -->|"none: a COD parcel back undelivered"| none["No money moves"]
+    razorpay -->|"processed: the answer or the webhook"| processed["Refund processed: the payment and the order refunded, the customer told"]
+    razorpay -->|"refused"| failed["Marked failed: staff see it in the inbox"]
+    bank --> processed
+    none --> credit
+    processed --> credit["The credit note, made once, or an inbox item for FINANCE when it is refused: too late, or the invoice is cancelled"]
+```
+
+*A refund from the request to its credit note.*
+
+### The rules
 
 - **What a person may do** is the order's state machine crossed with their permissions (`actions` on the record; the
   `primary` one is the header's button): pack, send by hand and deliver are `staff.pack_order`; cancel, hold, release,
@@ -60,7 +198,7 @@ draws what the API answers. The shop itself (cart, checkout, Razorpay, invoices)
   opening a child's order is a `sensitive_read`. No audit detail, inbox title, label or file name holds a name, an
   email, a phone number or an account.
 
-## What the pages do for each role
+### What the pages do for each role
 
 The console's pages are `examleaf-admin/src/app/(panel)/orders/` (its README "Routes").
 
@@ -80,11 +218,12 @@ The console's pages are `examleaf-admin/src/app/(panel)/orders/` (its README "Ro
 - **ADMIN** and the **owners** do all of it (the owners without a limit; approving money stays FINANCE's and the
   owners'); **AUDITOR** reads.
 
-## Not built
+### Not built
 
 Exchanges (a return is refunded and the customer orders again). The customer's page is the Customers module's
-(`staff/README.md` "Phase B: customers"), couriers' bookings and labels the shipping app's. The payments list and payment links are Finance's (below), the invoice and credit-note registers
-Tax's; the HSN master and the series are below ("Tax"), prices and stock ("Catalogue").
+(`staff/README.md` "Phase B: customers"), couriers' bookings and labels the shipping app's. The payments list and
+payment links are Finance's (below), the invoice and credit-note registers Tax's; the HSN master and the series are
+below ("Tax"), prices and stock ("Catalogue").
 
 ## Tax
 
@@ -420,3 +559,14 @@ What the panel's Catalogue module (`examleaf-admin`, `/catalogue/`) does for eac
 - Settings: `SHOP_PRIOR_PRICE_FROM`, `SHOP_DARK_PATTERN_PHRASES` (DEPLOYMENT.md).
 - ERPNext: a product saved in the panel enqueues `item.upserted` as the admin's saves do (its weight among the fields the
   item carries), a bundle's books `bundle.upserted`; stock set by hand does not (ERPNext's stock comes in Phase C).
+
+## Related documents
+
+- [examleaf-web/README.md](../README.md): the shop itself ("Shop"), with its cart, checkout, Razorpay and invoices
+- [staff/README.md](../staff/README.md): the approvals table with `order.refund`, the jobs and the roles' limits
+- [shipping/README.md](../shipping/README.md): the parcels, the courier's news, and the order's ship and deliver
+- [erp/README.md](../erp/README.md): the ERPNext sync of invoices, credit notes and settlements
+- [API.md](../API.md): "Orders (staff)", "Tax (staff)", "Finance (staff)" and "Catalogue (staff)"
+- [RUNBOOK.md](../RUNBOOK.md): "The shop", a stuck payment, a refund, settlements, GSTR-1, tax, coupons, staff orders
+- [DEPLOYMENT.md](../DEPLOYMENT.md): the settings under "Tax", "Finance" and "Catalogue"
+- [decisions.md](../../docs/decisions.md): the decisions taken until the CA answers, and the setting that carries each
