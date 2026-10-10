@@ -13,10 +13,15 @@ Django 6.1 · Python 3.14 · Django REST framework and allauth.headless for the 
 analytics or ads of our own · PostgreSQL, Redis and Celery in production, none of them needed in development.
 
 Documents: [DEPLOYMENT.md](DEPLOYMENT.md) (first deployment on a VPS, every setting, the accounts to open),
-[RUNBOOK.md](RUNBOOK.md) (backups, secrets, data requests, email and SMS failures, the shop, the revision course),
-[API.md](API.md) (the REST API, for the app and other frontends), [CHANGELOG.md](CHANGELOG.md) (what changed, by phase)
-and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 4) and
-[SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md) (phases 5 and 6).
+[RUNBOOK.md](RUNBOOK.md) (the operator's book: backups, secrets, staff, data requests, the shop, connections, the
+course, content, support, ERPNext, the system pages and the inbox, each as the panel page that does it with the shell as
+the break-glass line), [API.md](API.md) (the REST API, for the app and other frontends and for the panel),
+[RESILIENCE.md](RESILIENCE.md) (timeouts, locks and limits), [CHANGELOG.md](CHANGELOG.md) (what changed, by phase) and
+the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 4) and
+[SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md) (phases 5 and 6). The Admin Control Panel has its own: the
+[plan](../docs/examleaf-admin-control-panel-plan.md), the [one-page guide of each role](../docs/guides/roles/README.md),
+the [decisions register](../docs/decisions.md), the console's [README](../examleaf-admin/README.md) and the
+[handover](../docs/HANDOVER.md).
 
 ## Contents
 
@@ -41,21 +46,26 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   with `PARENTAL_CONSENT_MODE=verified`, a link emailed or texted to the parent. Download my data, Delete my account
   (seven days to change one's mind), an address book, teacher access requests.
 - **Staff.** Roles (content editor, sales, support, admin, and the Admin Control Panel's owner, finance, packer,
-  reviewer, marketing, auditor and sales rep), the branded admin with a dashboard and edit histories, and a second
-  factor for every member of staff: an authenticator app with recovery codes, or a passkey. The Admin Control Panel's
-  backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
-  log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
-  offboarding, the data requests queue, the breach register and the processor register; Legal and privacy: the
-  compliance cockpit with every legal clock, legal holds and the erasure that obeys them, the retention schedule in code,
-  the legal pages' versions, the e-commerce disclosures and the yearly dark-pattern self-audit (staff/README.md); the
-  tax desk (`shop/README.md` "Tax"): the HSN and SAC master with dated rates, the documents and their series, the
-  threshold monitor, the calendar and the GSTR-1 job.
-  Phase B adds the role
-  catalogue, a person's access with its last use and a role change previewed, offboarding as a checklist, passkeys
-  for the privileged roles and one's own sessions; the integrations' connections (keys tested before they are kept,
-  modes, circuits, webhook tokens, events, calls and dead letters), the message templates DLT registers with MSG91's
-  delivery reports, and the system's backups, logs, dependencies, hardening and checkout scripts
-  (`integrations/README.md`, `ops/README.md`, `staff/README.md` "Phase B").
+  reviewer, marketing, auditor and sales rep; a one-page guide of each is in `../docs/guides/roles/`), the branded admin
+  with a dashboard and edit histories, and a second factor for every member of staff: an authenticator app with
+  recovery codes, or a passkey (a passkey or a security key for OWNER, ADMIN and FINANCE).
+- **The Admin Control Panel's backend** (`staff/`, `staff/README.md`, API.md "Staff API"). The console at
+  `admin.<domain>` (`../examleaf-admin/`) draws what this API answers and decides nothing. Scopes, limits and separation
+  of duties; approvals by a second person bound to the payload's hash; an append-only hash-chained audit log, verified
+  every night and copied off the server every day; an inbox of what waits for a person (its kinds are listed in
+  RUNBOOK.md "The inbox"); background jobs with progress; the site's switches and feature flags with their history; API
+  keys; staff invitations and offboarding as a checklist; the role catalogue, a person's access with its last use, and a
+  role change previewed; passkeys for the privileged roles and one's own sessions.
+- **Legal and privacy for staff** (`staff/README.md` "Legal and privacy"): the compliance cockpit with every legal
+  clock, the data requests queue, the breach register and the processor register, legal holds and the erasure that
+  obeys them, the retention schedule in code, the legal pages' versions, the e-commerce disclosures and the yearly
+  dark-pattern self-audit.
+- **Tax for staff** (`shop/README.md` "Tax"): the HSN and SAC master with dated rates, the documents and their series,
+  the threshold monitor, the calendar and the GSTR-1 job.
+- **Settings, connections and the system** (`integrations/README.md`, `ops/README.md`, `staff/README.md` "Phase B"):
+  the integrations' connections (keys tested before they are kept, modes, circuits, webhook tokens, events, calls and
+  dead letters), the message templates DLT registers with MSG91's delivery reports, and the system's backups and
+  restore drills, logs and time, dependencies, hardening and checkout scripts.
 - **Content in the panel** (`content/README.md`, API.md "Content (staff)"). A question's or a solution's text changes
   as a draft that a second person reviews and publishes (the site keeps the live text until then; a publish can be
   rolled back); readers report mistakes from each solution and clip (Turnstile, limits, spam set apart), triaged into
@@ -193,29 +203,41 @@ can be edited in the admin:
 
 | When | Task |
 |---|---|
-| 00:01 | a legal page's version published for that day put in force (`pages.tasks.publish_due`) |
-| 01:45 | `shop.tasks.watch_tax_thresholds`: the tax threshold monitor (the year's turnover against ₹2, 4, 5 and 10 crore, large invoices to another state, parcels needing an e-way bill; an inbox item when a line is crossed: `shop/README.md` "Tax") |
-| 01:00 to 03:00, every 15 minutes | the insights jobs, one task each: backtest, demand forecast, print-run advice, item analysis, cohorts, code activation, delivery times, offer effects, fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
-| 03:00 | purge the account deletions whose seven days are over (but those a legal hold or a child's parent keeps waiting), and the registration details the intermediary rule kept 180 days |
-| 03:05 | copy the erasure ledger's lines not yet there to the backups' bucket |
-| 03:15 | `insights.tasks.course_health`: how the course is used by subject and chapter, counted for the course-health report (`insights/README.md` "Course health") |
-| 03:30 | forget failed log-ins (django-axes) |
-| 03:45 | delete expired sessions |
-| 04:00 | delete task results older than a week |
-| 04:10, 04:20 | the retention schedule's clean-up (`ops.tasks.trim_expired`, `purge_expired`): the SMS log's last digits after 90 days and its rows after a year, webhook records and task results after 7 days, the app's phones silent for 90 days, the orders past their books' period |
-| 04:30 | `shop.tasks.clean_up`: cancel orders never paid or placed (after asking Razorpay), queue again lost refund, invoice and credit note tasks, delete guest carts idle for 30 days, old webhook records and payloads, old stock alerts and the customer details of cancelled unsold orders |
-| 04:30 | forget expired refresh tokens of the API |
-| 04:30 | `learn.tasks.purge_bin`: delete the clips, flash cards and quiz items 30 days in the bin, a clip's video and HLS files with it |
-| every 5 minutes | `learn.tasks.publish_due`: publish the course's revisions approved for a time that has come (`learn/README.md`) |
-| every hour (at :20) | `learn.tasks.purge_code_files`: delete the printers' files of book codes after their 24 hours |
-| every hour (at :40) | `insights.tasks.code_fraud_rules`: the book codes' fraud rules, their inbox items and the urgent ones' email |
-| every hour (at :15) | send the "back in stock" emails |
-| 08:00 | email the SALES role the books running out |
-| 18:00 | send the revision course's reminders (only with `FCM_SERVICE_ACCOUNT_JSON`) |
-
-The table is not the whole schedule: the Admin Control Panel's modules added 27 entries (support, content, finance,
-privacy, the system's checks …); DEPLOYMENT.md section 26 lists every one with its time and time limit, and each app's
-README says what it does. None has a queue of its own.
+| every minute, and after each commit that wrote rows | `erp.tasks.relay`: the ERPNext outbox sent, in order per document (`erp/README.md`) |
+| every 5 minutes | `learn.tasks.publish_due`: the course's revisions approved for a time that has come go live, once each (`learn/README.md`) |
+| every 15 minutes | `erp.tasks.pull`: what changed in ERPNext since each cursor; `support.tasks.watch_clocks`: tickets at three quarters of a legal clock or past it, the held acknowledgements, resolved tickets closed after 4 days (`support/README.md`) |
+| every hour at :05 | `staff.tasks.expire_change_requests`: approvals whose 24 hours are over |
+| every hour at :15 | `shop.tasks.send_stock_alerts`: the "back in stock" emails |
+| every hour at :20 | `learn.tasks.purge_code_files`: the printers' files of book codes after their 24 hours |
+| every hour at :25 | `integrations.tasks.watch_webhooks`: Razorpay's webhook silent while payments come in (an inbox item, the owners told) |
+| every hour at :35 | `staff.tasks.watch`: refunds Razorpay refused, filed in the inbox |
+| every hour at :40 | `insights.tasks.code_fraud_rules`: the book codes' fraud rules, their inbox items and the urgent ones' email |
+| every hour at :50 | `staff.tasks.check_backups`: the backups bucket read again; an inbox item while a source has nothing newer than `BACKUP_STALE_HOURS` |
+| every 2 hours at :10 | `shipping.tasks.poll_tracking`: the parcels silent for 6 hours read again |
+| 00:01 | `pages.tasks.publish_due`: a legal page's version published for that day put in force |
+| 01:00 to 03:00 | the insights jobs, one task each: 01:00 backtest, 01:15 demand forecast, 01:30 print-run advice, 01:45 item analysis, 02:00 cohorts, 02:15 code activation, 02:30 delivery times, 02:45 offer effects, 03:00 fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
+| 01:45 | `shop.tasks.watch_tax_thresholds`: the threshold monitor (the year's turnover against ₹2, 4, 5 and 10 crore, large invoices to another state, parcels needing an e-way bill; an inbox item when a line is crossed: `shop/README.md` "Tax") |
+| 02:00 | `staff.tasks.verify_audit_chain`: both audit chains recomputed; a break alerts the owners |
+| 02:20 | `content.tasks.flag_items`: the item analysis's flags joined to the reported-mistakes queue (`content/README.md`) |
+| 02:30 | `shop.tasks.reconcile_payments`: online orders still awaiting payment, and B2B links still open, asked of Razorpay |
+| 03:00 | `accounts.tasks.purge_due_deletions`: the account deletions whose seven days are over (but those a legal hold or a child's parent keeps waiting), and the registration details the intermediary rule kept 180 days |
+| 03:05 | `accounts.tasks.copy_erasure_ledger`: the erasure ledger's lines not yet in the backups' bucket |
+| 03:15 | `shop.tasks.fetch_settlements`: yesterday's Razorpay settlements fetched, matched and posted to ERPNext; `insights.tasks.course_health`: the course's use by subject and chapter (`insights/README.md` "Course health"); `staff.tasks.expire_access`: roles and scopes given until a time, past it, taken away |
+| 03:30 | `erp.tasks.reconcile_day`: yesterday's documents and today's stock compared with ERPNext; `ops.tasks.reset_failed_logins`: django-axes' failed log-ins forgotten |
+| 03:45 | `ops.tasks.clear_sessions`: expired sessions and ended sessions' devices deleted; `support.tasks.purge`: spam tickets and saved replies in the bin after 30 days |
+| 03:50 | `ops.tasks.check_templates`: message templates idle 75 days or due for their yearly self-certification |
+| 04:00 | django-celery-beat's own clean-up of task results |
+| 04:10, 04:20 | the retention schedule's clean-up (`ops.tasks.trim_expired`, `purge_expired`): the SMS log's last digits after 90 days and its rows after a year, webhook records and task results after 7 days, the app's phones silent for 90 days, the orders past their books' period; 04:10 also `content.tasks.purge_spam` (reported-mistake spam after 30 days) |
+| 04:30 | `shop.tasks.clean_up`: cancel orders never paid or placed (after asking Razorpay), queue again lost refund, invoice and credit note tasks, delete guest carts idle for 30 days, old webhook records and payloads, old stock alerts and the customer details of cancelled unsold orders; `learn.tasks.purge_bin`: delete the clips, flash cards and quiz items 30 days in the bin, a clip's video and HLS files with it; the API's expired refresh tokens forgotten |
+| 04:45 | `integrations.tasks.purge_old_records`: the call log, inbound events and dealt-with dead letters older than `INTEGRATIONS_RETENTION_DAYS` |
+| 05:00 to 05:45 | the couriers: 05:00 `shipping.tasks.sync_statement`, 05:15 `check_cod_remittances`, 05:30 `check_weight_discrepancies`, 05:45 `renew_token` (`shipping/README.md`) |
+| 05:50 | `ops.tasks.sync_ses_suppressions`: SES's account suppression list copied into the site's (with SES as the email backend only) |
+| 06:00 | `staff.tasks.export_audit_log`: each UTC day not yet there copied to the backups' bucket; Sundays also `shipping.tasks.survey_pins` |
+| 07:00 | `content.tasks.check_legal_deposits`: one inbox item for each published book still missing libraries; `staff.tasks.remind_dark_pattern_audit`: from 1 December the coming year's self-audit (once a year) |
+| 07:10 | `staff.tasks.check_scripts`: the checkout's and the console's sign-in's scripts compared with the day before |
+| 08:00 | `shop.tasks.low_stock_report`: the SALES role emailed the books running out; `shop.tasks.send_held_sms` and `shipping.tasks.send_held_messages`: the texts held through the night, if still true; Mondays also `shop.tasks.weekly_staff_grants` (the owners' email of the week's staff discounts, offline payments and ₹0 orders) |
+| Mondays 08:30, 09:00 | `staff.tasks.weekly_audit_skim`: the owners' email of the week's high-risk events; `staff.tasks.check_dependency_report`: an inbox item while CI's dependency report is older than 8 days |
+| 18:00 | `learn.tasks.send_reminders`: the revision course's reminders (only with `FCM_SERVICE_ACCOUNT_JSON`) |
 
 Without `CELERY_BROKER_URL`, and always in tests, tasks run inline in the web process (`CELERY_TASK_ALWAYS_EAGER`), so
 development needs no broker and no worker. To try the real thing locally:
@@ -273,6 +295,15 @@ docker-compose stack):
 | `upload_backup <file>` | upload a backup file to the backup bucket (`scripts/backup.sh` calls it); does nothing without `BACKUP_BUCKET` |
 | `insights_run <job>\|all [--date YYYY-MM-DD]` | run an insights job now, as its nightly task does (`all`: in the night's order); `--date` works out the forecasts as on another day |
 | `insights_review` | the monthly review: each title's last four weeks of forecasts beside the copies sold and the seasonal naive |
+| `reapply_erasures [--dry-run] [--ledger FILE] [--export FILE] [--no-bucket]` | erase again, after a restore from a backup, every account the erasure ledger says was erased (RUNBOOK.md "Backups and restore") |
+| `grievance_register [--from DATE] [--until DATE]` | the grievance register as CSV on standard output (the panel's Support → Grievance register runs it as a job) |
+| `verify_audit_chain`, `purge_audit [--dry-run]` | recompute the audit log's hash chains; delete the events past their retention (two years, the money chain eight financial years), as the table's owner on PostgreSQL (DEPLOYMENT.md section 23) |
+| `staff_api_reference` | print API.md's generated staff reference from the OpenAPI schema (`staff/tests/test_matrix.py` fails when the file drifts from it) |
+| `load_dependency_report <file>` | keep CI's dependency report in the private storage for System → Dependencies (DEPLOYMENT.md section 25) |
+| `rotate_integration_keys`, `integrations_retention` | re-encrypt the integration secrets under the first of `INTEGRATION_KEYS`; delete the call log, inbound events and dealt-with dead letters past `INTEGRATIONS_RETENTION_DAYS` |
+| `shipping_poll_tracking`, `shipping_sync_statement [--days N]`, `shipping_check_cod`, `shipping_check_discrepancies`, `shipping_survey_pins [PIN …] [--limit N]` | what the courier tasks do, by hand (`shipping/README.md`) |
+| `shipping_smoke_test --yes [--wait N]` | book, label and cancel one real prepaid parcel with the live Shiprocket account and look for the freight's reversal; real money moves |
+| `erp_status`, `erp_initial_load [--apply] [--invoices-from DATE]`, `erp_pull [--doctype D] [--restart]`, `erp_reconcile [--date DAY]`, `erp_replay [ID] [--dead] [--sent-since TIME]` | the ERPNext sync by hand (`erp/README.md` "Operations") |
 
 Django's and the libraries' own commands that the documents rely on: `migrate`, `createsuperuser`,
 `check` (`--deploy`), `makemigrations --check --dry-run`, `sendtestemail`, `collectstatic` (at image build),
@@ -443,19 +474,25 @@ does the same by hand.
 |---|---|---|
 | STUDENT | every registration (added at sign-up) | none: uses the site, not the admin |
 | TEACHER | teachers whose `TeacherProfile` staff verified | none yet |
-| CONTENT_EDITOR | prepares papers, pages, the catalogue and the course | view/add/change books, papers, questions, solutions; view boards, classes, subjects; view/change legal pages; view/add/change products (in the panel: the page, not the prices or the tax); view HSN codes; view/add/change/delete categories, collections and their items, product types, attributes and their values, product images and bundle items; view slug history; view/add/change/delete the course's chapters, revisions, clips, flash cards and quiz items |
-| SALES | runs the shop | view books; view/add/change products, coupons, shipping rates, orders (staff orders; the cancel and payment link actions: cancelling an order paid online is its refund, within its ₹2,000 limit, FINANCE approving above it), order notes; view/add/change/delete product images, bundle items and offers; view/add payments (a payment received offline); view/change reviews and quotation requests; view shipments, refunds, order items, discounts, invoices, credit notes, stock alerts, addresses and the catalogue structure; in the panel a product's prices (`staff.change_price`, beyond 20% off FINANCE approves) and stock (`staff.set_stock`), a school's single-use codes. It does not pack, ship or refund in the admin: refunds it asks for in the panel (FINANCE approves those above its limit), packing is PACKER's |
-| SUPPORT | helps students and customers | view users, email addresses, attempts, consent records, deletion requests, the SMS log; view/change teacher profiles (verifies teachers); view/delete email suppressions; view orders and everything on them (items, discounts, notes, payments, shipments, refunds, invoices, credit notes), products, addresses, reviews, quotation requests, stock alerts; view/add/change course entitlements; view book codes |
-| ADMIN | runs the site | every permission, except that periodic tasks, task results, groups and permissions, second factors and the Google sign-in apps are the superusers' (ADMIN may view them), the owners' own (giving roles and making API keys, which ADMIN sees; the override; the audit log) and money's approvals (FINANCE's); approves roles, staff second factors, erasures and exports; packs and ships in the admin (`staff.pack_order`); imports and exports are ADMIN only |
+| CONTENT_EDITOR | prepares papers, pages, the catalogue and the course | view/add/change books, papers, questions, solutions; view boards, classes, subjects; view/change legal pages; view/add/change products (in the panel: the page, not the prices or the tax); view HSN codes; view/add/change/delete categories, collections and their items, product types, attributes and their values, product images and bundle items; view slug history; view/add/change/delete the course's chapters, revisions, clips, flash cards and quiz items; in the panel the content module's queues (view reviews, reported mistakes and legal deposits; triage mistakes; record legal deposits), the legal pages' versions, and notes on content-error tickets. It never publishes: REVIEWER does |
+| SALES | runs the shop | view books; view/add/change products, coupons, shipping rates, orders (staff orders; the cancel and payment link actions: cancelling an order paid online is its refund, within its ₹2,000 limit, FINANCE approving above it), order notes; view/add/change/delete product images, bundle items and offers; view/add payments (a payment received offline); view/change reviews and quotation requests; view shipments, refunds, order items, discounts, invoices, credit notes, stock alerts, addresses and the catalogue structure; in the panel a product's prices (`staff.change_price`, beyond 20% off FINANCE approves) and stock (`staff.set_stock`), a school's single-use codes, returns (ask for, decide, receive and inspect), a school order's print run of book codes (made and marked dispatched), failed deliveries, the reports, and the tickets of the order, payment and school-order categories. It does not pack, ship or refund in the admin: refunds it asks for in the panel (FINANCE approves those above its limit), packing is PACKER's |
+| SUPPORT | helps students and customers | view users, email addresses, attempts, consent records, deletion requests, the SMS log; view/change teacher profiles (verifies teachers); view/delete email suppressions; view orders and everything on them (items, discounts, notes, payments, shipments, refunds, invoices, credit notes), products, addresses, reviews, quotation requests, stock alerts; view/add/change course entitlements; view book codes; in the panel the customers' pages (masked contacts revealed with a reason, unlocking, signing out, a parent's link and consent by hand, a second factor reset a second person approves, signing in as a customer), data requests, tickets of every category, returns asked for and decided, refunds up to ₹1,000, and a book code looked up |
+| ADMIN | runs the site | every permission, except that periodic tasks, task results, groups and permissions, second factors and the Google sign-in apps are the superusers' (ADMIN may view them), the owners' own (giving roles and making API keys, which ADMIN sees; the override; the audit log) and money's approvals (FINANCE's); approves roles, staff second factors, erasures and exports; packs and ships in the admin (`staff.pack_order`); the products' and categories' imports and exports are ADMIN's and the owners' |
 | OWNER | the founder; the superuser flag is only on the sealed break-glass accounts | every catalogued permission: all but the changes to periodic tasks, groups, second factors and the Google sign-in apps, which stay the superusers' |
-| FINANCE, PACKER, REVIEWER, MARKETING, AUDITOR, SALES_REP | the Admin Control Panel's roles | money and tax documents, approving refunds, offline payments, prices and coupons above the limits; the packing queue only; publishing content; coupons and reviews; everything read-only with the audit log; school orders and quotations: `accounts/roles.py`, `staff/README.md` |
+| FINANCE | the accountant | payments, refunds and Razorpay's settlements; approves refunds, offline payments, prices, coupons, offers and staff discounts above the makers' limits; the tax master, documents, series and GSTR-1; cash on delivery and the ERPNext reconciliation; legal holds; read-only orders and customers; the reports and their files |
+| PACKER | the packing room | the packing queue only (the orders to pack and on their way, in `ROLE_SCOPES`), labels and pickups, returns received and inspected; no customers, payments or approvals |
+| REVIEWER | senior editors | read content and the course; approve and publish drafts, papers and the course's revisions; triage reported mistakes; import from the books repository; never on their own draft |
+| MARKETING | marketing | coupons and offers (a large discount is approved by FINANCE), a school's single-use codes, reviews (no panel page for them yet), the insights; the message templates read |
+| AUDITOR | an accountant or lawyer who reviews | every `view_` permission, the audit log's read and export, the grievance register and the reports as files; nothing that writes; no other role with it |
+| SALES_REP | school and phone orders | staff orders within 10% off, quotations made into orders and payment links; no refunds, shipping or prices |
 
 The roles of the panel (`staff/`, the plan's 4.1) come with limits (`ROLE_LIMITS`: a refund, an offline payment, a
 discount or an export above them waits for a second person), scopes (`ROLE_SCOPES`, `StaffScope`: a subject, an order
 status, a school …) and separation of duties (`SOD_CONFLICTS`); every permission is labelled in
 `staff/catalogue.py`. CONTENT_EDITOR, SALES and SUPPORT keep their permissions and gain the panel's (SUPPORT reveals
 masked contacts, unlocks accounts, handles data requests …). The newer roles do not open the Django admin: they work
-through the staff API, whose lists are scoped.
+through the staff API, whose lists are scoped. What each role can and cannot do, its limits, its pages and its first day
+are in its one-page guide, `../docs/guides/roles/` (the index has the table of roles by module).
 
 `user.is_student`, `is_teacher`, `is_editor`, `is_sales`, `is_support`, `is_admin` (ADMIN or superuser), `is_owner`
 (OWNER or superuser) and `user.has_role(name)` read the groups. In the admin, Users has actions "Give role …" and
@@ -553,9 +590,11 @@ suppressions), MFA (Authenticators), Authentication and
 Authorization (Groups), Periodic Tasks, Celery Results, and the libraries' own: Admin Interface (Themes), Axes, Social
 Accounts, Tags and Token Blacklist. Books, papers, questions, solutions, legal pages, orders and reviews have a History
 button (django-simple-history); payments and order notes keep a history in the database that the admin does not show.
-Exports are CSV (django-import-export; orders, products and categories also XLSX), need an `export_…` permission that
-only ADMIN holds, leave out dates of birth and parents' contacts, escape a cell that starts with `=`, and are written to
-the admin log; imports of products and categories need `import_…` permissions, also ADMIN only.
+Exports are CSV (django-import-export; orders, products and categories also XLSX), need an `export_…` permission (ADMIN
+and the owners hold them all; FINANCE holds the orders'), leave out dates of birth and parents' contacts, escape a cell
+that starts with `=`, and are written to the admin log; imports of products and categories need `import_…` permissions,
+ADMIN's and the owners'. The panel's own exports are jobs (`staff/README.md` "Jobs"), capped by the starter's
+`export_rows` with a second person's approval above it.
 
 ## REST API
 
@@ -816,8 +855,9 @@ not beat it is not shown), the print-run advice (the newsvendor's quantile at Cu
 weeks of cover, leftovers), the quiz's item analysis (p, point-biserial, TIMSS's flags, once 30 learners answered),
 cohorts, book codes per batch and district, transit days per courier and district, what coupons and offers did (an
 interval, never a winner) and the fraud rules (failed book codes, resale, shared codes, shared phones and addresses)
-with an email of the night's signals. Rules for COD return risk and for school and distributor scores wait for their
-data (the shipping app's parcel outcomes, ERPNext's accounts). Staff enter the exam seasons and the print costs in the
+with an email of the night's signals. The COD return-risk rules read the shipping app's parcel outcomes (the Orders
+module scores a cash-on-delivery order when it is placed, and a high score holds it for a payment check); the school
+and distributor scores wait for ERPNext's accounts. Staff enter the exam seasons and the print costs in the
 admin (Insights); every other table there is read-only, and staff read the same rows at `/api/v1/insights/`. No
 library beyond Python's own; no row points to an account, and learner numbers come in groups of 5 or more (DPDP Act s.
 9(3)).
@@ -829,7 +869,7 @@ codes, states and cohorts under `INSIGHTS_MIN_CELL`, 10; a chapter's or a class'
 ## Tests
 
 ```sh
-make test                                 # pytest: 831 tests (imports all four subjects once)
+make test                                 # pytest: 1,888 passed, 13 skipped on SQLite at the merge of Phase B (5,427 subtests)
 make cov                                  # the same with a coverage report
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
@@ -927,6 +967,36 @@ What the test modules cover:
   exceptions and the integrations' failures too) and the system page; `test_jobs.py` the background jobs (exports,
   bulk actions, their approval, cancelling, the result's link); `test_notes.py` notes and policy acknowledgements.
   `accounts/test_google.py` also has the staff's Google Workspace sign-in.
+- **The panel's own apps** (Phase A): `erp/tests/` the sync against a fake ERPNext that refuses what the Frappe app
+  refuses (the outbox in the change's transaction, the relay's order and idempotency, the doorbells, the nightly
+  reconciliation); `shipping/tests/` the courier flow against recorded Shiprocket answers (status mapping, the webhook,
+  COD remittances, weight disputes); `integrations/tests/` the circuit breaker, MultiFernet, the client, dead letters
+  and inbound events.
+- **Phase B, the panel's modules** (each module's tests beside its code; `staff/tests/test_matrix.py` has a row for
+  every endpoint):
+  **shop/**: `test_staff_orders_api.py` the Orders module's exit criteria one test each (a refund by line, a bank refund
+  marked paid once, returns, staff orders and their approval, the packing queue); `test_settlements.py` and
+  `test_staff_finance.py` Finance (the stuck payments, Ask Razorpay again, B2B links, settlements fetched once, matched
+  and posted to ERPNext once and never for test keys); `test_tax.py` and `test_staff_tax.py` the HSN master by date across
+  22 September 2025, the bundles' treatments, the billing state, series gapless under two threads and rolled over on 1
+  April, the credit notes' cut-off, GSTR-1 and the threshold monitor; `test_staff_catalogue.py`,
+  `test_catalogue_rules.py`, `test_catalogue_jobs.py` and `test_pricing.py` the Catalogue (each part of a product by its
+  own permission, the prior price from a price-history fixture, the dark-pattern phrases, the barcode, the courier's
+  data, the import's dry run then its apply, single-use codes).
+  **learn/**: `test_staff_course.py` (the outline, moves, review and scheduled publish, the 30-day bin, the quiz bank),
+  `test_staff_access.py` (entitlements and their bulk jobs, progress kept), `test_codes.py` (print runs, voids, the
+  lookup, the codes report). **content/**: `test_review.py`, `test_reports.py`, `test_imports.py`, `test_latex.py`,
+  `test_staff_api.py` (drafts and their review, reported mistakes, imports as jobs, the LaTeX check, subjects narrowing
+  every list, legal deposits). **support/tests/**: `test_clocks.py` the legal clocks in calendar time across month ends
+  and in a leap year, `test_intake.py`, `test_mail.py`, `test_api.py`, `test_saved_replies.py`, `test_tasks.py`,
+  `test_export.py`, `test_query_counts.py`. **staff/tests/**: `test_customers.py` (one test per rule of the Customers
+  module), `test_legal.py` (legal holds, the erasure obeying them, the retention schedule, policy versions,
+  disclosures, the self-audit), `test_access.py`, `test_offboarding.py`, `test_system_pages.py`;
+  `accounts/test_audiences.py` the one marketing audience function (never anyone under 18). **insights/tests/**:
+  `test_metrics.py`, `test_home.py`, `test_reports.py`, `test_report_export.py`, `test_health.py`, `test_dashboard.py`,
+  `test_query_counts.py` and `test_other_modules.py` (stand-ins for the Finance and Course models the reports read by
+  name). **integrations/tests/test_connections.py** the connections page; **ops/**: `test_templates.py`,
+  `test_sms_events.py`, `test_ses.py`, `test_backups_and_reports.py`.
 
 ## Production
 
@@ -1013,18 +1083,25 @@ Running without surprises:
   `consent_at`; created/modified; role properties from its groups.
 - `accounts.TeacherProfile` (school, district, subject, verified, verification note, verified by/at),
   `accounts.ConsentRecord` (event, purpose, policy version, by a parent, how it was given, when the parent confirmed,
-  address hash), `accounts.DeletionRequest` (pending/cancelled/done, due seven days after the request).
+  address hash), `accounts.DeletionRequest` (pending/cancelled/done, due seven days after the request). Phase B adds
+  `accounts.LegalHold` (an account or one record kept from the erasure and the retention clean-up, until a day or
+  its release), `accounts.Nominee` (who acts in case of death or incapacity) and `accounts.ParentLinkSend` (each
+  link sent to a parent, with who sent it again; kept a year).
 - `content` — `Board` and `ClassLevel` → `Subject` (PHY/CHE/MAT/BIO) → `Book` → `Paper` (code, tier E/M/H, number,
   marks, time, `header_json` with the instruction lines and allotment tables, `is_published`) → `Question` (order,
   label, part and group headings, `text_md`, `options_json`, `marks_text`, `is_alternative`, `table_md`, tags) →
   `Solution` (`body_md`, the solution block as written: step table, Final answer, Also accepted, Diagram expected). The
   Markdown is stored and rendered at display time by the `markdown` template filter (markdown-it-py, cached). Book,
-  Paper, Question and Solution keep a full edit history (django-simple-history).
+  Paper, Question and Solution keep a full edit history (django-simple-history). Phase B: a question and a
+  solution gain a state (published, draft, in review), a JSON draft and who drafted and published it; a book its
+  ISBN, format and publication day; `ReviewTask` (a draft's review), `ErrorReport` (a reader's reported mistake
+  and its triage) and `LegalDeposit` (a copy sent to a library) (`content/README.md`).
 - `practice.Attempt` — a student's marks, time and notes for a paper. `practice.AnswerSheetUpload` — photo, status
   (pending/processing/checked/failed) and `result_json`; model and admin only, no checking logic yet.
 - `pages.Page` — the five legal pages (slug = URL, title, Markdown text, version, history). First drafts in
   `pages/drafts/*.md`, loaded by a migration; the words in square brackets (address, GSTIN, phone, email, Grievance
-  Officer, delivery times, a refund rule to confirm) must be filled in before the shop opens.
+  Officer, delivery times, a refund rule to confirm) must be filled in before the shop opens. Each publish is a
+  numbered version with the day it is in force from; one for a later day waits in `Page.scheduled`.
 - `shop` — the catalogue: `Product` (kind sample-papers/solutions/bundle/digital, subject and book links, ISBN, pages,
   cover and its sizes, link-preview picture, MRP and price, GST rate, HSN, weight, stock, SEO, product type, categories,
   related products), `ProductImage`, `BundleItem`, `SlugHistory` (earlier addresses), `Category` (a tree),
@@ -1036,22 +1113,34 @@ Running without surprises:
   payment link, bank or UPI reference, signature, status machine, history, the last webhook's allowed fields),
   `Refund`, `Shipment` (courier, tracking number and link), `Invoice` (number per financial year, PDF), `CreditNote` (a
   refund of an invoiced order: its own number series, PDF), `WebhookEvent` (webhooks handled: Razorpay's event id and
-  the body's hash). Around the shop: `Review` (with history), `StockAlert`, `QuoteRequest`.
+  the body's hash). Around the shop: `Review` (with history), `StockAlert`, `QuoteRequest`. Phase B: the tax
+  master `HsnCode` and `HsnRate` (a code's dated rates), `DocumentSeries` (a number series of a financial year),
+  `TaxThreshold` (the monitor's nightly lines); `Settlement`, `SettlementLine` and `InvoicePaymentLink`
+  (Razorpay's payouts and a B2B invoice's link); `ReturnRequest` and `OrderMessage` (each status message
+  recorded); `CouponCode` (a school's single-use codes); histories on products, coupons, offers and shipping rates;
+  the order's hold, tags and risk, the product's courier data, the document's series and type (`shop/README.md`).
 - `learn` — `Chapter`, `Revision`, `Clip` (with its processing state machine), `FlashCard`, `QuizItem`, `BookCode`
   (a keyed hash, never the code), `Entitlement`, `Learner` (exam date, minutes a day, reminders), `Progress`,
   `QuizAttempt` (right or not, and the multiple-choice option chosen), `CardReview`, `Device` (the app's Firebase
-  installation ID).
-- `ops` — `SmsLog` (a keyed hash of the number, its last four digits, kind, status, the account), `EmailSuppression`;
+  installation ID). Phase B: `CodeBatch` (a print run), `BookCode.voided_at`, `Entitlement.revoked_at` with its
+  history, a revision's review states, `submitted_by`, `reviewer` and `publish_at`, the `deleted_at` of a clip, a
+  card and a quiz item (the 30-day bin), and the quiz item's topic, marks, difficulty, Bloom level and history
+  (`learn/README.md`).
+- `ops` — `SmsLog` (a keyed hash of the number, its last four digits, kind, status, the account), `EmailSuppression`, `MessageTemplate` (the
+  DLT registry of what the site sends) and `EmailStat` (emails sent, delivered, bounced and complained, per day);
   the Celery email and SMS tasks, the admin dashboard, the admin theme, the `upload_backup` command.
 - `api` — no models of its own; simplejwt's token blacklist tables hold the refresh tokens.
 - `insights` — what staff enter: `ExamSeason` (a board's exam for a class and year), `PrintCost` (per title: cost and
   salvage per copy, copies on order, reprint lead time); what the jobs write: `ForecastRun` (method, parameters, data
   time, code version, status) with its `Forecast`, `Backtest` and `PrintRunAdvice` rows, `ItemStat`, `ChapterStat`,
-  `CohortStat`, `CodeActivationStat`, `DeliveryStat`, `OfferStat`, `FraudSignal`, `RedemptionAttempt` (book codes
+  `CohortStat`, `CodeActivationStat`, `DeliveryStat`, `OfferStat`, `FraudSignal`, `CourseHealthStat` (the course's use by subject and chapter, counts only),
+  `RedemptionAttempt` (book codes
   tried, as hashes) and `AccountScore` (schools and distributors; no rows yet). None points to an account.
 - `staff` — the Admin Control Panel's: `StaffScope`, `RoleGrant`, `AuditEvent` (append-only, hash-chained) and
   `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`,
-  `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`; `StaffPermissions` holds the action permissions
+  `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`, `Note`, `PolicyAcknowledgement`, `Impersonation`;
+  Phase B: `DarkPatternAudit`, `StaffOffboarding` and `OffboardingStep`, `RestoreDrill`, `ScriptInventory`;
+  `StaffPermissions` holds the action permissions
   (`staff/README.md`).
 
 - `erp` — `ErpOutbox` (what goes to ERPNext, in order per order, product or settlement), `ErpLink` (the platform's
@@ -1063,6 +1152,8 @@ Running without surprises:
 - `shipping` — `ShipmentDetail` (a shipment's courier side, one to one), `ShipmentEvent` (its timeline),
   `PickupLocation`, `ShipmentCharge`, `CodRemittance`, `ShippingException`, `PinServiceability`, `PostalTariff`
   (`shipping/README.md`).
+- `support` — `Ticket` (a number of its own series, the requester's details encrypted, the legal clocks' due times;
+  with history), `TicketMessage`, `TicketAttachment`, `SavedReply` and `TicketSeries` (`support/README.md`).
 
 ## Planned extensions (not built)
 
@@ -1087,7 +1178,16 @@ Running without surprises:
 Built, phase by phase in CHANGELOG.md: the site, production setup and roles, the shop, the REST API, security, sign-in
 and communications (phase 5 A), storage, pictures, search engines, the web app and commerce extras (5 B), the revision
 course (6 D), the store (6 E), the API contract for frontends (phase 7) and the website in Next.js (phase 8), after
-which Django's own pages were removed. Open:
+which Django's own pages were removed; and the Admin Control Panel's Phase A (the staff app, couriers, integrations,
+insights and the ERPNext sync) and Phase B (the panel's own modules: Orders, Finance, Tax, Catalogue, Content, Course,
+Support, Customers, Legal and privacy, Staff, Settings and connections, System, Home and reports, and the sync run in
+shadow against a real ERPNext). Open:
+
+- **The plan's next phases** (`../docs/examleaf-admin-control-panel-plan.md` section 9): Phase C, partners and the
+  ERPNext cut-over (January to May 2027, the books on 1 April 2027); Phase D, marketing, deeper analytics and the
+  teachers' classes; Phase E, later. The items that must be live by 31 December 2026 (the prior price beside a
+  reduced price, the complaint's copy, the National Consumer Helpline's membership, the dark-pattern certificate)
+  are built; the one-page guides are in `../docs/guides/roles/` and the open decisions in `../docs/decisions.md`.
 
 - **Founder decisions** (`../docs/examleaf-phase6-plan.md`): the price of the Revision Pass and whether book buyers get
   it free (book codes support both); where the exam date comes from until ASSEB publishes a timetable (students enter it
@@ -1095,8 +1195,10 @@ which Django's own pages were removed. Open:
   students); the Firebase project for push; the mobile app project itself.
 - **Before opening**: the real PIN code directory loaded (`import_pincodes`), one real tracking number per courier tried
   against its link, the legal pages and the seller's details filled in (DEPLOYMENT.md section 12).
-- **Small gaps**: refunds of payments recorded offline are made by hand; a quotation is not turned into a staff order by
-  itself (staff type the address).
+- **Small gaps**: the page that takes a staff invitation's link is not built, so a role is given another way (RUNBOOK.md
+  "Staff accounts"); the console has no button yet to acknowledge a fraud signal or to resolve an ERPNext
+  difference, and its Shipping, Marketing and Partners pages come in later phases (the shipping staff API is built);
+  MARKETING can change reviews but has neither a panel page nor the Django admin for them.
 
 ## Libraries
 

@@ -4,9 +4,11 @@ The REST API behind the ExamLeaf app: the public catalogue (boards, subjects, bo
 signed-in student with a confirmed email address, as on the website, or for everyone while the site's solutions are
 open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), the
 shop (books, categories, collections, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices) and the
-revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the insights (forecasts,
-print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`, `serializers.py`, `shop.py`,
-`learn.py`) and `insights/api.py`, settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
+revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the Admin Control Panel's
+API (`/api/v1/staff/…`, on the admin host only: the [Staff API](#staff-api) and a section for each module) and the
+insights (forecasts, print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`,
+`serializers.py`, `shop.py`, `learn.py`), `insights/api.py` and the staff API's, which each module keeps beside its
+models (its section names the file); settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
 `examleaf/api_urls.py`.
 
 ## Contents
@@ -14,18 +16,16 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
-[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) · [Legal ·
-and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff) · [Connections ·
-(staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Content (staff)](#content-staff) · [Support ·
-(staff)](#support-staff) · [Finance (staff)](#finance-staff) · [Home and reports (staff)](#home-and-reports-staff) · ·
-[Catalogue (staff)](#catalogue-staff) · [Course (staff)](#course-staff) · [Customers (staff)](#customers-staff) · ·
-[Lists](#lists) · [Staff API](#staff-api) · [Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · ·
-[Versioning](#versioning) · [Operations](#operations)
-
 [Shop](#shop) · [Revision course](#revision-course) · [Shipping (staff)](#shipping-staff) ·
-[Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
-[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) · [Operations](#operations)
+[Site](#site-configuration-and-legal-pages) · [Insights (staff)](#insights-staff) ·
+[ERPNext sync (staff)](#erpnext-sync-staff) · [Tax (staff)](#tax-staff) ·
+[Legal and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff) ·
+[Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Content (staff)](#content-staff) ·
+[Support (staff)](#support-staff) · [Finance (staff)](#finance-staff) ·
+[Home and reports (staff)](#home-and-reports-staff) · [Catalogue (staff)](#catalogue-staff) ·
+[Course (staff)](#course-staff) · [Customers (staff)](#customers-staff) · [Lists](#lists) · [Staff API](#staff-api) ·
+[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) ·
+[Operations](#operations)
 
 ## Conventions
 
@@ -44,7 +44,7 @@ and privacy (staff)](#legal-and-privacy-staff) · [Orders (staff)](#orders-staff
 
 ## Endpoints
 
-Paths are under `/api/v1/` except those of the last three rows. Who: **anyone** needs no sign-in; **signed in** needs a
+Paths are under `/api/v1/` except those that start with a slash. Who: **anyone** needs no sign-in; **signed in** needs a
 valid access token (or the website's session); **confirmed** also needs a confirmed email address; a permission
 (`staff.view_parcels` …) is the [Staff API](#staff-api)'s rule: a member of staff with an authenticator app holding
 it, on the panel's session (or an API key), on the admin host only. **Shop open**: while
@@ -129,13 +129,11 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance; the e-commerce disclosures and the dark-pattern certificate |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | GET | `pages/<slug>/versions/` | anyone | a legal page's versions: number, in force from, what changed, the one waiting for its day |
-| POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | POST | `contact/` | anyone | the contact form: a support ticket, its number emailed to the sender |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
 | GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
 | GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | `staff.view_insights` | days in transit per courier and district, fraud signals, what coupons and offers did |
 | POST | `insights/fraud-signals/<id>/acknowledge/` | `staff.acknowledge_signal` | looked at and handled: it leaves `?open=1` |
-
 | GET | `shipping/orders/<number>/quote/` (`?weight_g=`) | `staff.book_parcel` | the couriers for an order's parcel, ranked, with India Post's price for a prepaid order ([Shipping (staff)](#shipping-staff)) |
 | GET POST | `shipping/shipments/` | `staff.view_parcels`; POST `staff.book_parcel` | parcels (`?status=&carrier=&courier_company_id=&order=&search=`); POST books one: with a courier of the quote (202) or sent by hand (201) |
 | GET | `shipping/shipments/<id>/`, `shipping/shipments/<id>/events/` | `staff.view_parcels` | a parcel with its timeline, exceptions, charges and COD remittance; its timeline |
@@ -148,6 +146,8 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/erp-events/` | ERPNext, with its signature in `X-Frappe-Webhook-Signature` | ERPNext's doorbell for a document that changed ([ERPNext sync (staff)](#erpnext-sync-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/sms-events/` | MSG91, with the connections page's token in `X-Webhook-Token` | MSG91's delivery reports ([Connections (staff)](#connections-staff)); not in the OpenAPI schema |
 | POST | `/api/hooks/support-mail/` | the forwarder, with its token in `X-Support-Mail-Token` | an email to the support address ([Support (staff)](#support-staff)); not in the OpenAPI schema |
 | any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
@@ -1137,12 +1137,12 @@ audit event:
 | Method | Path (under `/api/v1/staff/erp/`) | Permission | What |
 |---|---|---|---|
 | GET | `status/` | `erp.view_sync` | the switches (`enabled`, `flows`, `pull_stock`, `pull_b2b`, `stock_projection`, each the panel's flag if set, else the environment's), the ERPNext `account` and its `circuit`, the `outbox` by state, `oldest_waiting_at` and `_seconds`, `held_aggregates` (held by a dead row), the `cursors`, the `last_reconciliation` |
-| GET | `outbox/`, `outbox/<id>/` | `erp.view_sync` | every row (`?state=pending|sending|sent|failed|dead|discarded&event=&aggregate_type=order|product|settlement&aggregate_id=<order number or product id>&examleaf_ref=`): `event`, `examleaf_ref`, `sequence` in its aggregate, `idempotency_key`, `payload` (what goes: no personal data), `state`, `attempts`, `next_at`, `last_error`, `sent_at`, `response` (ERPNext's answer), `dead_letter` (its IntegrationFailure's id) |
+| GET | `outbox/`, `outbox/<id>/` | `erp.view_sync` | every row (`?state=pending\|sending\|sent\|failed\|dead\|discarded&event=&aggregate_type=order\|product\|settlement&aggregate_id=<order number or product id>&examleaf_ref=`): `event`, `examleaf_ref`, `sequence` in its aggregate, `idempotency_key`, `payload` (what goes: no personal data), `state`, `attempts`, `next_at`, `last_error`, `sent_at`, `response` (ERPNext's answer), `dead_letter` (its IntegrationFailure's id) |
 | GET | `dead-letters/`, `dead-letters/<id>/` | `erp.view_sync` | the dead rows (`?event=&aggregate_type=&aggregate_id=`): each holds its aggregate's later rows |
 | POST | `dead-letters/<id>/replay/` | `erp.replay_sync` (high: a re-authentication within 5 minutes) | sent again now, from its first try (`erp.replay`); 404 once it is not dead |
 | POST | `dead-letters/<id>/discard/` `{"reason": "Made by hand in ERPNext."}` | `erp.replay_sync` (high) | given up, with the reason (`erp.discard`): its aggregate goes on |
-| GET | `reconciliations/`, `reconciliations/<id>/` | `erp.view_sync` | the nightly runs (`?date=&state=running|done|failed`): `date`, `state`, `platform_totals`, `erp_totals`, `differences_count`, `error`; one with its `differences` |
-| GET | `differences/`, `differences/<id>/` | `erp.view_sync` | what did not match (`?run=&kind=invoices|credit_notes|payments|settlements|deliveries|stock|missing&open=true`): `key` (what it is about: a total, a payment mode, an item code, a document's reference), `platform_value`, `erp_value`, `note`, `resolved_at`, `resolved_by` |
+| GET | `reconciliations/`, `reconciliations/<id>/` | `erp.view_sync` | the nightly runs (`?date=&state=running\|done\|failed`): `date`, `state`, `platform_totals`, `erp_totals`, `differences_count`, `error`; one with its `differences` |
+| GET | `differences/`, `differences/<id>/` | `erp.view_sync` | what did not match (`?run=&kind=invoices\|credit_notes\|payments\|settlements\|deliveries\|stock\|missing&open=true`): `key` (what it is about: a total, a payment mode, an item code, a document's reference), `platform_value`, `erp_value`, `note`, `resolved_at`, `resolved_by` |
 | POST | `differences/<id>/resolve/` `{"note": "…"}` | `erp.resolve_difference` | resolved with what was done (`erp.resolve`); `400 {"non_field_errors": ["Resolved already."]}` the second time |
 | GET | `cursors/` | `erp.view_sync` | how far the 15-minute pull has read each doctype (`modified_after`, `last_name`, `rows_read`, `last_run_at`, `last_error`) |
 
@@ -1255,6 +1255,8 @@ curl https://admin.examleaf.in/api/v1/staff/privacy/holds/ -b "sessionid=…; cs
   -H "Content-Type: application/json" -d '{"target_type": "shop.order", "target_id": "EL-2026-000123", "reason": "chargeback"}'
 # 201 {"id": 7, "user": null, "target_type": "shop.order", "target_id": "41", "target_label": "Order EL-2026-000123",
 #      "reason": "chargeback", "note": "", "until": null, "active": true, "created": "…", "created_by": 3, …}
+```
+
 ## Orders (staff)
 
 `/api/v1/staff/orders/…` (code: `shop/staff_orders.py`, the jobs `shop/order_jobs.py`; the module:
@@ -1396,10 +1398,10 @@ integration, its connection test, its credentials, mode, circuit and webhooks, i
 | POST | `<provider>/circuit/` (`action` open or reset, `reason`) | `staff.manage_connections` (high) | Shiprocket's and ERPNext's: held open (calls wait until reset), or reset (calls go through, its inbox item done) |
 | GET | `<provider>/webhooks/` | `integrations.view_integrationaccount` | our address to paste (`url`), `auth` (token, signature, basic_and_sns), `header`, the token's last four characters, `rotated_at`, `previous_valid_until` (24 hours after a rotation), the week's events by state, `last_event_at`, `silent` (nothing for `INTEGRATION_WEBHOOK_SILENCE_HOURS` while in use) |
 | POST | `<provider>/webhooks/rotate/` (`reason`) | `staff.manage_connections` (high) | a new token (32 random bytes), answered once: `{"token", "webhooks"}`; the previous one still accepted for 24 hours. SES's is the environment's (400); Razorpay's while its keys are the environment's (400) |
-| GET | `<provider>/events/` (`?state=accepted|duplicate|rejected|failed`) | `integrations.view_inboundevent` | the webhooks received, newest first, the body as a redacted `body_excerpt` |
+| GET | `<provider>/events/` (`?state=accepted\|duplicate\|rejected\|failed`) | `integrations.view_inboundevent` | the webhooks received, newest first, the body as a redacted `body_excerpt` |
 | POST | `<provider>/events/<id>/replay/`, `<provider>/events/replay-failed/` (`since`) | `staff.replay_webhook` (MEDIUM) | processed again (a rejected one: 400); every failed one since then, 500 at a time (`{"replayed", "more"}`) |
 | GET | `<provider>/calls/` (`?operation=&failed=true`) | `integrations.view_integrationcall` | the calls made to it, newest first: `operation`, `status_code` (null: no answer), `duration_ms`, `error`, the redacted `excerpt` |
-| GET | `<provider>/failures/` (`?state=open|replayed|discarded&operation=`) | `integrations.view_integrationfailure` | its dead letters (and its app's tasks' that failed before knowing the account); ERPNext's name their outbox row (`erp_outbox`) |
+| GET | `<provider>/failures/` (`?state=open\|replayed\|discarded&operation=`) | `integrations.view_integrationfailure` | its dead letters (and its app's tasks' that failed before knowing the account); ERPNext's name their outbox row (`erp_outbox`) |
 | POST | `<provider>/failures/<id>/replay/`, `…/discard/` (`reason`) | `staff.replay_webhook`; ERPNext's `erp.replay_sync` (high) | run again once, or given up with the reason; ERPNext's through the sync's own replay and discard (`erp.replay`, `erp.discard`); dealt with already: 400 |
 
 ```sh
@@ -1464,15 +1466,15 @@ publishes it, and the site shows the live text until then. Every change is an au
 | Method | Path (under `/api/v1/staff/content/`) | Permission | What |
 |---|---|---|---|
 | GET | `summary/` | `content.view_errorreport` | the module's home: `reports_open` (`total`, `by_category`), `reviews_waiting`, `reviews_mine`, `drafts`, `legal_deposits_missing`, `last_import`; each part `null` for whoever may not see it |
-| GET POST PATCH | `books/`, `books/<id>/` | `content.view_book`; POST `content.add_book`; PATCH `content.change_book` | books (`?subject=PHY&board=&class_level=&format=print|ebook`): `isbn` (13 digits; its check digit checked when it is set or changed, hyphens may be typed), `format`, `edition`, `published_on` and `deposit_due_on` (the legal deposit's clock), `papers`; one adds `missing_deposits` (the libraries still to send to) |
+| GET POST PATCH | `books/`, `books/<id>/` | `content.view_book`; POST `content.add_book`; PATCH `content.change_book` | books (`?subject=PHY&board=&class_level=&format=print\|ebook`): `isbn` (13 digits; its check digit checked when it is set or changed, hyphens may be typed), `format`, `edition`, `published_on` and `deposit_due_on` (the legal deposit's clock), `papers`; one adds `missing_deposits` (the libraries still to send to) |
 | GET PATCH | `papers/`, `papers/<id>/` | `content.view_paper`; PATCH `content.change_paper` | papers by code (`?subject=&board=&class_level=&book=&tier=&is_published=&changed=true&q=`), with `questions`, `drafts`, `is_published` and `is_sample`; one adds `header_json` and `tree` (each question in order with its state, a preview and its solution's state). The PATCH changes the title, marks, time and instructions; never the code (it is in the printed QR code), nor whether the paper is on the site (below) |
 | POST | `papers/<id>/publish/` `{"is_published": false}`, `{"is_sample": true}` | `staff.publish_paper` | the paper on the site or off it (every solution behind its printed code with it), the book's open sample or not (one per book: it moves from the book's other paper, both audited) |
 | GET | `papers/<id>/qr/` (`?printing=PHY-2027-2`) | `content.view_paper` | `{"url", "png"}`: the address the code prints, with the print run when one is named, and the code as a data URL; `400 {"code": "site_url_not_public"}` while `SITE_URL` is not a public https address |
 | GET PATCH | `questions/`, `questions/<id>/`, `solutions/`, `solutions/<id>/` | `content.view_question` / `_solution`; PATCH `content.change_question` / `_solution` | the live text and its `draft` (`state` `published`, `draft` or `in_review`; `draft_by`, `published_at`, `published_by`, the open `review`; `?paper=&book=&subject=&state=&changed=true`). PATCH writes the draft (a question's `text_md`, `table_md`, `options_json`, `marks_text`, `group_label`, `part_label`, `is_alternative`; a solution's `body_md`) after the LaTeX check (`400 {"body_md": ["Line 3: ..."]}`); a question's `order`, `label` and `tags` change at once. A field typed back to its live value leaves the draft; a draft changed while it waits for review withdraws the review |
 | POST | `questions/<id>/submit/`, `solutions/<id>/submit/` (`{"assignee": <id>}` optional); `…/discard/` | `content.change_question` / `_solution` | the draft to a reviewer: `201` with the review, and an inbox item for the subject's reviewers (or the one named); the draft dropped and its review withdrawn |
 | POST | `questions/<id>/rollback/`, `solutions/<id>/rollback/` | `staff.publish_paper` | the last publish from the panel undone: the text before it live again, the text it published back in the draft; refused once the live text changed since (an import, a later publish) |
-| GET POST | `<books|papers|questions|solutions>/<id>/history/`, `…/history/<history_id>/restore/` | the record's view; restore its change | the versions, newest first, each with its `changes` (`field`, `before`, `after`, `lines` of `{"op": "equal" | "delete" | "insert", "text"}`); a restore puts a book's or a paper's fields back at once, a question's or a solution's text into its draft |
-| GET | `reviews/`, `reviews/<id>/` | `content.view_reviewtask` | the queue, oldest first (`?mine=true`: waiting for me, open, for me or nobody, never my own edit; `?submitted=true`; `?open=true|false`; `?subject=&paper=&state=&stage=`); one adds `draft`, `previous`, `comments`, `changes` (the draft against the live text; once published, the text it replaced against it) and `yours` |
+| GET POST | `<books\|papers\|questions\|solutions>/<id>/history/`, `…/history/<history_id>/restore/` | the record's view; restore its change | the versions, newest first, each with its `changes` (`field`, `before`, `after`, `lines` of `{"op": "equal" \| "delete" \| "insert", "text"}`); a restore puts a book's or a paper's fields back at once, a question's or a solution's text into its draft |
+| GET | `reviews/`, `reviews/<id>/` | `content.view_reviewtask` | the queue, oldest first (`?mine=true`: waiting for me, open, for me or nobody, never my own edit; `?submitted=true`; `?open=true\|false`; `?subject=&paper=&state=&stage=`); one adds `draft`, `previous`, `comments`, `changes` (the draft against the live text; once published, the text it replaced against it) and `yours` |
 | POST | `reviews/<id>/approve/` `{"comment"}`, `…/needs-changes/` `{"comment", "field"}`, `…/publish/` `{"comment"}` | `staff.publish_paper` | a reviewer's decision; never by whoever edited or submitted the draft (`403 {"code": "own_edit"}`); a publish approves on the way and refuses a draft changed since it was submitted |
 | GET PATCH | `reports/`, `reports/<id>/` | `content.view_errorreport`; PATCH `staff.triage_report` | the reported mistakes, oldest first; the open ones (reported, confirmed) unless `?state=` says (`?category=&subject=&printing=&teacher=true&paper=&book=`); spam never shows. One adds `linked` (the question and solution as the site shows them now) and `handled_by`; the reporter's address is masked. PATCH `{"staff_note", "public"}` (`public`: on the errata) |
 | POST | `reports/<id>/confirm/`, `…/reject/` `{"staff_note"}`, `…/fix-online/`, `…/fix-in-printing/` `{"fixed_in": "PHY-2027-2"}`, `…/reopen/`; `…/tell/` | `staff.triage_report` | one step of the triage: reported, then confirmed or rejected, then fixed online, then fixed in a printing; a rejection reopened. `tell/` emails the reporter once that it is fixed, then forgets their address |
@@ -1647,6 +1649,8 @@ curl -X POST https://admin.examleaf.in/api/v1/staff/finance/settlements/fetch/ \
   -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
   -d '{"day": "2026-10-09"}'
 # 202 {"id": 812, "kind": "settlement_fetch", "state": "queued", ...}
+```
+
 ## Home and reports (staff)
 
 `/api/v1/staff/home/` and `/api/v1/staff/reports/…` (code: `insights/staff_home.py` and `insights/staff_api.py`; the
@@ -1853,16 +1857,16 @@ read by its digest and named in the audit trail by its keyed hash (`code_hash`).
 | POST | `revisions/<id>/submit/` | `learn.change_revision` | a draft sent to review: an inbox item (kind `review`) for the subject's reviewers |
 | POST | `revisions/<id>/approve/` `{"comment"}`, `…/needs-changes/` `{"comment"}`, `…/publish/` `{"publish_at"}`, `…/unpublish/` | `staff.publish_course` | approved; sent back to draft (the comment required: an inbox item for whoever submitted it); published now (a ready clip needed) or at `publish_at` (to come, within a year: approved, and published by the five-minute task); back to draft. Never by whoever submitted it: `403 {"code": "own_edit"}` |
 | GET PATCH DELETE | `clips/<id>/`, `cards/<id>/`, `items/<id>/` | `learn.view_`, `change_`, `delete_` + `clip`, `flashcard`, `quizitem` | one row (a binned one too, with `bin_until`). PATCH its fields, as the admin's form checks them: a clip's `title`, `kind`, `notes`, `is_free_preview`, `tags`; a card's `front`, `back`, `tags`; an item's `kind`, `text`, `options`, `answer`, `explanation`, `topic`, `marks`, `difficulty`, `bloom`, `tags`. DELETE puts it in the bin (200, its row of the bin): the app and the website stop showing it at once |
-| POST | `<clips|cards|items>/<id>/move/` `{"to": "first" | "last" | "before" | "after", "target": <id>}` | the row's `change_` | the row moved among its siblings (a revision's clips, a chapter's cards or items), their `order` written again densely in one transaction: the keyboard's path for every drag |
-| POST | `<clips|cards|items>/<id>/restore/` | the row's `change_` | out of the bin within 30 days, back at its place among its siblings |
+| POST | `<clips\|cards\|items>/<id>/move/` `{"to": "first" \| "last" \| "before" \| "after", "target": <id>}` | the row's `change_` | the row moved among its siblings (a revision's clips, a chapter's cards or items), their `order` written again densely in one transaction: the keyboard's path for every drag |
+| POST | `<clips\|cards\|items>/<id>/restore/` | the row's `change_` | out of the bin within 30 days, back at its place among its siblings |
 | POST | `clips/<id>/retry/` | `learn.change_clip` | a failed clip, or one processing for over an hour, processed again from its uploaded video |
-| GET | `bin/?kind=clips|cards|items` | the kind's `view_` | the bin, newest first: `title`, `chapter`, `deleted_at`, `bin_until` (then the nightly purge deletes the row and a clip's files) |
-| GET | `items/` (`?subject=&chapter=&kind=&marks=&topic=&tag=&source=book|app&difficulty=&bloom=` (`none`: not set) `&flags=any|low_discrimination|too_easy|too_hard|distractor&n_too_small=&flagged=&q=`) | `learn.view_quizitem` | the quiz bank by subject, chapter and order: each item's metadata, `source` (the book question it came from) and `stats` from the nightly item analysis (`n`, `p`, `discrimination`, `flags`, `computed_at`; `n_too_small` under 30 learners: N/A) |
+| GET | `bin/?kind=clips\|cards\|items` | the kind's `view_` | the bin, newest first: `title`, `chapter`, `deleted_at`, `bin_until` (then the nightly purge deletes the row and a clip's files) |
+| GET | `items/` (`?subject=&chapter=&kind=&marks=&topic=&tag=&source=book\|app&difficulty=&bloom=` (`none`: not set) `&flags=any\|low_discrimination\|too_easy\|too_hard\|distractor&n_too_small=&flagged=&q=`) | `learn.view_quizitem` | the quiz bank by subject, chapter and order: each item's metadata, `source` (the book question it came from) and `stats` from the nightly item analysis (`n`, `p`, `discrimination`, `flags`, `computed_at`; `n_too_small` under 30 learners: N/A) |
 | GET | `items/<id>/history/` | `learn.view_quizitem` | its versions, newest first, each with `changes` (`field`, `before`, `after`) |
 | POST | `items/<id>/flag/` `{"note"}` | `staff.triage_report` | "needs checking": a report of category `item_analysis` in the content triage (201), or the one open already (200, `created: false`) |
-| GET POST | `entitlements/` (`?subject=PHY|ALL&source=&state=active|ended|revoked&user=&q=`), `entitlements/<id>/` | `learn.view_entitlement`; POST `learn.add_entitlement` | access: `user` (`id`, `name`, the email masked, `is_minor`), `subject`, `source`, `valid_until`, `state`, `can_extend`, `can_revoke`; one adds `history`. `q` is an account's whole email address (a `customer.lookup`; throttled as `staff_search`). POST `{"user", "subject", "valid_until", "reason", "reference"}` grants; a closed or staff account, a day gone or more than two years ahead, or open access that covers it already is refused |
+| GET POST | `entitlements/` (`?subject=PHY\|ALL&source=&state=active\|ended\|revoked&user=&q=`), `entitlements/<id>/` | `learn.view_entitlement`; POST `learn.add_entitlement` | access: `user` (`id`, `name`, the email masked, `is_minor`), `subject`, `source`, `valid_until`, `state`, `can_extend`, `can_revoke`; one adds `history`. `q` is an account's whole email address (a `customer.lookup`; throttled as `staff_search`). POST `{"user", "subject", "valid_until", "reason", "reference"}` grants; a closed or staff account, a day gone or more than two years ahead, or open access that covers it already is refused |
 | POST | `entitlements/<id>/extend/` `{"days", "reason"}`, `…/revoke/` `{"reason"}` | `learn.change_entitlement` | 1 to 365 days from its end (or today); access ending yesterday, `revoked_at` set. Progress is never touched: access given again finds it |
-| GET POST | `codes/batches/` (`?subject=PHY|ALL&state=generating|failed|ready|dispatched|void&q=`), `codes/batches/<key>/` | `learn.view_codebatch`; POST `staff.make_book_codes` | print runs (`key`: the label, or `~` and the id for a label from before the panel): `printed`, `codes`, `redeemed`, `void`, `state`, `product`, `job`; one adds `redeemed_by_week`, `signals` (its fraud signals), `activation_rate`, `file_until` and `generation` (the job: its `result_url` for its starter until the file goes). POST `{"label", "subject", "count", "product": "<slug>", "note"}`: 202 `{"batch", "job"}` |
+| GET POST | `codes/batches/` (`?subject=PHY\|ALL&state=generating\|failed\|ready\|dispatched\|void&q=`), `codes/batches/<key>/` | `learn.view_codebatch`; POST `staff.make_book_codes` | print runs (`key`: the label, or `~` and the id for a label from before the panel): `printed`, `codes`, `redeemed`, `void`, `state`, `product`, `job`; one adds `redeemed_by_week`, `signals` (its fraud signals), `activation_rate`, `file_until` and `generation` (the job: its `result_url` for its starter until the file goes). POST `{"label", "subject", "count", "product": "<slug>", "note"}`: 202 `{"batch", "job"}` |
 | POST | `codes/batches/<key>/dispatched/` `{"at"}` | `learn.change_codebatch` | the books left (once, once its codes are made; `at` empty: now) |
 | POST | `codes/batches/<key>/void/` `{"reason"}` | `staff.void_book_codes` | every unused code of the run voided (`{"batch", "voided"}`), its printer's file deleted, the owners told |
 | POST | `codes/void/` `{"code", "reason"}` | `staff.void_book_codes` | one unused code voided (a redeemed one refused: revoke its access instead) |
@@ -2027,6 +2031,17 @@ minutes.
   same key answers the first request again instead of making a second one. 201: it ran at once, within your limits
   (`limits` in `session/`); 202: it waits for a second person (`status` "pending"); 400 with `detail`: it ran and
   failed (its preconditions no longer held).
+- **Jobs** (`jobs/`) run in the background and are followed through `jobs/<id>/`: `state`, `done` of `total`, the rows'
+  `errors`, `result` and `result_url`, a link signed for 5 minutes. The kinds: `audit_export` (below), `bulk_action`
+  (`params.action` one of the change requests' actions or of the customers' and the course's account actions:
+  [Customers (staff)](#customers-staff), [Course (staff)](#course-staff)), `erp_initial_load` ([ERPNext sync
+  (staff)](#erpnext-sync-staff)), `gstr1_export` ([Tax (staff)](#tax-staff)), `orders_pack`, `orders_print`,
+  `orders_cancel` and `orders_export` ([Orders (staff)](#orders-staff)), `content_import` ([Content
+  (staff)](#content-staff)), `grievance_export` ([Support (staff)](#support-staff)), `settlement_fetch` ([Finance
+  (staff)](#finance-staff)), `report_export` ([Home and reports (staff)](#home-and-reports-staff)), `coupon_codes`,
+  `product_import` and `product_export` ([Catalogue (staff)](#catalogue-staff)) and `code_batch` ([Course
+  (staff)](#course-staff)). Each kind asks for its own permission, and above the starter's `export_rows` or
+  `bulk_rows` a change request (`job.run`) waits for an approver first.
 - **Personal data is masked** (`ra•••@example.com`, `••••••2345`, `203.0.113.x`); opening a customer and revealing a
   detail are recorded (`sensitive_read`).
 
@@ -3508,23 +3523,20 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | mistakes reported (`POST reports/`), per client address, the website's included | 5 an hour and 20 a day | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 | MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`, and `staff/jobs/` of an export) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
-| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
-| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| ERPNext's webhook (`POST /api/hooks/erp-events/`), per client address | 600 a minute | `API_THROTTLE_ERP_EVENTS` |
 | the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
 | new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
-| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`), the support queue and its book-code lookups | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
-| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| searches that cost a query: customers (`GET staff/users/`), orders, Finance's payments, the support queue and a ticket's book-code lookup, a person searched for among the course's entitlements (`?q=`), a learner's page | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals of a customer's, a ticket's, a nominee's or a bank refund's payee details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`, `staff/privacy/nominees/<user>/reveal/`, `staff/orders/refunds/<id>/payee/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| exports and the files made as jobs (`staff/audit/export/`, `staff/jobs/` of any kind but a bulk action, the GSTR-1 file, a day of settlements fetched) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`, and the catalogue's import) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
+| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
+| book codes looked up (`POST staff/course/codes/lookup/`) | 120 an hour | `STAFF_THROTTLE_CODE_LOOKUP` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; staff orders, refunds (a bank one marked paid too), offline payments and quotes made into orders; products, coupons and offers made or changed; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
