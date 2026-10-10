@@ -1,5 +1,11 @@
 # ExamLeaf web frontend — architecture assessment (2026-10-08)
 
+![Component](assets/badges/component-website.svg) ![Status](assets/badges/status-archive.svg) ![For developers](assets/badges/audience-developers.svg)
+
+The assessment of 8 October 2026 that chose how the website's frontend is built: what existed, the options, the decision
+and the budgets. The founder decided the same day for the Next.js frontend, built in Phase 8 ([its
+plan](examleaf-phase8-nextjs-plan.md)); the assessment is kept as the record of the choice.
+
 The founder's brief asks for a distinctive, premium web experience with clear architectural boundaries, and prefers a decoupled Next.js/TypeScript frontend "where practical", while warning against migrating frameworks for fashion. This is the assessment and the decision taken, with the incremental path if the migration is chosen.
 
 ## What exists

@@ -1,5 +1,12 @@
 # ExamLeaf Phase 6 — the revision LMS (app-based) and a flexible store (plan of 2026-10-08)
 
+![Component](assets/badges/component-backend.svg) ![Status](assets/badges/status-archive.svg) ![For developers](assets/badges/audience-developers.svg)
+
+The plan of Phase 6 (8 October 2026): the app-based revision course in the `learn` app (work package D) and a flexible
+store (E), with the founder's decisions recorded for later. Its Status section, filled in by the builders, records D and
+E as done; it is kept as the record of what was decided and why (the [Changelog](../examleaf-web/CHANGELOG.md), "Phase 6
+D" and "E").
+
 Founder's brief: an app-only LMS for quick revision before the exam in a short-video style (each chapter covered in 10–15 minutes with tricks, hacks and shortcuts), "all smart possibilities so that students at least pass"; references SkyLearn and django-courses (Django LMS projects) and ffmpeg; the store must have a proper admin for categories and everything else with end-to-end flexibility, with django-oscar and Saleor as references; Razorpay stays the payment gateway.
 
 Decisions:

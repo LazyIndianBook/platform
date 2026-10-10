@@ -1,5 +1,11 @@
 # ExamLeaf AI answer-sheet checker — design and cost model
 
+![Component](assets/badges/component-platform.svg) ![Status](assets/badges/status-plan.svg) ![For the owner](assets/badges/audience-owner.svg)
+
+The design and cost model of an AI checker for photographed, hand-written answer sheets, written on 8 October 2026 from
+the research archived in [docs/research](research/README.md). It is for the founder deciding whether to build it and for
+whoever builds it; only its placeholder, `practice.AnswerSheetUpload`, is in the code.
+
 *Written 8 October 2026 from the research run archived in `docs/research/2026-10-08-ai-answer-checker/` (105 agents, 53 sources, 115 claims verified by three-vote adversarial review). Prices and model names are a snapshot of 7–8 October 2026 and change weekly; the design is written so that models can be swapped without rework.*
 
 ## 1. What the checker does
