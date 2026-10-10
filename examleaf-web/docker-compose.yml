@@ -117,7 +117,7 @@ services:
       # the frontend's server-side calls come straight from the frontend container with the site's host in
       # X-Forwarded-Host (as Caddy's do): Django builds its links and checks ALLOWED_HOSTS with it
       USE_X_FORWARDED_HOST: 1
-    volumes:
+    volumes: &books
       - media:/app/media
       - ${BOOK_SOURCE:-../../Class 12}/production:/book/production:ro  # the books' Markdown papers, for import_papers
     healthcheck:  # liveness: gunicorn answers (/health/live/ reads neither the database nor Redis)
@@ -130,6 +130,9 @@ services:
   worker:
     <<: *app
     command: celery -A examleaf worker --loglevel INFO --concurrency 2
+    # The panel's staff jobs run here, not in web, and the Content module's import is one: it reads the books' folder
+    # (PAPERS_ROOT=/book) from here too. Without the mount a job answers "No production/ folder in /book".
+    volumes: *books
     # SIGTERM is Celery's warm shutdown: the tasks in progress finish (the hard limit is 300 s) before Docker's kill;
     # a task cut short anyway goes to another worker later (acks_late, RESILIENCE.md)
     stop_grace_period: 5m
