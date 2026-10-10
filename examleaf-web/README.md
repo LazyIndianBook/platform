@@ -1,42 +1,91 @@
 # ExamLeaf web
 
+![Component: Django backend](../docs/assets/badges/component-backend.svg)
+![Django 6.1, Python 3.14](../docs/assets/badges/stack-django.svg)
+![Phase B: merged](../docs/assets/badges/phase-b-merged.svg)
+[![Backend tests](../docs/assets/badges/tests-backend.svg)](#tests)
+![For developers](../docs/assets/badges/audience-developers.svg)
+
 The backend of the ExamLeaf Sample Papers website and app: the REST API, allauth.headless, the admin, the webhooks and
 the background tasks. The website's pages are the Next.js frontend's (`../examleaf-frontend/`), on the same origin
-behind Caddy; Django serves no page of its own (see "Paths"). The solutions are not printed in the books: every
-paper carries a QR code that opens `/s/<CODE>/` (e.g. `/s/PHY-E01/`), where a registered student reads the full
-marking-scheme solutions for free and can save the marks scored (or anyone reads them, with
-`SOLUTIONS_REQUIRE_LOGIN=0`: see "Open or registered solutions"). The same site sells the printed books and serves the
-app's revision course. Now: Class 12, Assam board (ASSEB), Physics, Chemistry, Mathematics and Biology, 30 papers each
-(E01–E10 Easy, M01–M10 Medium, H01–H10 Hard).
+behind Caddy; Django serves no page of its own (see "Paths"). Developers read this to set up, run and change the
+backend; operators go on to DEPLOYMENT.md and RUNBOOK.md.
 
-Django 6.1 · Python 3.14 · Django REST framework and allauth.headless for the website and the app · no trackers,
-analytics or ads of our own · PostgreSQL, Redis and Celery in production, none of them needed in development.
-
-Documents: [DEPLOYMENT.md](DEPLOYMENT.md) (first deployment on a VPS, every setting, the accounts to open),
-[RUNBOOK.md](RUNBOOK.md) (the operator's book: backups, secrets, staff, data requests, the shop, connections, the
-course, content, support, ERPNext, the system pages and the inbox, each as the panel page that does it with the shell as
-the break-glass line), [API.md](API.md) (the REST API, for the app and other frontends and for the panel),
-[RESILIENCE.md](RESILIENCE.md) (timeouts, locks and limits), [CHANGELOG.md](CHANGELOG.md) (what changed, by phase) and
-the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 4) and
-[SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md) (phases 5 and 6). The Admin Control Panel has its own: the
-[plan](../docs/examleaf-admin-control-panel-plan.md), the [one-page guide of each role](../docs/guides/roles/README.md),
-the [decisions register](../docs/decisions.md), the console's [README](../examleaf-admin/README.md) and the
-[handover](../docs/HANDOVER.md).
+> [!NOTE]
+> **At a glance**
+> - The solutions are not printed in the books: every paper carries a QR code that opens `/s/<CODE>/` (e.g.
+>   `/s/PHY-E01/`), where a registered student reads the full marking-scheme solutions for free and can save the
+>   marks scored.
+> - With `SOLUTIONS_REQUIRE_LOGIN=0` anyone reads them (see "Open or registered solutions").
+> - The same site sells the printed books and serves the app's revision course.
+> - Now: Class 12, Assam board (ASSEB), Physics, Chemistry, Mathematics and Biology, 30 papers each (E01–E10 Easy,
+>   M01–M10 Medium, H01–H10 Hard).
+> - Django 6.1 · Python 3.14 · Django REST framework and allauth.headless for the website and the app · PostgreSQL,
+>   Redis and Celery in production, none of them needed in development.
+> - No trackers, analytics or ads of our own.
 
 ## Contents
 
-- [What it does](#what-it-does)
-- [Set up and run (development)](#set-up-and-run-development) · [Commands](#commands)
-- [Importing the papers](#importing-the-papers) · [QR codes](#qr-codes)
-- [Paths](#paths) · [Open or registered solutions](#open-or-registered-solutions)
-- [Sign-in, SMS and email](#sign-in-sms-and-email) · [Roles and permissions](#roles-and-permissions)
-- [Personal data (DPDP Act)](#personal-data-dpdp-act) · [Admin](#admin) · [REST API](#rest-api)
-- [Shop](#shop) · [Revision course](#revision-course) · [Web platform](#web-platform) · [Insights](#insights)
-- [Tests](#tests) · [Production](#production)
-- [Data model](#data-model) · [Planned extensions (not built)](#planned-extensions-not-built) ·
-  [Phases to come](#phases-to-come) · [Libraries](#libraries)
+- [What it does](#what-it-does): the parts, and what each feature is
+- [Set up and run (development)](#set-up-and-run-development): the backend, the website beside it, Celery
+- [Commands](#commands): the make targets and the project's `manage.py` commands
+- [Importing the papers](#importing-the-papers)
+- [QR codes](#qr-codes)
+- [Paths](#paths): what Caddy sends to Django
+- [Open or registered solutions](#open-or-registered-solutions)
+- [Sign-in, SMS and email](#sign-in-sms-and-email)
+- [Roles and permissions](#roles-and-permissions)
+- [Personal data (DPDP Act)](#personal-data-dpdp-act)
+- [Admin](#admin)
+- [REST API](#rest-api)
+- [Shop](#shop): set-up, the flows, an order's states
+- [Revision course](#revision-course)
+- [Web platform](#web-platform)
+- [Insights](#insights)
+- [Tests](#tests)
+- [Production](#production): the stack, and running without surprises
+- [Data model](#data-model)
+- [Planned extensions (not built)](#planned-extensions-not-built)
+- [Phases to come](#phases-to-come)
+- [Libraries](#libraries)
+- [Related documents](#related-documents)
 
 ## What it does
+
+The backend's parts, and who talks to them (the clients through Caddy; ERPNext and the providers by their webhooks):
+
+```mermaid
+flowchart LR
+    subgraph django["Django: the web container"]
+        api["The REST API<br/>/api/v1/"]
+        headless["allauth.headless<br/>/_allauth/"]
+        admin["The admin<br/>/admin/"]
+    end
+    website["The website and the panel<br/>(Next.js)"] --> caddy["Caddy"]
+    app["The app"] --> caddy
+    caddy --> api
+    caddy --> headless
+    caddy --> admin
+    django --> db[("PostgreSQL")]
+    django --> cache[("Redis: the cache")]
+    django -->|"a task"| queue[("Redis: the queue")]
+    django --> storage[("The private storage<br/>a bucket, or the media volume")]
+    beat["Celery beat"] -->|"the schedule"| queue
+    queue -->|"queue celery"| worker["Celery worker"]
+    queue -->|"queue media"| media["Media worker<br/>ffmpeg"]
+    worker --> db
+    worker --> storage
+    media --> storage
+    django -->|"calls, with timeouts"| providers["Razorpay, Shiprocket,<br/>MSG91, SES"]
+    worker --> providers
+    worker -->|"the outbox, in order"| erp["ERPNext"]
+    providers -->|"signed, or a token"| hooks["Django's webhooks<br/>/shop/webhooks/, /api/hooks/, /anymail/"]
+    erp -->|"doorbells, signed"| hooks
+    mailbox["The support mailbox's<br/>forwarder"] -->|"a token"| hooks
+    hooks -->|"each kept once"| db
+```
+
+*The backend's parts: what Caddy sends to Django, what Django keeps where, and what the workers call.*
 
 - **Solutions behind the QR codes.** `/s/<CODE>/` shows a paper's marking-scheme solutions to a signed-in student
   (everyone, with `SOLUTIONS_REQUIRE_LOGIN=0`). **My record** keeps the marks a student scored per paper and tier.
@@ -155,15 +204,43 @@ the [decisions register](../docs/decisions.md), the console's [README](../examle
 
 ## Set up and run (development)
 
-```sh
-cd examleaf-web
-make install                              # .venv with the pinned requirements and the test tools (requirements-dev.txt)
-cp .env.example .env                      # DEBUG=1, SQLite, console email and SMS, tasks inline; every variable is explained
-make migrate                              # migrate + bootstrap_roles (the role groups)
-.venv/bin/python manage.py import_papers --all   # the books checked out beside this repository; or --root, --fixtures
-.venv/bin/python manage.py createsuperuser
-make run                                  # http://localhost:8000: the API; the admin at /admin/ logs in on the website
-```
+In `examleaf-web/`:
+
+1. `.venv` with the pinned requirements and the test tools (`requirements-dev.txt`):
+
+   ```sh
+   make install
+   ```
+
+2. The settings: `DEBUG=1`, SQLite, console email and SMS, tasks inline; every variable is explained in the file:
+
+   ```sh
+   cp .env.example .env
+   ```
+
+3. `migrate`, then `bootstrap_roles` (the role groups):
+
+   ```sh
+   make migrate
+   ```
+
+4. The papers, from the books checked out beside this repository (or `--root`, `--fixtures`: "Importing the papers"):
+
+   ```sh
+   .venv/bin/python manage.py import_papers --all
+   ```
+
+5. An account for the admin:
+
+   ```sh
+   .venv/bin/python manage.py createsuperuser
+   ```
+
+6. The server, on http://localhost:8000: the API; the admin at `/admin/` logs in on the website:
+
+   ```sh
+   make run
+   ```
 
 The website and its log-in page are the frontend's: to use the admin in development, run Django for the frontend and
 open http://localhost:3000/admin/ (below, "The website (Next.js) in development").
@@ -171,9 +248,10 @@ open http://localhost:3000/admin/ (below, "The website (Next.js) in development"
 `make help` lists the other tasks (see "Commands"). In development the verification codes, every other email and every
 SMS are printed in the runserver console, and the debug toolbar is on. Invoice PDFs need Pango (`brew install pango` on
 a Mac) and the revision course's videos need ffmpeg (`brew install ffmpeg`); without ffmpeg a clip shows "failed:
-ffmpeg is not installed". To run the whole stack in Docker on a laptop, set `DOMAIN=localhost`, `POSTGRES_PASSWORD`
-and `HEALTH_CHECK_TOKEN` in `.env` and run `make up`; Caddy then uses its own certificate, which
-`docker compose exec caddy caddy trust` makes your browser accept (once).
+ffmpeg is not installed". To run the whole stack in Docker on a laptop, set `DOMAIN=localhost`, `POSTGRES_PASSWORD`,
+`HEALTH_CHECK_TOKEN` and `INTERNAL_API_TOKEN` in `.env` (compose refuses to start without any of them) and run
+`make up`; Caddy then uses its own certificate, which `docker compose exec caddy caddy trust` makes your browser accept
+(once).
 
 ### The website (Next.js) in development
 
@@ -196,10 +274,13 @@ made from `/api/schema/?format=json` of this server (`npm run api:snapshot` ther
 
 Emails (verification codes, password resets, order mails), SMS, invoices and refunds, picture sizes and the clip videos
 are handled by Celery tasks, and celery beat runs these on a schedule (India time). Beat writes the entries of
-`settings.py`, and django-celery-beat's own 04:00 clean-up of task results, into the database each time it starts, so a
-time changed in the admin (Periodic tasks) is put back at the next start and only switching an entry off lasts; the
-04:30 flush of the API's tokens was made once by the migration `api/migrations/0001_flush_expired_tokens_daily.py` and
-can be edited in the admin:
+`settings.py`, and Celery's own 04:00 clean-up of task results (`celery.backend_cleanup`), into the database each time
+it starts, so a time changed in the admin (Periodic tasks) is put back at the next start and only switching an entry
+off lasts; the 04:30 flush of the API's tokens was made once by the migration
+`api/migrations/0001_flush_expired_tokens_daily.py` and can be edited in the admin:
+
+<details>
+<summary>The schedule: every periodic task, India's time (35 rows)</summary>
 
 | When | Task |
 |---|---|
@@ -226,7 +307,7 @@ can be edited in the admin:
 | 03:30 | `erp.tasks.reconcile_day`: yesterday's documents and today's stock compared with ERPNext; `ops.tasks.reset_failed_logins`: django-axes' failed log-ins forgotten |
 | 03:45 | `ops.tasks.clear_sessions`: expired sessions and ended sessions' devices deleted; `support.tasks.purge`: spam tickets and saved replies in the bin after 30 days |
 | 03:50 | `ops.tasks.check_templates`: message templates idle 75 days or due for their yearly self-certification |
-| 04:00 | django-celery-beat's own clean-up of task results |
+| 04:00 | `celery.backend_cleanup`: Celery's own clean-up of task results, which beat writes with the rest |
 | 04:10, 04:20 | the retention schedule's clean-up (`ops.tasks.trim_expired`, `purge_expired`): the SMS log's last digits after 90 days and its rows after a year, webhook records and task results after 7 days, the app's phones silent for 90 days, the orders past their books' period; 04:10 also `content.tasks.purge_spam` (reported-mistake spam after 30 days) |
 | 04:30 | `shop.tasks.clean_up`: cancel orders never paid or placed (after asking Razorpay), queue again lost refund, invoice and credit note tasks, delete guest carts idle for 30 days, old webhook records and payloads, old stock alerts and the customer details of cancelled unsold orders; `learn.tasks.purge_bin`: delete the clips, flash cards and quiz items 30 days in the bin, a clip's video and HLS files with it; the API's expired refresh tokens forgotten |
 | 04:45 | `integrations.tasks.purge_old_records`: the call log, inbound events and dealt-with dead letters older than `INTEGRATIONS_RETENTION_DAYS` |
@@ -239,15 +320,34 @@ can be edited in the admin:
 | Mondays 08:30, 09:00 | `staff.tasks.weekly_audit_skim`: the owners' email of the week's high-risk events; `staff.tasks.check_dependency_report`: an inbox item while CI's dependency report is older than 8 days |
 | 18:00 | `learn.tasks.send_reminders`: the revision course's reminders (only with `FCM_SERVICE_ACCOUNT_JSON`) |
 
+</details>
+
 Without `CELERY_BROKER_URL`, and always in tests, tasks run inline in the web process (`CELERY_TASK_ALWAYS_EAGER`), so
 development needs no broker and no worker. To try the real thing locally:
 
-```sh
-brew install redis && brew services start redis   # or any Redis 7
-echo CELERY_BROKER_URL=redis://localhost:6379/0 >> .env
-make worker                               # threads pool: Celery's prefork pool fails on macOS
-make beat                                 # the periodic tasks of the table above
-```
+1. A Redis (or any Redis 7):
+
+   ```sh
+   brew install redis && brew services start redis
+   ```
+
+2. The broker in `.env`:
+
+   ```sh
+   echo CELERY_BROKER_URL=redis://localhost:6379/0 >> .env
+   ```
+
+3. A worker, with the threads pool (Celery's prefork pool fails on macOS):
+
+   ```sh
+   make worker
+   ```
+
+4. Beat, for the periodic tasks of the table above:
+
+   ```sh
+   make beat
+   ```
 
 The clips are processed on a queue of their own, `media`, by a second worker (`celery -A examleaf worker --queues media`;
 in compose, the `media-worker` service); in development they are processed in the web process when the clip is saved.
@@ -277,6 +377,9 @@ docker-compose stack):
 
 `manage.py` commands of the project (in the stack: `docker compose exec web python manage.py …`):
 
+<details>
+<summary>The project's <code>manage.py</code> commands (25 rows)</summary>
+
 | Command | What it does |
 |---|---|
 | `import_papers --all` (or `--subject physics`; `--root`, `--fixtures`) | read the Markdown papers and solutions of the books repository's `production/` (`PAPERS_ROOT`) into the database; changes only what changed |
@@ -305,6 +408,8 @@ docker-compose stack):
 | `shipping_smoke_test --yes [--wait N]` | book, label and cancel one real prepaid parcel with the live Shiprocket account and look for the freight's reversal; real money moves |
 | `erp_status`, `erp_initial_load [--apply] [--invoices-from DATE]`, `erp_pull [--doctype D] [--restart]`, `erp_reconcile [--date DAY]`, `erp_replay [ID] [--dead] [--sent-since TIME]` | the ERPNext sync by hand (`erp/README.md` "Operations") |
 
+</details>
+
 Django's and the libraries' own commands that the documents rely on: `migrate`, `createsuperuser`,
 `check` (`--deploy`), `makemigrations --check --dry-run`, `sendtestemail`, `collectstatic` (at image build),
 `shell`, `clearsessions` and `axes_reset` (what the daily tasks call), `axes_reset_username <email>` (lift a lock-out),
@@ -315,10 +420,22 @@ schema).
 
 ## Importing the papers
 
+One subject from a given checkout of the books:
+
 ```sh
 .venv/bin/python manage.py import_papers --root "/Users/chinmoybhuyan/Desktop/Personal/Book/Class 12" --subject physics
-.venv/bin/python manage.py import_papers --all             # --root: PAPERS_ROOT, else "Class 12" beside the repo
-.venv/bin/python manage.py import_papers --all --fixtures  # the test papers of content/fixtures/papers/
+```
+
+Every subject, from `--root`, else `PAPERS_ROOT`, else "Class 12" beside the repository:
+
+```sh
+.venv/bin/python manage.py import_papers --all
+```
+
+The test papers of `content/fixtures/papers/`:
+
+```sh
+.venv/bin/python manage.py import_papers --all --fixtures
 ```
 
 The papers live in the books repository `LazyIndianBook/Class-12-Assam` (private), not in this one: `--root` (or the
@@ -381,7 +498,7 @@ worker, and the error pages) are the Next.js frontend's, at the addresses Django
 | `/api/hooks/parcel-events/` | Shiprocket's tracking webhook (its token in `x-api-key`; `shipping/README.md`), under Caddy's `/api/` |
 | `/api/hooks/erp-events/` | ERPNext's webhook (signed: `X-Frappe-Webhook-Signature`; `erp/README.md`), under Caddy's `/api/` |
 | `/api/hooks/support-mail/` | email to the support address, forwarded (its token in `X-Support-Mail-Token`; `support/README.md`), under Caddy's `/api/` |
-| `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set |
+| `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set (SES's, `/anymail/amazon_ses/tracking/`, also while `SES_SNS_TOPIC_ARN` is) |
 | `/admin/` | the admin; signed out it sends to the website's log-in (`LOGIN_URL`, then back with `?next=`) |
 | `/static/…` | the admin's and the staff player's files, the fonts of the invoices and the book covers the website shows |
 
@@ -702,9 +819,39 @@ The staff side, the Admin Control Panel's Orders module (`staff_orders.py`, `ord
   checked first, so the last copy sells once; it goes back on cancellation. A bundle sells its books' copies; a digital
   product has no stock.
 - **States** (django-fsm-2, guarded transitions, `status` writable only through them): order pending → paid → packed →
-  shipped → delivered, cancelled (pending or paid by the customer, packed by staff) and refunded (a cash-on-delivery
-  order goes from pending straight to packed; an order of digital products only from paid to delivered); payment created
-  → authorized → captured, failed or refunded. django-simple-history keeps every change: the customer's timeline.
+  shipped → delivered, cancelled (pending or paid by the customer, packed by staff, shipped when a cash-on-delivery
+  parcel comes back undelivered) and refunded (a cash-on-delivery order goes from pending straight to packed; an order
+  of digital products only from paid to delivered); payment created → authorized → captured, failed or refunded.
+  django-simple-history keeps every change: the customer's timeline.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    state "pending (awaiting payment)" as pending
+    [*] --> pending: checkout
+    pending --> paid: payment captured
+    pending --> packed: cash on delivery, once placed
+    paid --> packed: packed by the packing room
+    paid --> delivered: digital products only
+    packed --> shipped: shipped, by hand or the courier's scan
+    shipped --> delivered: delivered
+    pending --> cancelled: by the customer, or never paid
+    paid --> cancelled: by the customer
+    packed --> cancelled: by staff
+    shipped --> cancelled: cash on delivery, back undelivered
+    paid --> refunded
+    packed --> refunded
+    shipped --> refunded
+    delivered --> refunded
+    cancelled --> refunded
+    note right of refunded
+        from any of these once a refund leaves
+        no captured payment on the order
+    end note
+```
+
+*An order's states and what moves it between them (`Order` in `shop/models.py`).*
+
 - **Customers**: emails for confirmation, shipping (courier, tracking number and link), payment links, delivery,
   cancellation and refund (`shop.services.notify`: the first three have a drawn HTML part, the others are text with an
   HTML part made from it; all go through `ops.tasks.queue_email`), and SMS for those who asked for them. Saved addresses
@@ -868,12 +1015,12 @@ codes, states and cohorts under `INSIGHTS_MIN_CELL`, 10; a chapter's or a class'
 
 ## Tests
 
-```sh
-make test                                 # pytest: 1,888 passed, 13 skipped on SQLite at the merge of Phase B (5,427 subtests)
-make cov                                  # the same with a coverage report
-make lint                                 # ruff, as in CI
-make check                                # manage.py check and missing migrations
-```
+| Command | What it runs |
+|---|---|
+| `make test` | pytest: 2,510 passed and 13 skipped on SQLite on this head (at the merge of Phase B: 1,888 passed, 13 skipped, 5,427 subtests) |
+| `make cov` | the same with a coverage report |
+| `make lint` | ruff, as in CI |
+| `make check` | `manage.py check` and missing migrations |
 
 pytest with pytest-django runs the old Django `TestCase` classes and the newer pytest functions (factories in
 `accounts/factories.py` and `shop/factories.py`, factory_boy); `manage.py test` still runs the `TestCase` classes. Every
@@ -1001,7 +1148,8 @@ What the test modules cover:
 ## Production
 
 See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.example` documents each one but
-`GUNICORN_CMD_ARGS`; DEPLOYMENT.md section 13 lists them all). [RESILIENCE.md](RESILIENCE.md) is what keeps a slow or
+`GUNICORN_CMD_ARGS` and `GUNICORN_WORKER_CONNECTIONS`; DEPLOYMENT.md section 13 lists them all).
+[RESILIENCE.md](RESILIENCE.md) is what keeps a slow or
 failed dependency from hanging a request or a worker: every timeout and limit, the load test, the operators' knobs.
 
 - **The stack.** docker-compose.yml runs PostgreSQL 17, two Redis 7 (`redis`, the Celery queue, which never evicts;
@@ -1204,6 +1352,9 @@ shadow against a real ERPNext). Open:
 
 Pinned in `requirements.txt` (what the Docker image installs) and `requirements-dev.txt` (tests, lint, debug toolbar).
 
+<details>
+<summary>Every library, with what it is for (51 rows)</summary>
+
 | Library | Purpose |
 |---|---|
 | Django 6.1 | the framework: ORM, admin, auth, groups and permissions, forms, messages, mailers, security middleware, CSP |
@@ -1258,6 +1409,24 @@ Pinned in `requirements.txt` (what the Docker image installs) and `requirements-
 | Poppins, Hind Siliguri (in `static/fonts/`) | the site's fonts, subsets served by the site (SIL Open Font Licence) |
 | ffmpeg (a system package in the image) | makes the clips into HLS |
 
+</details>
+
 Docker images: python:3.14-slim, postgres:17, redis:7-alpine, caddy:2. django-crispy-forms was considered but has no
 plain-CSS template pack (only Bootstrap/Tailwind/Bulma add-ons); forms are rendered by the site's `_field.html` partial
 and allauth's overridden elements instead.
+
+## Related documents
+
+- [DEPLOYMENT.md](DEPLOYMENT.md): the first deployment on a VPS, every setting, the accounts to open
+- [RUNBOOK.md](RUNBOOK.md): the operator's book: backups, secrets, staff, data requests, the shop, connections, the
+  course, content, support, ERPNext, the system pages and the inbox, each as the panel page that does it, with the shell
+  as the break-glass line
+- [API.md](API.md): the REST API, for the app and other frontends and for the panel
+- [RESILIENCE.md](RESILIENCE.md): timeouts, locks and limits
+- [CHANGELOG.md](CHANGELOG.md): what changed, by phase
+- The security reviews: [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 4) and
+  [SECURITY_REVIEW_PHASE5_6.md](SECURITY_REVIEW_PHASE5_6.md) (phases 5 and 6)
+- The Admin Control Panel's own: the [plan](../docs/examleaf-admin-control-panel-plan.md), the
+  [one-page guide of each role](../docs/guides/roles/README.md), the [decisions register](../docs/decisions.md), the
+  console's [README](../examleaf-admin/README.md) and the [handover](../docs/HANDOVER.md)
+- [The website's README](../examleaf-frontend/README.md): the Next.js frontend that serves the website's pages
