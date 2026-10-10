@@ -18,7 +18,7 @@ FENCE = re.compile(r"^```mermaid[^\n]*\n(.*?)^```", re.S | re.M)
 def documents(paths):
     if paths:
         for p in paths:
-            p = Path(p)
+            p = Path(p).resolve()
             yield from (p.rglob("*.md") if p.is_dir() else [p])
         return
     for path in ROOT.rglob("*.md"):
