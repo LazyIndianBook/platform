@@ -1,9 +1,119 @@
 # Changelog
 
-What changed in the ExamLeaf web platform, newest first, by phase. Every phase below was built on 8 October 2026; the
-commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the redesign's stage 1: f8e4e5f; phase 6 D
-and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
-tests are those of `pytest` at the end of the phase.
+What changed in the ExamLeaf web platform, newest first, by phase. The phases numbered 4 to 9 and the redesign were
+built on 8 October 2026 and the Admin Control Panel's on 9 and 10 October; the commits are in `git log` (phase 4:
+abffe6f and e5abda5; phase 5 A and B with the redesign's stage 1: f8e4e5f; phase 6 D and E: 4e30e59; the redesign's
+stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the tests are those of `pytest` at
+the end of the phase, and for a Phase B module those of its branch when it was merged.
+
+## Phase B: the panel's own modules (9 October 2026)
+
+Phase B gave the Admin Control Panel the modules the platform itself owns (plan 9.2), so that the storefront, support
+and content are run from the panel and no longer from the Django admin and shell recipes, every money, role and export
+step goes through the approvals and the audit log, and the plan's 1 January 2027 items are built (the prior price, the
+complaint clocks and the copy of the complaint, the e-commerce disclosures, the dark-pattern audit), apart from what
+waits on the owner, the CA and the lawyer (`docs/decisions.md`). The modules were built in parallel and merged one by
+one on the integration branch `phase-b`; this entry is the whole, and each module's own entry follows it, in the order
+they were merged, with the counts it had when it joined. **At the merge of all of them:** 1,888 backend tests pass on
+SQLite (13 skipped, 5,427 subtests); the console has 350 Vitest unit tests and 23 Playwright tests in mock mode; the
+website has 228 Vitest tests. A module's own figures below were counted on its branch before the others joined, so they
+do not add up to these.
+
+**ERPNext in shadow mode.** The `erp` app met a real ERPNext for the first time, the dev stack of `examleaf-erp/compose/`
+standing in for the staging site: the initial load, an order paid online and one by cash on delivery, parcels, a refund
+and a COD remittance mirrored under the platform's numbers, idempotency, the doorbells and the pull, a planted
+difference, dead letters, the rollback by flag and a clean day, each step recorded in `erp/SHADOW-RUN.md`. What broke
+was fixed: a number issued again for another order was answered as the first one's duplicate (now a 409 `conflict` and a
+dead letter for staff), the pull read the platform's own invoices back over REST, and `erp_status` told UTC. At its
+merge: 1,519 backend tests (13 skipped, 3,952 subtests), 106 of them `erp`'s, and the Frappe app's 58 on the stack.
+
+**Orders.** Staff find, act on, refund, take back, make and pack orders in the panel: the list with its tabs and a search
+for a person that is recorded by its hash, the record with the one next step and a timeline, refunds by line or by bank
+transfer through the approvals, returns asked for on the website or by staff (deciding is apart from receiving), staff
+orders and quotes with the discount rule's answer shown before saving, the packing room (the queue, the slip with a QR
+code, the 4×6 label, the pick list, bulk jobs), a high-risk cash-on-delivery order held for a payment check, and every
+status message recorded and held overnight. At its merge: 1,101 backend tests (11 skipped), 31 of them new, with 40 rows
+for the module's endpoints in the authorization matrix; the console's 97 Vitest tests, 8 Playwright tests in mock mode
+and 10 against the backend; the website's 210.
+
+**Customers.** One page for a person: tabs and badges for students, parents and guest buyers; a merged timeline and a
+spending summary, a child's reduced to counts; every search for a person an access-log event with the query's hash; a
+parent's consent that staff follow up (each link sent is kept with who sent it again, a list of the children waiting) and
+record by hand with where the evidence is; bulk actions on accounts that are checked first and wait for a second person
+when a child is among the targets. Changing a customer's email address for them is left out on purpose. At its merge:
+1,554 backend tests (13 skipped, 4,000 subtests), 35 of them new and also green on PostgreSQL 17; the console's 242
+Vitest tests and 15 Playwright tests in mock mode and 15 against the backend.
+
+**Content.** The text of a question or a solution changes as a draft that a second person reviews and publishes, with
+the text it replaced kept for a rollback and a LaTeX check before a save; readers report mistakes from the website and
+the reports are triaged, with errata per book and printing; imports from the books repository run as staff jobs, a dry
+run first; a book's ISBN and publication day are kept, and the copies owed to the four public libraries are tracked with
+an inbox item until the last is in. At its merge: 1,134 backend tests (11 skipped, 2,249 subtests), 53 of them new; the
+console's 118 Vitest tests and 8 Playwright tests in mock mode; the website's 213.
+
+**Course.** The revision course is run from the panel: the outline with every row moved in one request, review and
+scheduled publish (never by the editor who submitted), a 30-day bin, the quiz bank with its item analysis, access
+granted, extended and revoked alone or in bulk, book codes made as a print run by a job that keeps digests only,
+dispatched, and voided, the fraud rules on the codes, a codes report, and a learner's page for support that is logged
+and shows a child only counts. At its merge: 1,596 backend tests (13 skipped, 4,504 subtests), 35 of them new, with the
+module's 46 endpoints in the matrix; the console's 223 Vitest tests and 15 Playwright tests in mock mode.
+
+**Support.** A helpdesk of our own, the new `support` app: every complaint has a number (`SR-2026-000123`) and the legal
+clocks in calendar time (48 hours to acknowledge, a month to redress, 30 days for a National Consumer Helpline complaint,
+the privacy rights' month then 90 days, the IT Rules' 24 hours and 15 days behind a switch), tickets arriving from the
+contact form, "My requests" on the website, the support mailbox's forwarder and by hand, a sidebar of the customer's
+orders and the actions on them from the ticket, saved replies, and the grievance register as a job. At its merge: 1,129
+backend tests (12 skipped, 1,961 subtests), 73 of them the support app's; the console's 119 Vitest tests and 6 Playwright
+tests in mock mode and 10 against the backend; the website's 211.
+
+**Legal and privacy.** The compliance cockpit with every clock the rules start; legal holds that the erasure obeys and
+an erasure ledger that a restore replays; the retention schedule in code with its nightly clean-up; numbered policy
+versions that take effect on their day; the e-commerce disclosures as one form; the yearly dark-pattern self-audit;
+nominees; marketing consent withdrawn as easily as it was given; and the one audience function that keeps children out
+of marketing. At its merge: 1,083 backend tests (12 skipped, 1,913 subtests), 53 of them new; the console's 96 Vitest
+tests, 6 Playwright tests in mock mode and 10 against the backend; the website's 213.
+
+**Tax.** What decides the GST lives in data with dates: the HSN and SAC master with each code's rates dated and citing
+their notification, the bundles' treatments, the billing state as the place of supply, shipping that follows the goods,
+and documents in a series of their own for each type from 1 April 2027 (gapless under a row lock), with the credit
+notes' cut-off, a cancelled document keeping its number, the GSTR-1 files as a job, a threshold monitor and the tax
+calendar. At its merge: 1,086 backend tests (12 skipped, 1,793 subtests), 44 of them new and also green on PostgreSQL;
+the console's 98 Vitest tests and 6 Playwright tests in mock mode.
+
+**Catalogue.** Each part of a product has its own people: the page, the prices (always through an approval), the tax, the
+stock set by hand with a reason, and the courier's weight and size; products, coupons, offers and shipping rates keep
+their versions, and from 1 January 2027 a reduced price shows the lowest of the 30 days before it; coupons cover chosen
+products, a school's single-use codes are made by a job, the dark-pattern guardrails are validation, the ISBN is checked
+and drawn as a barcode, and the import and export run as jobs. At its merge: 1,613 backend tests (13 skipped, 4,528
+subtests), 98 of them new (PostgreSQL not run); the console's 202 Vitest tests and 15 Playwright tests in mock mode; the
+website's 228.
+
+**Staff, settings and connections, system.** People: the role catalogue, a person's Access tab with the last use of each
+high permission, a role change previewed before it is asked, offboarding as a checklist, passkeys for OWNER, ADMIN and
+FINANCE, and one's own sessions. Settings: switches grouped with their history, the connections page (keys tested before
+they are kept, modes, circuits, webhook tokens, events and dead letters), the template registry, MSG91's delivery
+reports and the verification of SES's notifications. System: a status line for each part, backups with restore drills,
+the log inventory against CERT-In's 180 days, CI's dependency report, the admin host's hardening, and the checkout's
+scripts inventoried each day. At its merge: 1,131 backend tests (11 skipped, 2,104 subtests), 63 of them new; the
+console's 97 Vitest tests, 9 Playwright tests in mock mode and 10 against the backend.
+
+**Finance.** Razorpay's settlements fetched each morning, matched line by line by Razorpay's id to our payments, refunds
+and links, and posted to ERPNext once, with a mismatch an inbox item that FINANCE matches by hand; stuck payments asked
+of Razorpay again; payment links for staff orders and for ERPNext's B2B invoices; and the module's pages. At its merge:
+1,561 backend tests (13 skipped, 4,144 subtests), 30 of them new, every call to Razorpay answered by a recorded double;
+the console's 204 Vitest tests and 15 Playwright tests in mock mode.
+
+**Home and reports.** Every number of the business is defined once and shown beside its words: Home draws the cards of
+the person's roles, test-mode orders are kept out by construction, a cell standing on fewer than 10 people (5 for a
+chapter's or class's learners) is never shown, the reports (sales, places, book codes, the course's use, cash on
+delivery, settlements and the print-run sum) can each be taken as a file, and the Django admin's dashboard counts with the
+same definitions. At its merge: 1,618 backend tests (95 of them new); the console's 239 Vitest tests and a mock
+Playwright journey for Home and the reports at 1280 and 390 px.
+
+**The documents.** A one-page guide for each of the eleven roles (`docs/guides/roles/`), the RUNBOOK rewritten so that each
+recipe a panel page replaced names the page and keeps the shell only as the break-glass line, the decisions register
+(`docs/decisions.md`: what waits for the owner, the CA and the lawyer, and the setting that carries each answer),
+DEPLOYMENT.md's settings by module, and the READMEs, the handover and API.md brought in step with the code.
 
 ## Phase B, Finance (9 October 2026)
 
@@ -47,6 +157,7 @@ endpoint.
   hand and a day fetched as a job. Console: Vitest 204 (14 new), Playwright 15 in mock mode (the Finance journey at
   1280 and 390 px new, every Finance page checked with axe at 1280, 390 and 320 px) and the Finance journey against
   this backend (`E2E_STAFF_API=real`: FINANCE opens Finance today and, from it, a seeded refund's change request).
+
 ## Phase B, ERPNext in shadow mode (10 October 2026)
 
 The `erp` app had only met the in-memory fake. It now ran in shadow mode against a real ERPNext, the dev stack of
@@ -69,6 +180,7 @@ times in `erp/SHADOW-RUN.md`. What broke was fixed. 1,519 backend tests pass on 
   an ERPNext site of its own, `ERP_INSTANCE_PREFIX` separating keys only (`DEPLOYMENT.md`); ERPNext's in-cluster
   webhooks need no `X-Forwarded-Proto` (`deploy/kubernetes/README.md`); what the staging site still needs is the
   record's section 12.
+
 ## Phase B, Home and reports (9 October 2026)
 
 The panel's Home showed what waits (inbox, approvals, clocks, health) but no number of the business, the Django admin's
@@ -120,6 +232,7 @@ tests pass and its mock Playwright journey covers Home and reports at 1280 and 3
 - **Seams for the other modules**: the Finance module's `shop.Settlement` and `SettlementLine`, the Course module's
   `learn.CodeBatch` and `BookCode.voided_at` are read by name and lazily (`insights/tests/test_other_modules.py` stands
   in for them and is the test that the two still fit); Support's and Content's lists are the definitions of their cards.
+
 ## Phase B, Catalogue (9 October 2026)
 
 The catalogue was kept in the Django admin, where whoever could change a product could change its price, its tax and
@@ -226,6 +339,7 @@ the authorization matrix covers the module's 46 endpoints.
   Console: Vitest 223 (33 new in 6 files), Playwright 15 in mock mode (the course journey at both widths, every
   course page checked with axe at 1280, 390 and 320 px) and the course's journey against this backend
   (`E2E_STAFF_API=real`).
+
 ## Phase B, Customers (9 October 2026)
 
 Support looked a person up in the Django admin's customer page and chased a child's parent with a shell recipe; the
@@ -319,6 +433,7 @@ authorization matrix covers every new endpoint.
   `saveBar`: Save and Discard once something is typed, a warning before leaving) is new and shared. Console: Vitest
   98 (11 new), Playwright 6 in mock mode, every tax page checked with axe at 1280, 390 and 320 px and the tax journey
   at both widths.
+
 ## Phase B, Legal and privacy (9 October 2026)
 
 The Admin Control Panel's Legal and privacy module (plan 5.15): the compliance cockpit, legal holds that the erasure
@@ -366,6 +481,7 @@ dry run names); website: Vitest 213.
   **The website** (`../examleaf-frontend/`): © the legal name, the Grievance Officer and the certificate in the footer,
   the whole block on the contact page, "Version N, in force from …" with `/<page>/versions/`, and a parent's
   confirmation of their child's deletion on their own link.
+
 ## Phase B, Orders (9 October 2026)
 
 The Admin Control Panel's Orders module (plan 5.3; [shop/README.md](shop/README.md), API.md "Orders (staff)"): staff
@@ -410,6 +526,7 @@ this backend (`E2E_STAFF_API=real`, the Orders journey new); website: Vitest 210
 - **The console** (`../examleaf-admin/`): `/orders/`, `/orders/<number>/`, `/orders/packing/`, `/orders/returns/`,
   `/orders/new/`, `/orders/quotes/`; DataTable's fixed views, chosen rows with a bulk bar, and Space to look at a row.
   **The website** (`../examleaf-frontend/`): the order page's return form and each return's state.
+
 ## Phase B, Staff, settings and integrations, system (9 October 2026)
 
 The panel's People, Settings and System modules held what Phase A built: roles given and taken, switches with a
@@ -468,6 +585,7 @@ Console: Vitest 97, Playwright 9 in mock mode and 10 against this backend (`E2E_
 - **The console**: the role catalogue, a person's Access, Offboarding and ERPNext tabs, a grant previewed in its form,
   one's own sessions on the account page, the passkey and end-the-others dialogs, grouped settings with their history,
   the connections and each connection's page, the templates, and the system's six pages; its mock answers each state.
+
 ## Phase B, Content (9 October 2026)
 
 The Admin Control Panel's content module (content/README.md; API.md "Content (staff)"): the text of a question or a
@@ -502,6 +620,7 @@ Vitest 118 and Playwright 8 in mock mode (the content journey also against this 
   and REVIEWER gain the module's queues (reviews, reports, deposits), REVIEWER the imports, SUPPORT reads the reports;
   inbox items of a subject are narrowed by it. Three beat tasks: `content-flag-items`, `content-purge-spam`,
   `content-legal-deposits`.
+
 ## Phase B, Support (9 October 2026)
 
 A small helpdesk of our own (plan 5.14; Frappe Helpdesk is not installed), so that every complaint has a number, the
@@ -660,6 +779,7 @@ SQLite (8 skipped, 1,637 subtests; 933, 8 skipped and 1,181 before), 1,001 on Po
   the website's `auth/session` carries the banner and the customer's device list names it.
 - **Notes** on any record its readers may see (`staff/notes/`), and **policy acknowledgements** per version
   (`staff/policies/ack/`, `STAFF_POLICIES`, the manifest's `policies_due`).
+
 ## The ERPNext sync: the erp app (9 October 2026)
 
 ERPNext keeps the books and the warehouse behind the platform; a new app, `erp/` (`erp/README.md`), keeps the two in
