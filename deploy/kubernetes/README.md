@@ -187,9 +187,11 @@ shred -u examleaf.env
 The values are made as DEPLOYMENT.md section 4 makes them (`python3 -c "import secrets; print(secrets.token_urlsafe(50))"`
 for `SECRET_KEY` and `LEARN_CODE_SECRET`, `token_urlsafe(32)` for `INTERNAL_API_TOKEN` and `HEALTH_CHECK_TOKEN`).
 `LEARN_CODE_SECRET` is set once and never changed (printed book codes depend on it). `INTEGRATION_KEYS`, Fernet keys
-newest first, must be there before anyone adds an integration account (Shiprocket's): the accounts' credentials are
-encrypted with them, and once one exists `migrate` stops without them (`integrations.E001`), so web's init container
-never finishes; a database restored elsewhere needs the same keys. One key:
+newest first, must be there from the first start: the integration accounts' credentials and the support tickets'
+requesters' contact details are encrypted with them, and `migrate` stops without them (`support.E001`, and
+`integrations.E001` once an account exists), so web's init container never finishes. A cluster that ran before the
+Support module (Phase B) needs the key in `examleaf-env` before that release is rolled out; a database restored
+elsewhere needs the same keys. One key:
 `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
 
 **From a secret store** (`secrets.mode: externalSecret`). With the External Secrets Operator and a ClusterSecretStore
@@ -264,6 +266,12 @@ kubectl -n examleaf exec $POD -c web -- sh -c "mkdir -p /tmp/books && tar xzf /t
 
 `/tmp` is the pod's own and goes with it; importing again is safe at any time (DEPLOYMENT.md section 11).
 
+The panel's Content → Imports (Phase B) is a staff job, and staff jobs run in the worker pod, which has no books: with
+`config.PAPERS_ROOT` null it answers "No production/ folder", and the chart has no volume for them (compose mounts the
+host's checkout in web and in the worker). Until it has one, import as above, from a web pod. The panel's commit field
+needs the version-control tool (git), which the image does not carry; it says so, and the commit left empty imports
+the folder as it is.
+
 ## Health checks
 
 The Caddyfile answers `/health` and `/health/*` with 404 unless the header `X-Health-Token` carries
@@ -329,6 +337,27 @@ undone with the new image, before the rollback:
 release damaged comes back by the point-in-time restore ("Backups and restore") to the minute before the upgrade. A
 release can bring settings: compare `values.yaml` with yours and DEPLOYMENT.md section 13.
 
+**The Admin Control Panel's Phase B** is such a release: some forty migrations in web's init container (179 took two
+minutes on a busy laptop, TESTING.md section 7.1; an existing database only needs the new ones), and three things in
+place before it rolls out. `INTEGRATION_KEYS` in `examleaf-env` ("Secrets": without it the init container never
+finishes and `--rollback-on-failure` puts the old release back). The SMS templates' ids as `config.MSG91_TEMPLATE_*`
+(migration `ops.0006` copies the ones the environment names into the panel's template registry, once; later ones are
+entered there). And a passkey for each OWNER, ADMIN and FINANCE member (`STAFF_PASSKEY_ROLES`), who are asked for one
+before the panel opens for them. DEPLOYMENT.md section 26 is the checklist of the rest.
+
+**CI's dependency report** (the System page's Dependencies) is loaded by hand after a deploy, from the
+`dependency-report` artifact of the latest `examleaf-web` workflow run (DEPLOYMENT.md section 25 says how to download
+it):
+
+```sh
+POD=$(kubectl -n examleaf get pod -l app.kubernetes.io/component=web -o name | head -n 1)
+kubectl -n examleaf cp dependency-report.json ${POD#pod/}:/tmp/dependency-report.json -c web
+kubectl -n examleaf exec $POD -c web -- python manage.py load_dependency_report /tmp/dependency-report.json
+```
+
+It is kept at `DEPENDENCY_REPORT_PATH` in the private storage (the media volume or the bucket), so every pod reads it;
+the page says when it is older than eight days.
+
 ## Backups and restore
 
 **What is backed up.** With `postgres.backup.enabled`, CloudNativePG's Barman Cloud plugin archives every WAL file to
@@ -348,6 +377,20 @@ Give the bucket a lifecycle rule for `cnpg/` a few days longer than the window (
 out of the window itself, and the rule only catches what it leaves behind. The newest base backup older than the
 window is kept as the window's start, so the oldest data in the bucket is up to 31 days old (the Privacy Policy says
 30 days of backups).
+
+**The site's pods and the same bucket.** Three Phase B features use the backups bucket from the site's pods, not from
+the plugin: the panel's System → Backups page and its hourly check (`staff.tasks.check_backups`: the newest object
+under `cnpg/` and, with ERPNext, `erpnext/mariadb/` and `erpnext/sites/`; a source with nothing newer than
+`BACKUP_STALE_HOURS` opens an inbox item), the audit log's daily copy to `audit/` (06:00) and the erasure ledger's lines
+to `erasures/` (at once, and each night at 03:05), which `manage.py reapply_erasures` reads after a restore so that an
+erased account is not back. All three stay off, saying so, until `config.BACKUP_BUCKET` and `config.BACKUP_ENDPOINT_URL`
+are set and `examleaf-env` holds `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (`config.BACKUP_KEEP_DAYS` should equal
+`postgres.backup.keepDays`: the page shows it). Make that a token of its own on the bucket, not the plugin's in
+`examleaf-backup`: the two are then rotated and revoked apart, and the plugin's keys stay in no pod of the site. R2's
+tokens are scoped to a bucket, not to a prefix (an S3 IAM policy can be), so a pod that is taken over could delete what
+the token reaches there: the object lock on `audit/` (DEPLOYMENT.md section 23) and the age-encrypted dumps are what
+such a day relies on, and the owner decides whether to take that risk. Without the wiring the erasure ledger is only in the database, which a restore rolls back,
+and RUNBOOK.md's step 2 (export the ledger to a file before restoring) is the only record.
 
 **What differs from backup.sh: encryption.** The plugin has no counterpart to `BACKUP_AGE_RECIPIENT`, so whoever
 holds the bucket's keys can read the backups; keep those keys to the plugin (they are in a Secret of their own, which
@@ -373,7 +416,8 @@ backups).
 
 **The media volume** is not in these backups. With the buckets of DEPLOYMENT.md section 17 the invoices and the
 pictures are in R2 and the volume holds almost nothing; without them it holds the invoices (tax records: eight years),
-so copy it out as DEPLOYMENT.md section 9 does:
+the returns' photographs, the tickets' attachments, the dark-pattern audit's signed certificate and the legal-deposit
+proofs, so copy it out as DEPLOYMENT.md section 9 does:
 `kubectl -n examleaf exec deploy/examleaf-web -c web -- tar czf - -C /app/media . > media-$(date +%F).tgz`.
 
 **Restore** to a point in time makes a new Cluster from the bucket (CloudNativePG never restores over a running
@@ -547,14 +591,13 @@ one starts, and its disruption budget refuses eviction, so a drain waits for you
 about 30 seconds (run 2's whole upgrade took 29), more in a rollout, where beat waits for web's migrations; a task due
 in that window runs at its next turn.
 
-**A task under way is lost with its worker**: the app acknowledges a task when a worker takes it, so a killed
-worker's task is not delivered again (TESTING.md: `WorkerLostError`, the clip left "processing"), and
-`manage.py reprocess_clips` queues clips stuck in processing (RUNBOOK.md). An out-of-memory kill takes the whole
-container, not one process (cgroup v2's `memory.oom.group`, which Kubernetes sets). `CELERY_TASK_ACKS_LATE` with
-`CELERY_TASK_REJECT_ON_WORKER_LOST` would deliver the task again (TESTING.md tried it: retried once, then done), but
-after a whole-container kill only once the broker's `visibility_timeout` has passed, which must outlast the longest
-task (an hour for a clip), and every task must then be safe to run twice (an email, an SMS, a courier's booking): the
-backend's decision, not the chart's.
+**A task under way comes back with another worker.** Since RESILIENCE.md the app acknowledges a task once it has run
+(`acks_late`, reject on worker lost), so one cut short is delivered again: at once if only its process died, after the
+broker's `visibility_timeout` (two hours, above every task's limit) if its whole worker did, and a task that kills its
+process three times fails with its reason (RUNBOOK.md). Every task is safe to run twice, or is acknowledged early on
+purpose (RESILIENCE.md "Celery, task by task"). An out-of-memory kill takes the whole container, not one process
+(cgroup v2's `memory.oom.group`, which Kubernetes sets). TESTING.md's run 3 saw the earlier behaviour, a killed clip left
+"processing"; `manage.py reprocess_clips` still queues clips stuck in it.
 
 ### Graceful shutdown
 
@@ -573,12 +616,10 @@ readiness is the pod's own: a static file through gunicorn, WhiteNoise and Djang
 (database, cache, storage), which the monitors ask: those are shared, and under load the storage check timed out on
 both pods at once and took the whole of Django's paths out of the rotation (TESTING.md section 7).
 
-gunicorn's `--max-requests 1000 --max-requests-jitter 100` (examleaf-web's Dockerfile) replaces a process after its
-thousandth request; processes that started together and share the load are replaced together, and a pod answers
-nothing until the new ones have loaded Django (TESTING.md saw 14 to 20 seconds on a saturated laptop). With one process
-a pod (`web.concurrency: 1`) every replacement is such a gap. `--preload` in that command (workers forked from a
-master that has loaded the app start at once) or a wider jitter would close it; the chart cannot set either, since
-the image's command line wins over `GUNICORN_CMD_ARGS`: the backend's to decide.
+gunicorn's recycling is `gunicorn.conf.py`'s now: a process is replaced after 5000 requests plus a jitter of up to
+2500 (`GUNICORN_MAX_REQUESTS`, `GUNICORN_MAX_REQUESTS_JITTER`), and Django is imported once in the master
+(`preload_app`), so a replaced process serves again within milliseconds, where TESTING.md's run 3 saw a pod answer
+nothing for 14 to 20 seconds on a saturated laptop while its processes loaded Django together (RESILIENCE.md, 3).
 
 ### Alerts
 
@@ -651,6 +692,33 @@ alertmanager:
 Every warning is an email to `ops@`, every critical one also pages (PagerDuty's free plan, or Opsgenie's
 `opsgenie_configs`, or ntfy and Telegram through `webhook_configs`). SES's SMTP credentials are not its API keys: SES →
 SMTP settings makes them.
+
+## Logs and time
+
+**Logs.** Django, Celery and gunicorn write one JSON object a line to standard output (`LOG_JSON`), so a pod's log is
+the kubelet's file, and the kubelet rotates it by size: `containerLogMaxSize` 10Mi and `containerLogMaxFiles` 5 by
+default, where docker-compose.yml keeps 50 MB and ten files a service. CERT-In's Directions ask for 180 days of logs
+and the DPDP Rules a year from 13 May 2027 (DEPLOYMENT.md section 10; the panel's Legal and privacy, Retention).
+Rotation by size keeps no fixed number of days, so two things:
+
+- Set the kubelet to compose's numbers on every node. k3s: in `/etc/rancher/k3s/config.yaml` of each server and agent,
+  `kubelet-arg: ["container-log-max-size=50Mi", "container-log-max-files=10"]`, then restart k3s (elsewhere, the
+  kubelet configuration's `containerLogMaxSize: 50Mi` and `containerLogMaxFiles: 10`). The files are under
+  `/var/log/pods/<namespace>_<pod>_<uid>/<container>/`: after a month of traffic see how many days the oldest file of
+  the busiest pod (web) goes back, and raise `containerLogMaxFiles` if 500 MB do not last 180 days.
+- Ship the pods' logs off the node, daily at least, and keep that copy 180 days (a year from 13 May 2027). The node is
+  a buffer, gone with the node. The chart runs no shipper: a DaemonSet of your choice (Vector, Fluent Bit, Promtail …)
+  to the store you keep logs in will do, and Traefik's access log (JSON, `traefik-values.yaml`) goes with them. Put the
+  days they last in the Privacy Policy.
+
+**The clock.** CERT-In asks every system's clock to follow NIC's or NPL's NTP servers (samay1.nic.in, samay2.nic.in,
+time.nplindia.org) or a source traceable to them; a cloud's own time service is accepted (DEPLOYMENT.md section 23,
+step 6). A pod has no clock of its own, it uses its node's, so it is the nodes that are checked: `timedatectl` must say
+"System clock synchronized: yes", and the servers are set where the node's service keeps them (systemd-timesyncd:
+`NTP=samay1.nic.in samay2.nic.in time.nplindia.org` in `/etc/systemd/timesyncd.conf`; chrony: the same servers in
+`chrony.conf`). A container cannot see which of these the node uses, so say it in `config.LOG_TIME_SOURCE` ("chrony on
+the nodes to time.nplindia.org and samay1.nic.in"): the System page's Logs and time shows it beside the application's
+clock compared with the database's, and says when it is not set.
 
 ## ERPNext
 
@@ -873,6 +941,7 @@ section 6: rendered and validated against the API server, not run).
   account token, with a read-only root filesystem and an emptyDir at `/tmp` (compose made only the frontend
   read-only). NetworkPolicies deny ingress by default; the media worker's restricted environment is the same.
 - **Secrets** are Secrets (by hand or from a store) instead of `.env`; a change needs a rollout restart.
-- **The papers** are copied into a pod to import them; compose mounted the books checkout (`BOOK_SOURCE`).
-- **Logs** are `kubectl logs` (the kubelet rotates them at 10 MiB, five files, as compose's json-file settings did);
-  the access log is the controller's.
+- **The papers** are copied into a pod to import them (`import_papers --root`); compose mounts the books checkout
+  (`BOOK_SOURCE`) in web and in the worker, which is also what the panel's Content imports read ("Install").
+- **Logs** are `kubectl logs`; the kubelet rotates them at 10 MiB and five files unless the nodes are set to compose's
+  50 MiB and ten ("Logs and time"); the access log is the controller's.
