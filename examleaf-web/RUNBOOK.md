@@ -240,10 +240,12 @@ privacy"); the shell recipes below each step are the break-glass way, when the p
 
 1. **Log it and check who is asking:** Data requests, Log a request (the clocks start from when it was received:
    acknowledge within 48 hours, answer within a month, 90 days for the DPDP rights from 13 May 2027; the cockpit shows
-   them). Answer only to the account's email address, or, for a student under 18, to the parent's contact recorded at
-   sign-up; record how the identity was checked (Record the identity check: the method, never the document).
+   them; SUPPORT, ADMIN, owners; the audit log has `data_request.created`, then one event for each step). Answer only to
+   the account's email address, or, for a student under 18, to the parent's contact recorded at sign-up; record how the
+   identity was checked (Record the identity check: the method, never the document).
 2. **Access:** the request's "Email their data" sends Download my data's file to the account's own address, with who
-   processes it for us (the processor register). Break-glass:
+   processes it for us (the processor register). It is ADMIN's and the owners' (`staff.export_personal_data`, which asks
+   to confirm it's you): SUPPORT logs the request and checks the identity, then asks one of them. Break-glass:
    `dj shell -c "import json; from django.core.serializers.json import DjangoJSONEncoder; from accounts.models import User; from accounts.views import export_user_data; print(json.dumps(export_user_data(User.objects.get(email='x@example.com')), cls=DjangoJSONEncoder, indent=2))" > export.json`
    and send the file to that address; delete your copy afterwards.
 3. **Correct:** edit the user in the admin (ADMIN role; the admin's history records the change).
