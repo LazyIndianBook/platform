@@ -405,9 +405,11 @@ class ParentConfirmationSerializer(serializers.Serializer):
 
 class DeletionParentView(PrivacyView, generics.GenericAPIView):
     """A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach
-    them): staff record it, with where the evidence is; the nightly purge erases it once due."""
+    them): staff record it, with where the evidence is; the nightly purge erases it once due. The last step before an
+    erasure: re-authenticated (research 2.3)."""
 
     permissions = {"POST": "staff.handle_data_request"}
+    reauth = ("POST",)
     queryset = DeletionRequest.objects.none()  # (for the schema)
     pagination_class = None
 
