@@ -5,6 +5,7 @@ import sys
 from datetime import date, timedelta
 from importlib.util import find_spec
 from pathlib import Path
+from urllib.parse import urlparse
 
 import environ
 from celery.schedules import crontab
@@ -27,6 +28,12 @@ if DEBUG and any(host not in LOCAL_HOSTS and not host.endswith(".localhost") for
 if not DEBUG and (SECRET_KEY.startswith("dev-") or len(SECRET_KEY) < 50):
     raise SystemExit("SECRET_KEY is the development one or shorter than 50 characters: make a new one (DEPLOYMENT.md).")
 SITE_URL = env("SITE_URL", default="http://localhost:8000").rstrip("/")  # base of the URLs inside the QR codes
+# Every email's Message-ID names the site's host, not the machine's: a hostname would leak the server's name, and
+# Django's lookup of it (socket.getfqdn, once per process, on the first email) can wait seconds where the name does
+# not resolve (a developer's Mac, a container with no entry for itself).
+from django.core.mail.utils import DNS_NAME  # noqa: E402
+
+DNS_NAME._fqdn = urlparse(SITE_URL).hostname or "localhost"
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[SITE_URL])
 TESTING = sys.argv[1:2] == ["test"] or "pytest" in sys.modules  # manage.py test, or pytest
 # A checkout of the books repository LazyIndianBook/Class-12-Assam (the folder that holds production/), for

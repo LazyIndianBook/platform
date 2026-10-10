@@ -37,6 +37,7 @@ test("the console's link opens the account under a band, closes what it may not 
   // on every page, and the actions it closes say why
   await page.goto("/account/security/");
   await expect(band).toBeVisible();
+  await page.getByRole("button", { name: /^Change\b.*Password/ }).click(); // the setting opens its form: closed, with why
   await expect(page.getByText(/^Changing the password stays closed while a support colleague/)).toBeVisible();
   await page.goto("/account/addresses/");
   await expect(page.getByRole("button", { name: "+ Add an address" })).toHaveCount(0);

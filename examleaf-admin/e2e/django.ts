@@ -219,11 +219,14 @@ export function seedFinanceWorld(stamp: number, maker: string): FinanceWorld {
 import json
 from django.utils import timezone
 from accounts.models import User
-from shop.models import Order, Payment
+from decimal import Decimal
+from shop.models import Order, OrderItem, Payment, Product
 from staff import approvals
 address = {"name": "Real E2E Payer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
 order = Order.objects.create(email=${py(`admin-ui-payer-${stamp}@example.com`)}, shipping_address=address, subtotal=2400, total=2400, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
 Order.objects.filter(pk=order.pk).update(status="paid")
+book = Product.objects.filter(kind="sample-papers").order_by("pk").first() or Product.objects.create(title=${py(`E2E Finance ${stamp}`)}, slug=${py(`e2e-finance-${stamp}`)}, kind="sample-papers", mrp=Decimal("2400"), price=Decimal("2400"), stock=50, weight_grams=300)
+OrderItem.objects.create(order=order, product=book, title=book.title, hsn_code="4901", gst_rate=Decimal("0"), mrp=book.mrp.amount, unit_price=Decimal("2400"), quantity=1, discount=Decimal("0"))
 payment = Payment.objects.create(order=order, method="razorpay", amount=2400, razorpay_order_id=${py(`order_e2ef${stamp}`)}, razorpay_payment_id=${py(`pay_e2ef${stamp}`)}, livemode=True)
 Payment.objects.filter(pk=payment.pk).update(status="captured")
 order.refresh_from_db()
@@ -361,8 +364,9 @@ import json
 from datetime import timedelta
 from django.utils import timezone
 from allauth.account.models import EmailAddress
+from decimal import Decimal
 from accounts.models import ParentLinkSend, User
-from shop.models import Order, Payment
+from shop.models import Order, OrderItem, Payment, Product
 email = ${py(`admin-ui-child-${stamp}@example.com`)}
 born = timezone.localdate() - timedelta(days=365 * 14 + 4)
 child = User.objects.create_user(email, "Child-e2e-2026!", full_name="Real E2E Child", class_level=10, date_of_birth=born, consent_at=timezone.now(), parent_name="Real E2E Parent", parent_contact=${py(`admin-ui-parent-${stamp}@example.com`)})
@@ -373,6 +377,8 @@ Order.objects.create(email=${py(`admin-ui-guest-${stamp}@example.com`)}, shippin
 buyer = User.objects.get(pk=${customer})
 order = Order.objects.create(user=buyer, email=buyer.email, shipping_address=address, subtotal=1500, total=1500, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
 Order.objects.filter(pk=order.pk).update(status="paid")
+book = Product.objects.filter(kind="sample-papers").order_by("pk").first() or Product.objects.create(title=${py(`E2E Customers ${stamp}`)}, slug=${py(`e2e-customers-${stamp}`)}, kind="sample-papers", mrp=Decimal("1500"), price=Decimal("1500"), stock=50, weight_grams=300)
+OrderItem.objects.create(order=order, product=book, title=book.title, hsn_code="4901", gst_rate=Decimal("0"), mrp=book.mrp.amount, unit_price=Decimal("1500"), quantity=1, discount=Decimal("0"))
 payment = Payment.objects.create(order=order, method="razorpay", amount=1500, razorpay_order_id=${py(`order_e2ec${stamp}`)}, razorpay_payment_id=${py(`pay_e2ec${stamp}`)}, livemode=True)
 Payment.objects.filter(pk=payment.pk).update(status="captured")
 order.refresh_from_db()

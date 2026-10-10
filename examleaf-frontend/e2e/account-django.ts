@@ -131,10 +131,25 @@ export function impersonationToken(email: string, staff: string): string {
     "shell",
     "-c",
     `
+from importlib import import_module
+from django.conf import settings
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
+from django.contrib.auth.models import Group
+from django.test import RequestFactory
 from accounts.models import User
 from staff.services import impersonation_token
 member = User.objects.filter(email=${py(staff)}).first() or User.objects.create_user(${py(staff)}, None, full_name="C E2E Support", is_staff=True)
-token, _ = impersonation_token(member, User.objects.get(email=${py(email)}), reason="The website's e2e: a customer's question", ticket="C-E2E-1")
+member.groups.add(Group.objects.get(name="SUPPORT"))  # staff.impersonate_user, as the panel grants it
+# The token is bound to the panel session it was asked from, which must still be signed in as the member when the
+# website accepts it (staff.services.accept_impersonation): a session as the member stands in for the panel's.
+store = import_module(settings.SESSION_ENGINE).SessionStore()
+store.create()
+store[SESSION_KEY], store[BACKEND_SESSION_KEY] = str(member.pk), "django.contrib.auth.backends.ModelBackend"
+store[HASH_SESSION_KEY] = member.get_session_auth_hash()
+store.save()
+request = RequestFactory().post("/api/v1/staff/users/impersonate/")
+request.session, request.user = store, member
+token, _ = impersonation_token(member, User.objects.get(email=${py(email)}), reason="The website's e2e: a customer's question", ticket="C-E2E-1", request=request)
 print(token)
 `,
   );

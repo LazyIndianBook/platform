@@ -816,21 +816,27 @@ test("Home and reports: the OWNER's Home counts the paid order once and leaves t
   await signIn(page, owner, "/", ownerCodes);
   const numbers = page.getByRole("region", { name: "The numbers" });
 
-  await test.step("Home: the money card shows the live order once, the test order's ₹999 in no number", async () => {
-    await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹1,234");
-    await expect(numbers.getByRole("link", { name: /^Orders\s*1$/ })).toBeVisible();
+  // The other journeys' seeds pay live orders of their own on the same day (Finance's, the customers'), so the card's
+  // sum is read, not assumed: the title's own row says the live order was counted once and the test order never.
+  let revenue = "";
+  await test.step("Home: the money card counts the live orders, the test order's ₹999 in no number", async () => {
+    const card = numbers.getByRole("link", { name: /Net revenue/ });
+    await expect(card).toContainText(/₹[\d,]+/);
+    revenue = /₹([\d,]+)/.exec((await card.textContent()) ?? "")![1];
+    expect(Number(revenue.replace(/,/g, ""))).toBeGreaterThanOrEqual(1234);
+    await expect(numbers.getByRole("link", { name: /^Orders\s*\d+$/ })).toBeVisible();
     await expect(numbers.getByText(/test orders? (is|are) left out of these numbers\./)).toBeVisible();
     await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toHaveAttribute("href", "/orders/?tab=to_pack");
   });
 
-  await test.step("the card opens the sales report of the same days, which counts the order once too", async () => {
+  await test.step("the card opens the sales report of the same days, which agrees and counts the order once", async () => {
     await numbers.getByRole("link", { name: /Net revenue/ }).click();
     await expect(page).toHaveURL(/\/reports\/sales\/\?from=\d{4}-\d\d-\d\d&to=\d{4}-\d\d-\d\d$/);
     const table = page.getByRole("region", { name: "Sales, a table" });
     const row = table.getByRole("row", { name: new RegExp(reports.title) });
     await expect(row).toContainText("₹1,234.00");
     await expect(row).not.toContainText("2,233"); // the test order's ₹999 would make it ₹2,233
-    await expect(table.getByRole("row", { name: /Whole period/ })).toContainText("₹1,234.00");
+    await expect(table.getByRole("row", { name: /Whole period/ })).toContainText(`₹${revenue}.00`);
   });
 
   await test.step("the report as a file: the live order and who made it, at the end", async () => {
