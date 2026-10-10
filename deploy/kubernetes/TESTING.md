@@ -1,29 +1,92 @@
 # The chart on kind: what was run and what it showed
 
+![Status](../../docs/assets/badges/status-archive.svg) ![Component](../../docs/assets/badges/component-kubernetes.svg) ![Audience](../../docs/assets/badges/audience-operators.svg)
+
 Three runs on 9 October 2026 on a MacBook (Apple silicon) whose Docker is a Colima VM of 4 CPUs, 6 GiB of memory and
 a 60 GiB disk (Docker 29.2.1, kind 0.32.0, Helm 4.2.2, kubectl 1.32.2), each on a one-node cluster from
 `kind-config.yaml` (`kindest/node:v1.35.5`, ports 80 and 443 of the Mac forwarded to it), each deleted afterwards.
 Everything was run from `deploy/kubernetes/`; Secrets were made with random values by `make kind-secrets` and are not
 shown. kubectl 1.32 talks to a 1.35 server, three minor versions apart (it warns); every command below worked.
+Operators read it for what the chart was shown to do, and for what is still untried.
 
-- **Run 3, the HA profile under failure and load** (06:41–08:48 UTC), section 7: values-ha.yaml on the one node,
-  a web pod, a frontend pod, the PostgreSQL primary, the queue's Redis and a worker killed under a steady stream of
-  requests, and a new image rolled; what it found changed the chart (readiness, PgBouncer, the deadlines, the
-  checksum).
-- **Run 2, on Traefik** (04:48–05:25 UTC), sections 1 to 6: routing, health, limits and upgrades on the chart of then
-  (e5a4f46), images built at 3529b96 (the platform with the Celery health fix).
-- **Run 1, on ingress-nginx** (03:00–04:15 UTC), section 8: the chart's first version, which the second replaced
-  where the controller is concerned; what it showed about everything else still stands.
-- **The admin panel's own image** (05:41–05:47 UTC), section 6: it reached the integration branch after run 2 (in
-  6ec1af5), where the website's image had stood in for it; built and run on its own as the chart runs it.
+> [!NOTE]
+> **At a glance**
+>
+> - A record of what was run, not a procedure: three runs on 9 October 2026, each on a one-node `kind` cluster that was
+>   deleted afterwards: run 2 on Traefik (sections 1 to 6), run 3, the HA profile under failure and load (section 7), and
+>   run 1 on ingress-nginx (section 8), whose routing results the second replaced.
+> - Run 3 killed a web pod, a frontend pod, the PostgreSQL primary, the queue's Redis and a worker under a steady stream
+>   of requests and rolled a new image; what it found changed the chart.
+> - Not tested: Let's Encrypt and real DNS, Cloudflare R2, k3s's own Traefik, more than one node and ERPNext running
+>   (section 9).
+> - Phase B changed what the chart carries and no kind run has seen it: section 10 lists, in order, what the next run
+>   should check.
+
+## Contents
+
+- [The runs](#the-runs)
+- [What the runs proved](#what-the-runs-proved)
+- [1. Images and the cluster](#1-images-and-the-cluster)
+- [2. Routing, as the Caddyfile has it](#2-routing-as-the-caddyfile-has-it)
+- [3. The health gate](#3-the-health-gate)
+- [4. Body limits](#4-body-limits)
+- [5. Changes on a running release](#5-changes-on-a-running-release)
+- [6. Checked without a cluster: ERPNext, the other options, the admin panel's image](#6-checked-without-a-cluster-erpnext-the-other-options-the-admin-panels-image)
+- [7. Run 3: the HA profile under failure and load](#7-run-3-the-ha-profile-under-failure-and-load)
+- [8. Run 1, on ingress-nginx](#8-run-1-on-ingress-nginx)
+- [9. Not tested, and why](#9-not-tested-and-why)
+- [10. Phase B: what the next run should check (not run)](#10-phase-b-what-the-next-run-should-check-not-run)
+- [11. Cleaning up](#11-cleaning-up)
+- [Related documents](#related-documents)
+
+## The runs
+
+| Run | UTC | Sections | What it did |
+|---|---|---|---|
+| **Run 1, on ingress-nginx** | 03:00–04:15 | 8 | the chart's first version, which the second replaced where the controller is concerned; what it showed about everything else still stands |
+| **Run 2, on Traefik** | 04:48–05:25 | 1 to 6 | routing, health, limits and upgrades on the chart of then (e5a4f46), images built at 3529b96 (the platform with the Celery health fix) |
+| **The admin panel's own image** | 05:41–05:47 | 6 | it reached the integration branch after run 2 (in 6ec1af5), where the website's image had stood in for it; built and run on its own as the chart runs it |
+| **Run 3, the HA profile under failure and load** | 06:41–08:48 | 7 | values-ha.yaml on the one node, a web pod, a frontend pod, the PostgreSQL primary, the queue's Redis and a worker killed under a steady stream of requests, and a new image rolled; what it found changed the chart (readiness, PgBouncer, the deadlines, the checksum) |
+
+## What the runs proved
+
+| What was run | What it showed | Section |
+|---|---|---|
+| **The install** (run 2) | `helm upgrade --install` of the kind profile took 3 minutes 38 seconds, most of it pulling PostgreSQL's and the plugin's images again: the frontend and the admin stand-in ready at once, the database healthy, web's init container through the migrations to gunicorn, worker, beat and the media worker out of their wait, the first base backup completed | 1 |
+| **Routing**, as the Caddyfile has it | each request of the table answered as listed (the website, Django, WhiteNoise, the admin host); the http redirect keeps the whole path and query, 301 for a GET and 308 for a POST | 2 |
+| **The health gate** | 401 without credentials or with a wrong password, 200 with the token (`Database`, `Cache`, `Storage` and `WorkerPing` all `OK`); with its Secret deleted `/health` answered the website's 404, because `health-hide` rewrites it | 3 |
+| **Body limits** | an 11 MB POST to Django's form and API paths got 413 from Traefik (`body-limit`); the clip and revision admin pages are streamed and Django refused them; the website's paths have no limit at the edge | 4 |
+| **A running release** | the admin allowlist answered 403 outside its range and 200 inside; an upgrade with a changed setting took 29 seconds, every Deployment rolled and beat never had more than one pod; `check --deploy` gave W005 and W021 only; the Cluster reported `ContinuousArchiving=True` | 5 |
+| **Memory** | the release's working sets came to 851 MiB and the node's to 1.8 GiB in all (Traefik 30 MiB where ingress-nginx used 64) | 5 |
+| **ERPNext and the admin panel's image**, without a cluster | the chart with `erpnext.enabled` was accepted by the API server in a server-side dry run, and refused to render without an image tag, as it should (ERPNext did not run); the admin's image ran as `uid=1000(node)` in 56 MiB and its `/api/health/` answered 200 | 6 |
+| **Run 3: the install** | two web pods started together, one applied 179 migrations in about two minutes and the other found "No migrations to apply" once the lock freed; `/health/` answered through the pooler; the alerts' 15 rules passed `promtool check rules` | 7.1 |
+| **Run 3: the load** | paced at 100 requests a second the baseline was 5,959 requests, p50 83 ms, p95 1,387 ms, none failed; unpaced it found three faults before anything was broken (429s, 503s from web's readiness probe, requests stuck by gunicorn's recycling) | 7.2, 7.3 |
+| **A web pod and a frontend pod deleted** | not one request failed on either, because Traefik keeps a terminating pod "fenced" and sends it nothing new; 15 timeouts fell on the web pod that stayed | 7.3 |
+| **The primary killed** | the standby took writes at 35 seconds (the first time 80 seconds more, while PostgreSQL asked the archive for timeline history), no pod of the site restarted and nothing was lost; the uncached path answered 945 times 503 until the chart set PgBouncer's `query_wait_timeout` to 10 (not measured again) | 7.3 |
+| **The queue's Redis restarted** with 200 tasks waiting | back in 2 seconds when deleted and 3 when killed, each with 200; all 200 succeeded within 27 seconds of the workers' return | 7.3 |
+| **A worker killed in the middle of a task** | recorded as FAILURE and not retried, the clip left "processing"; with `CELERY_TASK_ACKS_LATE`, `CELERY_TASK_REJECT_ON_WORKER_LOST` and a `visibility_timeout` of 7200 seconds on a test-only settings module it was delivered again, retried once and succeeded | 7.3 |
+| **A new web image rolled under load** | no pod answered 5xx, the old web pods served until new ones were ready and beat never doubled; every Deployment rolled because of a checksum fault (fixed), the node's CPU went to 400% and Helm's 10 minutes ran out; not repeated after the fixes | 7.3 |
+| **A point-in-time restore** (run 1) | a row written after the base backup came back in a new Cluster made from the bucket in 82 seconds, every pod moved to the new `DATABASE_URL` and the old one stayed until deleted; a drain of beat was refused by its disruption budget and the worker's allowed; an uninstall kept the Cluster, `examleaf-media` and `examleaf-redis-queue` | 8 |
 
 ## 1. Images and the cluster
 
 ```sh
 make images TAG=3529b96 DOMAIN=examleaf.localhost     # 04:48 → 04:53
+```
+
+```sh
 make kind-up                                           # 04:55:37 → 04:58:26
+```
+
+```sh
 make kind-secrets
+```
+
+```sh
 make kind-load TAG=3529b96                             # 35 s
+```
+
+```sh
 make kind-install TAG=3529b96                          # helm upgrade --install … -f values-kind.yaml --wait: 04:59:51 → 05:03:29
 ```
 
@@ -127,27 +190,28 @@ all (2.4 GiB with the page cache).
 
 ## 6. Checked without a cluster: ERPNext, the other options, the admin panel's image
 
-ERPNext wants 6 to 8 GiB and the laptop had about 3 GB to spare, so it stayed off. With mariadb-operator 26.10.1's CRDs
-applied (CRDs only), `helm install erpcheck … --dry-run=server --set erpnext.enabled=true --set
-erpnext.image.tag=16.50.0-test --set 'erp.allowlist={10.0.0.0/8}' …` was accepted by the API server: frappe/helm's
-Deployments with `ghcr.io/lazyindianbook/examleaf-erp:16.50.0-test`, the MariaDB, its PhysicalBackup, the
-site-backup CronJob, the `erp-headers` and `erp-allowlist` Middlewares and the ERP's Ingress. Without
-`erpnext.image.tag`, and with `registry` changed but not `erpnext.image.repository`, the chart refused to render, as
-it should. The default values with every optional part on (the autoscalers, the admin with an allowlist, beat off,
-the smoke test, backups to an R2 endpoint with `encryption: aws:kms`) were accepted the same way, and the ObjectStore
-CRD lists `AES256` and `aws:kms` for `encryption`. `helm lint` and `helm template` pass with the default values and
-with values-kind.yaml (`make lint`).
+ERPNext wants 6 to 8 GiB and the laptop had about 3 GB to spare, so it stayed off. With mariadb-operator 26.10.1's
+CRDs applied (CRDs only),
+`helm install erpcheck … --dry-run=server --set erpnext.enabled=true --set erpnext.image.tag=16.50.0-test --set 'erp.allowlist={10.0.0.0/8}' …`
+was accepted by the API server: frappe/helm's Deployments with `ghcr.io/lazyindianbook/examleaf-erp:16.50.0-test`, the
+MariaDB, its PhysicalBackup, the site-backup CronJob, the `erp-headers` and `erp-allowlist` Middlewares and the ERP's
+Ingress. Without `erpnext.image.tag`, and with `registry` changed but not `erpnext.image.repository`, the chart
+refused to render, as it should. The default values with every optional part on (the autoscalers, the admin with an
+allowlist, beat off, the smoke test, backups to an R2 endpoint with `encryption: aws:kms`) were accepted the same way,
+and the ObjectStore CRD lists `AES256` and `aws:kms` for `encryption`. `helm lint` and `helm template` pass with the
+default values and with values-kind.yaml (`make lint`).
 
 **The admin panel's image.** `make images TAG=6ec1af5 DOMAIN=examleaf.localhost`'s new third build (the
 `examleaf-admin` Dockerfile unchanged, for `https://admin.examleaf.localhost`) took 84 seconds: 325 MB. Run as the
 chart runs the admin's pod, with no cluster (the laptop's disk and memory were needed by another agent's ERPNext
-stack): `docker run --read-only --tmpfs /tmp --tmpfs /app/.next/cache:mode=1777 --user 1000 --cap-drop ALL
---security-opt no-new-privileges`, `API_INTERNAL_BASE` pointing at nothing. It ran as `uid=1000(node)
-gid=1000(node)`, 56 MiB; `/api/health/` answered 200 (the probes' path: the process only), `/` and `/sign-in/` 503
-with `Retry-After: 30` and the panel's own headers (CSP, HSTS, `X-Robots-Tag: noindex, nofollow`) while Django was
-unreachable, and `/health/` 500: the panel passes Django's paths on, `/health/` among them, so `health-hide` is
-needed on the admin host as on the website's. The new Middleware `drop-subrequest` (Headers, `customRequestHeaders` with an empty value, the shape
-`strip-server` has for responses) was rendered and linted, not applied.
+stack):
+`docker run --read-only --tmpfs /tmp --tmpfs /app/.next/cache:mode=1777 --user 1000 --cap-drop ALL --security-opt no-new-privileges`,
+`API_INTERNAL_BASE` pointing at nothing. It ran as `uid=1000(node) gid=1000(node)`, 56 MiB; `/api/health/` answered
+200 (the probes' path: the process only), `/` and `/sign-in/` 503 with `Retry-After: 30` and the panel's own headers
+(CSP, HSTS, `X-Robots-Tag: noindex, nofollow`) while Django was unreachable, and `/health/` 500: the panel passes
+Django's paths on, `/health/` among them, so `health-hide` is needed on the admin host as on the website's. The new
+Middleware `drop-subrequest` (Headers, `customRequestHeaders` with an empty value, the shape `strip-server` has for
+responses) was rendered and linted, not applied.
 
 ## 7. Run 3: the HA profile under failure and load
 
@@ -159,9 +223,21 @@ autoscalers; the media in RustFS's buckets; the anonymous throttles lifted for t
 
 ```sh
 make kind-up && docker update --memory 4000m --memory-swap 4000m examleaf-test-control-plane   # 06:44 → 06:54
+```
+
+```sh
 make kind-secrets kind-monitoring-crds
+```
+
+```sh
 kind load docker-image ghcr.io/lazyindianbook/examleaf-web:9e0ee99 ghcr.io/lazyindianbook/examleaf-frontend:9e0ee99 --name examleaf-test
+```
+
+```sh
 make kind-buckets TAG=9e0ee99
+```
+
+```sh
 make kind-install TAG=9e0ee99 VALUES="-f examleaf-platform/values-kind.yaml -f examleaf-platform/values-ha.yaml -f examleaf-platform/values-kind-ha.yaml"
 ```
 
@@ -265,14 +341,14 @@ gunicorn master, both its workers and ffmpeg); the container restarted (`OOMKill
 an OOM in a worker kills its main process too, and with acks_late its task comes back only after the visibility timeout,
 which must outlast the longest task (`process_clip`: an hour).
 
-**A new web image rolled under load** (the same image tagged again inside the node, `helm upgrade --set
-image.tag=9e0ee99-roll`): every Deployment rolled, not only those on web's image, because the pods' config checksum
-covered the ConfigMap's labels, which carry web's tag, and the pooler's labels carried it too (both fixed: the
-checksum is now of the ConfigMap's data, and the pooler's pods carry the chart's version). The node's CPU went to
-400%, both PostgreSQL instances failed their liveness probes and restarted twice, the operator and its plugin
-restarted with them, and Helm's 10 minutes ran out with the rollout still finishing. The rollout's own rules held: no
-pod answered 5xx, the old web pods served until new ones were ready, beat never doubled. Not repeated after the
-fixes.
+**A new web image rolled under load** (the same image tagged again inside the node,
+`helm upgrade --set image.tag=9e0ee99-roll`): every Deployment rolled, not only those on web's image, because the
+pods' config checksum covered the ConfigMap's labels, which carry web's tag, and the pooler's labels carried it too
+(both fixed: the checksum is now of the ConfigMap's data, and the pooler's pods carry the chart's version). The node's
+CPU went to 400%, both PostgreSQL instances failed their liveness probes and restarted twice, the operator and its
+plugin restarted with them, and Helm's 10 minutes ran out with the rollout still finishing. The rollout's own rules
+held: no pod answered 5xx, the old web pods served until new ones were ready, beat never doubled. Not repeated after
+the fixes.
 
 **Beat** in that rollout: its new pod waited 3 minutes 42 seconds in `wait-for-migrations` (web was migrating under
 the lock, on the starved node), then took 81 seconds to start. Run 2's whole upgrade, beat's restart in it, took
@@ -290,11 +366,11 @@ The same suite on the chart's first version (ingress-nginx controller v1.15.1, i
 routing results are replaced by section 2; the rest did not depend on the controller and still stands:
 
 - **A point-in-time restore**: a row written after the base backup came back in a new Cluster made from the bucket
-  (`helm upgrade --set postgres.name=examleaf-db-restore --set postgres.recovery.enabled=true --set
-  postgres.recovery.serverName=examleaf-db`, 82 seconds); every pod moved to the new `DATABASE_URL`; the new cluster
-  archived under its own name; the old one stayed until deleted.
-- **Eviction**: a server-side dry-run drain of beat was refused (`Cannot evict pod as it would violate the pod's
-  disruption budget`), the worker's allowed.
+  (`helm upgrade --set postgres.name=examleaf-db-restore --set postgres.recovery.enabled=true --set postgres.recovery.serverName=examleaf-db`,
+  82 seconds); every pod moved to the new `DATABASE_URL`; the new cluster archived under its own name; the old one
+  stayed until deleted.
+- **Eviction**: a server-side dry-run drain of beat was refused
+  (`Cannot evict pod as it would violate the pod's disruption budget`), the worker's allowed.
 - **The shop's clean-up CronJob**, rendered with `beat.enabled=false`, completed when run.
 - **Uninstall** kept the Cluster, `examleaf-media` and `examleaf-redis-queue`.
 - **Read-only root filesystems**: WeasyPrint drew a PDF with the rupee sign, Assamese and Hindi; FFmpeg made an HLS
@@ -344,52 +420,72 @@ four `helm template`s, clean), the ConfigMap rendered with sample values for the
 lists survive, and `settings.py` parses them back), and `docker compose config` with the `admin` profile. The next run,
 on images built from the Phase B head, should check these, in this order:
 
-1. **An upgrade, not only an install.** Install the release of the commit before Phase B, then `helm upgrade` to this
-   one: web's init container applies some forty migrations to a database that has data. Then once with
-   `INTEGRATION_KEYS` taken out of `examleaf-env`: the init container must stop at `support.E001`, the rollout stall and
-   `--rollback-on-failure` put the old release back (README.md "Secrets"). `make kind-secrets` makes the key.
-2. **Routing of the new paths.** All are under `/api/` and `/admin/`, which Traefik already sends to web, so what to
-   see is the answers: `POST /api/hooks/support-mail/` and `/api/hooks/sms-events/` without their token (403 from
-   Django, not the website's 404; with a 5 MB body for the first, passing; with an 11 MB one, 413 from Traefik),
-   `/api/v1/reports/`, `/api/v1/errata/`, `/api/v1/me/tickets/` (Django's 200 or 401), `/api/v1/staff/session/` on the
-   admin host (200 signed in) and on the main host (404: `ADMIN_HOSTS`). The uploads (a return photograph, the
-   dark-pattern certificate, a legal-deposit proof: 5 MiB at most; the catalogue import: 2 MiB) must pass the
-   `body-limit` Middleware's 10 MB.
-3. **Beat.** The 59 entries are in django-celery-beat (27 new), one beat pod, and a few run when called by hand:
-   `shop.tasks.watch_tax_thresholds`, `support.tasks.watch_clocks`, `learn.tasks.publish_due`,
-   `learn.tasks.purge_code_files` and `staff.tasks.check_backups`. None of them has a queue of its own: the worker's
-   command needs no `--queues`.
-4. **The backups bucket from the pods.** With RustFS as the backups bucket, `config.BACKUP_BUCKET` and
-   `BACKUP_ENDPOINT_URL` set and a token of its own in `examleaf-env` (README.md "Backups and restore"): the System page
-   lists the newest object under `cnpg/` once the base backup has run; `accounts.tasks.copy_erasure_ledger` writes
-   `erasures/<id>.json` after an erasure; `staff.tasks.export_audit_log` writes `audit/…/<day>.jsonl`. Without them the
-   page must say that no bucket is set, and nothing may be reported stale.
-5. **The private storage and the jobs in the worker.** With the buckets of `values-kind-ha.yaml`: a staff job of each
-   kind that makes a file (`orders_print`, WeasyPrint's packing slips, on the read-only root and the `/tmp` emptyDir;
-   `gstr1_export`; `report_export`; `code_batch`) leaves its file under `staff/jobs/<id>/`, the signed link downloads
-   it, and the book codes' file is gone an hour after its 24 hours (`learn.tasks.purge_code_files`; backdate the job
-   to see it). Watch the worker's working set (768Mi) during the packing slips of 250 orders.
-6. **The panel's Content → Imports** is expected to answer "No production/ folder in …" (no books in the worker pod,
-   README.md "Install"). It is the one Phase B page the chart does not serve yet.
-7. **The System page's own fetches.** Its hardening check and the daily scripts inventory request the site's public
-   pages (`/checkout/`, the console's `/sign-in/` and `robots.txt`) from the pod. On kind `examleaf.localhost` is the
-   pod itself, so expect errors there; on a real cluster confirm that the pods can reach the public address (the
-   ingress from inside).
-8. **CI's dependency report**: `kubectl cp` and `load_dependency_report` as README.md "Upgrades and migrations" has
-   them, then System → Dependencies lists the advisories and no inbox item `dependencies_stale` stays open.
-9. **A bad setting stops the rollout, not the site.** `--set-string config.SHOP_SERIES_PREFIXES=tax_invoice=T` (one
-   capital) must keep the new web pod in its init container and, with `--rollback-on-failure`, bring the old release
-   back; the same for `config.INSIGHTS_MIN_CELL=3` (`insights.E001`).
+1. [ ] **An upgrade, not only an install.** Install the release of the commit before Phase B, then `helm upgrade` to this
+    one: web's init container applies some forty migrations to a database that has data. Then once with
+    `INTEGRATION_KEYS` taken out of `examleaf-env`: the init container must stop at `support.E001`, the rollout stall and
+    `--rollback-on-failure` put the old release back (README.md "Secrets"). `make kind-secrets` makes the key.
+2. [ ] **Routing of the new paths.** All are under `/api/` and `/admin/`, which Traefik already sends to web, so what to
+    see is the answers: `POST /api/hooks/support-mail/` and `/api/hooks/sms-events/` without their token (403 from
+    Django, not the website's 404; with a 5 MB body for the first, passing; with an 11 MB one, 413 from Traefik),
+    `/api/v1/reports/`, `/api/v1/errata/`, `/api/v1/me/tickets/` (Django's 200 or 401), `/api/v1/staff/session/` on the
+    admin host (200 signed in) and on the main host (404: `ADMIN_HOSTS`). The uploads (a return photograph, the
+    dark-pattern certificate, a legal-deposit proof: 5 MiB at most; the catalogue import: 2 MiB) must pass the
+    `body-limit` Middleware's 10 MB.
+3. [ ] **Beat.** The 59 entries are in django-celery-beat (27 new), one beat pod, and a few run when called by hand:
+    `shop.tasks.watch_tax_thresholds`, `support.tasks.watch_clocks`, `learn.tasks.publish_due`,
+    `learn.tasks.purge_code_files` and `staff.tasks.check_backups`. None of them has a queue of its own: the worker's
+    command needs no `--queues`.
+4. [ ] **The backups bucket from the pods.** With RustFS as the backups bucket, `config.BACKUP_BUCKET` and
+    `BACKUP_ENDPOINT_URL` set and a token of its own in `examleaf-env` (README.md "Backups and restore"): the System page
+    lists the newest object under `cnpg/` once the base backup has run; `accounts.tasks.copy_erasure_ledger` writes
+    `erasures/<id>.json` after an erasure; `staff.tasks.export_audit_log` writes `audit/…/<day>.jsonl`. Without them the
+    page must say that no bucket is set, and nothing may be reported stale.
+5. [ ] **The private storage and the jobs in the worker.** With the buckets of `values-kind-ha.yaml`: a staff job of each
+    kind that makes a file (`orders_print`, WeasyPrint's packing slips, on the read-only root and the `/tmp` emptyDir;
+    `gstr1_export`; `report_export`; `code_batch`) leaves its file under `staff/jobs/<id>/`, the signed link downloads
+    it, and the book codes' file is gone an hour after its 24 hours (`learn.tasks.purge_code_files`; backdate the job
+    to see it). Watch the worker's working set (768Mi) during the packing slips of 250 orders.
+6. [ ] **The panel's Content → Imports** is expected to answer "No production/ folder in …" (no books in the worker pod,
+    README.md "Install"). It is the one Phase B page the chart does not serve yet.
+7. [ ] **The System page's own fetches.** Its hardening check and the daily scripts inventory request the site's public
+    pages (`/checkout/`, the console's `/sign-in/` and `robots.txt`) from the pod. On kind `examleaf.localhost` is the
+    pod itself, so expect errors there; on a real cluster confirm that the pods can reach the public address (the
+    ingress from inside).
+8. [ ] **CI's dependency report**: `kubectl cp` and `load_dependency_report` as README.md "Upgrades and migrations" has
+    them, then System → Dependencies lists the advisories and no inbox item `dependencies_stale` stays open.
+9. [ ] **A bad setting stops the rollout, not the site.** `--set-string config.SHOP_SERIES_PREFIXES=tax_invoice=T` (one
+    capital) must keep the new web pod in its init container and, with `--rollback-on-failure`, bring the old release
+    back; the same for `config.INSIGHTS_MIN_CELL=3` (`insights.E001`).
 
 ## 11. Cleaning up
 
 ```sh
 make kind-down                    # kind delete cluster --name examleaf-test; docker image prune -f
+```
+
+```sh
 docker rmi ghcr.io/lazyindianbook/examleaf-web:3529b96 ghcr.io/lazyindianbook/examleaf-frontend:3529b96 <kindest/node image>
+```
+
+```sh
 docker rmi ghcr.io/lazyindianbook/examleaf-admin:6ec1af5      # after section 6's check
+```
+
+```sh
 docker rmi ghcr.io/lazyindianbook/examleaf-web:9e0ee99 ghcr.io/lazyindianbook/examleaf-frontend:9e0ee99 prom/prometheus:v3.13.4  # run 3
+```
+
+```sh
 colima ssh -- sudo fstrim -av     # the VM's freed blocks back to the Mac (8.9 GiB)
 ```
 
 The build cache was left this time: another agent's ERPNext image build shares it. Images that other work had
 pulled or built (`frappe/erpnext`, `examleaf/erp-dev`, `mariadb`, `valkey`) were left alone.
+
+## Related documents
+
+- [The chart's README](README.md): installing, upgrading, backing up and operating the chart this record tests.
+- [Deployment](../../examleaf-web/DEPLOYMENT.md): the one-machine stack the chart translates, and the Phase B checklist (section 26).
+- [Runbook](../../examleaf-web/RUNBOOK.md): restoring the database from a backup, which section 8 ran on kind.
+- [Resilience](../../examleaf-web/RESILIENCE.md): the timeouts, the task acknowledgement and the recycling that run 3 led to.
+- [Phase B integration](../../docs/phase-b-integration/README.md): the branch whose changes section 10 asks the next run to check.
