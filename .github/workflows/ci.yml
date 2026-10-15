@@ -97,7 +97,7 @@ jobs:
           --npm admin=../npm-audit-admin.json
           --version "next=$(node -p "require('../examleaf-admin/package.json').dependencies.next")"
           --commit "$GITHUB_SHA" --output ../dependency-report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dependency-report
           path: dependency-report.json
@@ -150,7 +150,7 @@ jobs:
         run: npx playwright install --with-deps chromium && npm run test:e2e
       - name: Keep the report and Django's log of a failed run
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-smoke
           path: |
@@ -196,7 +196,7 @@ jobs:
       - run: python scripts/docs/badges.py && git diff --exit-code docs/assets/badges  # the badges match badges.json
       - run: python scripts/docs/build_site.py
       - run: python -m mkdocs build --clean
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: documentation-portal
           path: site
