@@ -109,7 +109,7 @@ django-money==3.6.1
 django-localflavor==5.1
 django-fsm-2==4.2.4
 weasyprint==70.0
-django-pictures==1.8.0  # AVIF and WebP sizes of the product pictures (settings.PICTURES); Pillow 12 bundles both
+django-pictures==2.0.0  # AVIF and WebP sizes of the product pictures (settings.PICTURES); Pillow 12 bundles both
 openpyxl==3.1.5
 babel==2.18.0
 brotli==1.2.0
