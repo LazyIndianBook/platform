@@ -65,7 +65,7 @@ packaging==26.3
 phonenumberslite==9.0.40
 prompt_toolkit==3.0.53
 psycopg-binary==3.3.6
-pydantic==2.13.5
+pydantic==2.14.1
 pydantic_core==2.46.5
 python-crontab==3.4.0
 python-dateutil==2.9.0.post0
