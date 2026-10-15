@@ -17,4 +17,4 @@ Pygments==2.21.0
 
 # the documentation portal (make docs; docs/STYLE.md)
 mkdocs-material==9.7.7
-pymdown-extensions==12.1
+pymdown-extensions==12.2
