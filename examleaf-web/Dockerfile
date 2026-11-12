@@ -1,5 +1,5 @@
 # ExamLeaf web: one image for web (gunicorn), worker and beat (Celery); see docker-compose.yml.
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
